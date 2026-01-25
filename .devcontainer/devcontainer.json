@@ -1,0 +1,60 @@
+{
+  "name": "MovieNight React App",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  // Configure tool-specific properties
+  "customizations": {
+    "vscode": {
+      // Extensions to install
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "dsznajder.es7-react-js-snippets",
+        "mgmcdermott.vscode-language-babel",
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss"
+      ],
+      // VS Code settings
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        }
+      }
+    }
+  },
+
+  // Forward ports for the React dev server
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "React Dev Server",
+      "onAutoForward": "notify"
+    }
+  },
+
+  // Use 'postCreateCommand' to run commands after the container is created
+  "postCreateCommand": "npm install",
+
+  // Use 'postStartCommand' to run commands after the container starts
+  // "postStartCommand": "npm start",
+
+  // Comment out to connect as root instead
+  "remoteUser": "node",
+
+  // Set environment variables
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  },
+
+  // Features to add to the dev container
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  }
+}
