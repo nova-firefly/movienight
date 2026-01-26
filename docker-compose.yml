@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  movienight:
+    # Replace USERNAME/REPO with your GitHub repository
+    # Example: ghcr.io/johndoe/movienight:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-username/movienight}:latest
+
+    container_name: movienight
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Port mapping - host:container
+    # Access at http://localhost:8080/movienight/
+    ports:
+      - "8080:80"
+
+    # Environment variables (optional)
+    environment:
+      - TZ=America/New_York  # Set timezone
+
+    # Labels for organization
+    labels:
+      - "com.movienight.app=true"
+      - "com.movienight.version=1.0"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/movienight/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+# Networks (optional - uses default bridge network if not specified)
+networks:
+  default:
+    name: movienight-network
