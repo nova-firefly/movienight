@@ -103,6 +103,7 @@ const HomePage: React.FC = () => {
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
+                <td>{movie.rank}</td>
                 <td>{movie.title}</td>
                 <td>{movie.requester}</td>
                 <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
