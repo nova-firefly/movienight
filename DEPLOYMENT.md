@@ -11,6 +11,32 @@ This document describes how to deploy the MovieNight React application to a remo
 - **Deployment Method:** SSH-based deployment via GitHub Actions
 - **Target:** Remote Docker host (separate PC)
 
+## CI/CD Pipeline
+
+The repository uses GitHub Actions for automated builds and deployments:
+
+### Test Builds (`.github/workflows/test-build.yml`)
+- **Triggers:** Push to `dev` branch, pull requests to `dev`
+- **Actions:** Builds Docker image to verify it compiles successfully
+- **Output:** Build success/failure status in GitHub Actions
+- **No deployment:** Test builds do not push to registry or deploy
+
+### Production Deployment (`.github/workflows/deploy.yml`)
+- **Triggers:** Push to `master` branch, manual workflow dispatch
+- **Actions:**
+  1. Builds Docker image
+  2. Pushes to GitHub Container Registry (GHCR)
+  3. SSHs to remote Docker host
+  4. Deploys new container
+- **Output:** Live application at `http://REMOTE_HOST:8080/movienight/`
+
+**Workflow:**
+```
+Feature Branch → PR to dev → Test Build ✓ → Merge to dev → Test Build ✓
+                                                    ↓
+                                            PR to master → Merge → Deploy 🚀
+```
+
 ## Prerequisites
 
 ### On Remote Docker Host
