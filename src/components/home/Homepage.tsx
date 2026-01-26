@@ -1,14 +1,11 @@
 // App.tsx
-import React, { useState, useEffect } from "react";
-import firebase from "firebase/compat/app";
-import "firebase/compat/database";
-import firebaseConfig from "../../db/firebase";
+import React, { useState } from "react";
+import { useQuery, useMutation } from "@apollo/client";
+import { GET_MOVIES, ADD_MOVIE } from "../../graphql/queries";
 import { Button, Input, Stack, Table, Typography } from "@mui/joy";
 import styled from "styled-components";
 import { columnNameToDisplayName } from "../../utils/textUtils";
 import { Movie } from "../../models/Movies";
-
-firebase.initializeApp(firebaseConfig);
 
 const StyledApp = styled.body`
   background-color: lightskyblue;
@@ -21,54 +18,43 @@ const StyledApp = styled.body`
 
 const HomePage: React.FC = () => {
   const [title, setTitle] = useState("");
-  const [requester, setRequester] = useState("");
-  const [dateSubmitted, setDateSubmitted] = useState("");
+  const [requester, setRequester] = useState(""); 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [movies, setMovies] = useState<Movie[]>([]);
 
-  useEffect(() => {
-    const moviesRef = firebase.database().ref("movies");
-    moviesRef.on("value", (snapshot) => {
-      const moviesData = snapshot.val();
-      if (moviesData) {
-        const moviesList = Object.keys(moviesData).map((key) => ({
-          id: key,
-          ...moviesData[key],
-        }));
-        setMovies(moviesList);
-      } else {
-        setMovies([]);
-      }
-    });
-  }, []);
+  const { data, loading, error } = useQuery(GET_MOVIES, {
+    pollInterval: 5000, // Poll every 5 seconds for updates
+  });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [addMovie] = useMutation(ADD_MOVIE, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+
+  const movies: Movie[] = data?.movies || [];
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (title && requester) {
-      const moviesRef = firebase.database().ref("movies");
-      moviesRef
-        .push({
-          title,
-          requester,
-          date_submitted: Date.now(),
-        })
-        .then(() => {
-          setSuccessMessage("Movie suggestion added successfully!");
-          setTitle("");
-          setRequester("");
-          setDateSubmitted("");
-          setTimeout(() => {
-            setSuccessMessage("");
-          }, 3000);
-        })
-        .catch((error) => {
-          setErrorMessage(`Error adding movie suggestion: ${error.message}`);
+      try {
+        await addMovie({
+          variables: { title, requester },
         });
+        setSuccessMessage("Movie suggestion added successfully!");
+        setTitle("");
+        setRequester("");
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 3000);
+      } catch (error: any) {
+        setErrorMessage(`Error adding movie suggestion: ${error.message}`);
+      }
     } else {
       setErrorMessage("Please fill in all fields.");
     }
   };
+
+  if (loading) return <StyledApp><Stack justifyContent="center" alignItems="center"><Typography level="h3">Loading movies...</Typography></Stack></StyledApp>;
+  if (error) return <StyledApp><Stack justifyContent="center" alignItems="center"><Typography level="h3" color="danger">Error: {error.message}</Typography></Stack></StyledApp>;
 
   return (
     <StyledApp>
@@ -104,19 +90,19 @@ const HomePage: React.FC = () => {
           <thead>
             <tr>
               {movies &&
-                movies.length != 0 &&
+                movies.length !== 0 &&
                 Object.keys(movies[0]).map(
                   (key) =>
-                    key !== "id" && <th>{columnNameToDisplayName(key)}</th>
+                    key !== "id" && key !== "__typename" && <th>{columnNameToDisplayName(key)}</th>
                 )}
             </tr>
           </thead>
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
-                <td>{new Date(movie.date_submitted).toLocaleString()}</td>
                 <td>{movie.requester}</td>
                 <td>{movie.title}</td>
+                <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
