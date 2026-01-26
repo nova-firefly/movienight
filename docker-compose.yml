@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: movienight
       POSTGRES_USER: movienight_user
       POSTGRES_PASSWORD: movienight_pass
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +15,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - backend
 
   backend:
     build:
@@ -36,6 +36,9 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - backend
+      - frontend
 
   frontend:
     image: node:18-alpine
@@ -52,6 +55,14 @@ services:
       - /app/node_modules
     command: sh -c "npm install && npm start"
     restart: unless-stopped
+    networks:
+      - frontend
 
 volumes:
   postgres_data:
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
