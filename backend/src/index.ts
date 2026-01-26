@@ -5,7 +5,6 @@ import cors from 'cors';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { initializeDatabase } from './db';
-import { verifyToken, getTokenFromHeader } from './auth';
 
 const PORT = process.env.PORT || 4000;
 
@@ -23,13 +22,6 @@ async function startServer() {
     '/graphql',
     cors<cors.CorsRequest>(),
     express.json(),
-    expressMiddleware(server, {
-      context: async ({ req }) => {
-        const token = getTokenFromHeader(req.headers.authorization);
-        const user = token ? verifyToken(token) : null;
-        return { user };
-      },
-    })
     expressMiddleware(server)
   );
 

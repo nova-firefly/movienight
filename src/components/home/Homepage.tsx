@@ -6,18 +6,19 @@ import { Button, Input, Stack, Table, Typography } from "@mui/joy";
 import styled from "styled-components";
 import { columnNameToDisplayName } from "../../utils/textUtils";
 import { Movie } from "../../models/Movies";
-import { useAuth } from "../../contexts/AuthContext";
 
 const StyledApp = styled.body`
   background-color: lightskyblue;
-  min-height: calc(100vh - 60px);
-  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
 `;
 
 const HomePage: React.FC = () => {
-  const { isAuthenticated } = useAuth();
   const [title, setTitle] = useState("");
-  const [requester, setRequester] = useState("");
+  const [requester, setRequester] = useState(""); 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -59,29 +60,25 @@ const HomePage: React.FC = () => {
     <StyledApp>
       <Stack justifyContent="center" alignItems="center" spacing={2}>
         <Typography level="h1">🍿Movie List🍿</Typography>
-        {isAuthenticated && (
-          <>
-            <form onSubmit={handleSubmit}>
-              <Stack>
-                <Input
-                  type="text"
-                  placeholder="Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                <Input
-                  type="text"
-                  placeholder="Requester"
-                  value={requester}
-                  onChange={(e) => setRequester(e.target.value)}
-                />
-                <Button type="submit">Submit</Button>
-              </Stack>
-            </form>
-            {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
-            {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
-          </>
-        )}
+        <form onSubmit={handleSubmit}>
+          <Stack>
+            <Input
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <Input
+              type="text"
+              placeholder="Requester"
+              value={requester}
+              onChange={(e) => setRequester(e.target.value)}
+            />
+            <Button type="submit">Submit</Button>
+          </Stack>
+        </form>
+        {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
+        {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
         <Table
           aria-label="basic table"
           variant="outlined"
@@ -103,8 +100,8 @@ const HomePage: React.FC = () => {
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
-                <td>{movie.title}</td>
                 <td>{movie.requester}</td>
+                <td>{movie.title}</td>
                 <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
               </tr>
             ))}
