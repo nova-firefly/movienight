@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: movienight-db
+    environment:
+      POSTGRES_DB: movienight
+      POSTGRES_USER: movienight_user
+      POSTGRES_PASSWORD: movienight_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movienight_user -d movienight"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: movienight-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: movienight
+      DB_USER: movienight_user
+      DB_PASSWORD: movienight_pass
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: node:18-alpine
+    container_name: movienight-frontend
+    working_dir: /app
+    environment:
+      REACT_APP_GRAPHQL_URL: http://backend:4000/graphql
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm start"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
