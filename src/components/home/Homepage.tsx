@@ -8,7 +8,7 @@ import { columnNameToDisplayName } from "../../utils/textUtils";
 import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 
-const StyledApp = styled.div`
+const StyledApp = styled.body`
   background-color: lightskyblue;
   min-height: calc(100vh - 60px);
   padding: 20px;

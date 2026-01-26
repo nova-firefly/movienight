@@ -30,6 +30,7 @@ async function startServer() {
         return { user };
       },
     })
+    expressMiddleware(server)
   );
 
   await initializeDatabase();
