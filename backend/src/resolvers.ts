@@ -32,4 +32,13 @@ export const resolvers = {
       return (result.rowCount ?? 0) > 0;
     },
   },
+  Movie: {
+    date_submitted: (parent: any) => {
+      // Convert PostgreSQL timestamp to ISO 8601 string
+      const date = parent.date_submitted instanceof Date
+        ? parent.date_submitted
+        : new Date(Number(parent.date_submitted));
+      return date.toISOString();
+    }
+  }
 };

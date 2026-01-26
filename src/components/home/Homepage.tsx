@@ -18,7 +18,7 @@ const StyledApp = styled.body`
 
 const HomePage: React.FC = () => {
   const [title, setTitle] = useState("");
-  const [requester, setRequester] = useState("");
+  const [requester, setRequester] = useState(""); 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -90,19 +90,19 @@ const HomePage: React.FC = () => {
           <thead>
             <tr>
               {movies &&
-                movies.length != 0 &&
+                movies.length !== 0 &&
                 Object.keys(movies[0]).map(
                   (key) =>
-                    key !== "id" && <th>{columnNameToDisplayName(key)}</th>
+                    key !== "id" && key !== "__typename" && <th>{columnNameToDisplayName(key)}</th>
                 )}
             </tr>
           </thead>
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
-                <td>{new Date(movie.date_submitted).toLocaleString()}</td>
                 <td>{movie.requester}</td>
                 <td>{movie.title}</td>
+                <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
