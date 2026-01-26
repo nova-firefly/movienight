@@ -8,6 +8,7 @@ import { useAuth } from "./contexts/AuthContext";
 const App = () => {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [showUserManagement, setShowUserManagement] = React.useState(false);
+  const [showLogin, setShowLogin] = React.useState(false);
 
   if (isLoading) {
     return (
@@ -17,7 +18,7 @@ const App = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (showLogin && !isAuthenticated) {
     return <Login />;
   }
 
@@ -42,7 +43,7 @@ const App = () => {
           >
             Movies
           </Button>
-          {user?.is_admin && (
+          {isAuthenticated && user?.is_admin && (
             <Button
               variant={showUserManagement ? 'soft' : 'plain'}
               onClick={() => setShowUserManagement(true)}
@@ -52,12 +53,20 @@ const App = () => {
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Typography level="body-sm">
-            Welcome, {user?.username} {user?.is_admin && '(Admin)'}
-          </Typography>
-          <Button variant="outlined" color="neutral" onClick={logout}>
-            Logout
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Typography level="body-sm">
+                Welcome, {user?.username} {user?.is_admin && '(Admin)'}
+              </Typography>
+              <Button variant="outlined" color="neutral" onClick={logout}>
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button variant="solid" onClick={() => setShowLogin(true)}>
+              Login
+            </Button>
+          )}
         </Box>
       </Sheet>
 
