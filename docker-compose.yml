@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # Development environment services (from dev branch)
   db:
     image: postgres:15-alpine
     container_name: movienight-db
@@ -15,6 +18,8 @@ services:
       retries: 5
     networks:
       - backend
+    profiles:
+      - development
 
   backend:
     build:
@@ -37,6 +42,8 @@ services:
     networks:
       - backend
       - frontend
+    profiles:
+      - development
 
   frontend:
     image: node:18-alpine
@@ -55,6 +62,39 @@ services:
     restart: unless-stopped
     networks:
       - frontend
+    profiles:
+      - development
+
+  # Production deployment service (from pipeline changes)
+  movienight:
+    # Replace USERNAME/REPO with your GitHub repository
+    # Example: ghcr.io/johndoe/movienight:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-username/movienight}:latest
+    container_name: movienight
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - TZ=America/New_York
+    labels:
+      - "com.movienight.app=true"
+      - "com.movienight.version=1.0"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/movienight/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    profiles:
+      - production
 
 volumes:
   postgres_data:
@@ -64,3 +104,5 @@ networks:
     driver: bridge
   frontend:
     driver: bridge
+  default:
+    name: movienight-network
