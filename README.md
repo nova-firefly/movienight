@@ -1,46 +1,169 @@
-# Getting Started with Create React App
+# MovieNight
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack movie suggestion application built with React, GraphQL, Apollo Server, and PostgreSQL.
 
-## Available Scripts
+## Architecture
 
-In the project directory, you can run:
+- **Frontend**: React + TypeScript + Apollo Client
+- **Backend**: Node.js + Apollo Server + GraphQL
+- **Database**: PostgreSQL
+- **Containerization**: Docker + Docker Compose
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Node.js 18+ (for local development)
+
+### Quick Start with Docker
+
+1. **Start all services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Access the application:**
+   - Frontend: http://localhost:3000
+   - GraphQL Playground: http://localhost:4000/graphql
+   - Database: localhost:5432
+
+3. **Stop all services:**
+   ```bash
+   docker-compose down
+   ```
+
+### Local Development (without Docker)
+
+1. **Install frontend dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Install backend dependencies:**
+   ```bash
+   cd backend
+   npm install
+   cd ..
+   ```
+
+3. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   cp backend/.env.example backend/.env
+   ```
+
+4. **Start PostgreSQL** (you'll need a running PostgreSQL instance)
+
+5. **Start the backend:**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+
+6. **Start the frontend (in a new terminal):**
+   ```bash
+   npm start
+   ```
+
+## GraphQL API
+
+### Queries
+
+- `movies`: Get all movies
+- `movie(id: ID!)`: Get a specific movie by ID
+
+### Mutations
+
+- `addMovie(title: String!, requester: String!)`: Add a new movie suggestion
+- `deleteMovie(id: ID!)`: Delete a movie by ID
+
+### Example Queries
+
+**Get all movies:**
+```graphql
+query {
+  movies {
+    id
+    title
+    requester
+    date_submitted
+  }
+}
+```
+
+**Add a movie:**
+```graphql
+mutation {
+  addMovie(title: "Inception", requester: "John") {
+    id
+    title
+    requester
+    date_submitted
+  }
+}
+```
+
+## Project Structure
+
+```
+movienight/
+├── backend/                 # GraphQL backend server
+│   ├── src/
+│   │   ├── index.ts        # Server entry point
+│   │   ├── schema.ts       # GraphQL schema definitions
+│   │   ├── resolvers.ts    # GraphQL resolvers
+│   │   └── db.ts           # Database connection
+│   ├── Dockerfile
+│   └── package.json
+├── src/                     # React frontend
+│   ├── components/
+│   ├── graphql/
+│   │   ├── client.ts       # Apollo Client setup
+│   │   └── queries.ts      # GraphQL queries/mutations
+│   └── ...
+├── docker-compose.yml       # Docker orchestration
+└── package.json
+```
+
+## Environment Variables
+
+### Frontend (.env)
+- `REACT_APP_GRAPHQL_URL`: GraphQL server URL (default: http://localhost:4000/graphql)
+
+### Backend (backend/.env)
+- `DB_HOST`: PostgreSQL host (default: db)
+- `DB_PORT`: PostgreSQL port (default: 5432)
+- `DB_NAME`: Database name (default: movienight)
+- `DB_USER`: Database user (default: movienight_user)
+- `DB_PASSWORD`: Database password (default: movienight_pass)
+- `PORT`: Backend server port (default: 4000)
+
+## Docker Services
+
+- **db**: PostgreSQL 15 database with persistent volume
+- **backend**: GraphQL API server
+- **frontend**: React development server
+
+## Development
+
+The application uses hot-reloading for both frontend and backend during development. Any changes you make will automatically reflect in the running application.
+
+## Available Scripts (Create React App)
 
 ### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Runs the app in development mode at http://localhost:3000
 
 ### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Launches the test runner in interactive watch mode
 
 ### `npm run build`
+Builds the app for production to the `build` folder
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Migration from Firebase
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+This application was migrated from Firebase Realtime Database to a self-hosted GraphQL + PostgreSQL stack, providing:
+- Full control over data and infrastructure
+- Better type safety with GraphQL
+- Relational data capabilities
+- Containerized deployment

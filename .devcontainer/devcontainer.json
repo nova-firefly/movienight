@@ -1,5 +1,5 @@
 {
-  "name": "MovieNight React App",
+  "name": "MovieNight",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -15,7 +15,8 @@
         "dsznajder.es7-react-js-snippets",
         "mgmcdermott.vscode-language-babel",
         "ms-vscode.vscode-typescript-next",
-        "bradlc.vscode-tailwindcss"
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-containers"
       ],
       // VS Code settings
       "settings": {
