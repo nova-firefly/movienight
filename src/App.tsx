@@ -1,8 +1,9 @@
 import React from "react";
-import { Box, Button, Typography, Sheet } from '@mui/joy';
+import { Box, Typography } from '@mui/joy';
 import HomePage from "./components/home/Homepage";
 import { Login } from "./components/auth/Login";
 import { UserManagement } from "./components/admin/UserManagement";
+import { Navbar } from "./components/common/Navbar";
 import { useAuth } from "./contexts/AuthContext";
 
 const App = () => {
@@ -24,55 +25,20 @@ const App = () => {
 
   return (
     <Box>
-      <Sheet
-        variant="soft"
-        sx={{
-          p: 2,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Typography level="h4">MovieNight</Typography>
-          <Button
-            variant={showUserManagement ? 'plain' : 'soft'}
-            onClick={() => setShowUserManagement(false)}
-          >
-            Movies
-          </Button>
-          {isAuthenticated && user?.is_admin && (
-            <Button
-              variant={showUserManagement ? 'soft' : 'plain'}
-              onClick={() => setShowUserManagement(true)}
-            >
-              Manage Users
-            </Button>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isAuthenticated ? (
-            <>
-              <Typography level="body-sm">
-                Welcome, {user?.username} {user?.is_admin && '(Admin)'}
-              </Typography>
-              <Button variant="outlined" color="neutral" onClick={logout}>
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button variant="solid" onClick={() => setShowLogin(true)}>
-              Login
-            </Button>
-          )}
-        </Box>
-      </Sheet>
+      <Navbar
+        showUserManagement={showUserManagement}
+        onShowMovies={() => setShowUserManagement(false)}
+        onShowUserManagement={() => setShowUserManagement(true)}
+        onShowLogin={() => setShowLogin(true)}
+      />
 
-      <Box sx={{ p: 3 }}>
-        {showUserManagement && user?.is_admin ? <UserManagement /> : <HomePage />}
-      </Box>
+      {showUserManagement && user?.is_admin ? (
+        <Box sx={{ p: 3 }}>
+          <UserManagement />
+        </Box>
+      ) : (
+        <HomePage />
+      )}
     </Box>
   );
 };

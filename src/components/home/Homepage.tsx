@@ -8,13 +8,10 @@ import { columnNameToDisplayName } from "../../utils/textUtils";
 import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 
-const StyledApp = styled.body`
+const StyledApp = styled.div`
   background-color: lightskyblue;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
+  min-height: calc(100vh - 60px);
+  padding: 20px;
 `;
 
 const HomePage: React.FC = () => {
@@ -106,8 +103,8 @@ const HomePage: React.FC = () => {
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
-                <td>{movie.requester}</td>
                 <td>{movie.title}</td>
+                <td>{movie.requester}</td>
                 <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
               </tr>
             ))}
