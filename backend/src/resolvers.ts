@@ -7,7 +7,7 @@ export const resolvers = {
   Query: {
     movies: async () => {
       const result = await pool.query(
-        'SELECT * FROM movies ORDER BY date_submitted DESC'
+        'SELECT * FROM movies ORDER BY rank ASC'
       );
       return result.rows;
     },
@@ -56,9 +56,15 @@ export const resolvers = {
   },
   Mutation: {
     addMovie: async (_: any, { title, requester }: { title: string; requester: string }) => {
+      // Get the current max rank and add 1 to place new movie at the bottom
+      const maxRankResult = await pool.query(
+        'SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies'
+      );
+      const newRank = Number(maxRankResult.rows[0].max_rank) + 1;
+
       const result = await pool.query(
-        'INSERT INTO movies (title, requester) VALUES ($1, $2) RETURNING *',
-        [title, requester]
+        'INSERT INTO movies (title, requester, rank) VALUES ($1, $2, $3) RETURNING *',
+        [title, requester, newRank]
       );
       return result.rows[0];
     },

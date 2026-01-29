@@ -7,6 +7,7 @@ export const GET_MOVIES = gql`
       title
       requester
       date_submitted
+      rank
     }
   }
 `;
@@ -18,6 +19,7 @@ export const GET_MOVIE = gql`
       title
       requester
       date_submitted
+      rank
     }
   }
 `;
@@ -29,6 +31,7 @@ export const ADD_MOVIE = gql`
       title
       requester
       date_submitted
+      rank
     }
   }
 `;
