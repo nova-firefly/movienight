@@ -27,9 +27,6 @@ export const typeDefs = `#graphql
     me: User
     users: [User!]!
     user(id: ID!): User
-  type Query {
-    movies: [Movie!]!
-    movie(id: ID!): Movie
   }
 
   type Mutation {
