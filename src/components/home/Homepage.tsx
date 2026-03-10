@@ -103,9 +103,15 @@ const HomePage: React.FC = () => {
           <tbody>
             {movies.map((movie) => (
               <tr key={movie.id}>
-                <td>{movie.title}</td>
-                <td>{movie.requester}</td>
-                <td>{new Date(movie.date_submitted).toLocaleDateString()}</td>
+                {Object.keys(movie).map((key) => {
+                  if (key === "id" || key === "__typename") return null;
+
+                  if (key === "date_submitted") {
+                    return <td key={key}>{new Date(movie[key as keyof Movie]).toLocaleDateString()}</td>;
+                  }
+
+                  return <td key={key}>{movie[key as keyof Movie]}</td>;
+                })}
               </tr>
             ))}
           </tbody>

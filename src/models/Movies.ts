@@ -3,4 +3,5 @@ export type Movie = {
   title: string;
   requester: string;
   date_submitted: string;
+  rank: number;
 };

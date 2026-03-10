@@ -4,6 +4,7 @@ export const typeDefs = `#graphql
     title: String!
     requester: String!
     date_submitted: String!
+    rank: Float!
   }
 
   type User {
