@@ -50,7 +50,8 @@ services:
     container_name: movienight-frontend
     working_dir: /app
     environment:
-      REACT_APP_GRAPHQL_URL: ${REACT_APP_GRAPHQL_URL}
+      REACT_APP_BACKEND_PORT: ${REACT_APP_BACKEND_PORT:-4000}
+      REACT_APP_GRAPHQL_URL: ${REACT_APP_GRAPHQL_URL:-}
     ports:
       - "${FRONTEND_EXTERNAL_PORT}:3000"
     depends_on:
