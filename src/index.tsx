@@ -16,7 +16,6 @@ root.render(
       <AuthProvider>
         <App />
       </AuthProvider>
-      <App />
     </ApolloProvider>
   </React.StrictMode>
 );
