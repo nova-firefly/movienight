@@ -1,14 +1,7 @@
 import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/client';
 
-function getGraphQLUri(): string {
-  if (process.env.REACT_APP_GRAPHQL_URL) return process.env.REACT_APP_GRAPHQL_URL;
-  const { protocol, hostname } = window.location;
-  const port = process.env.REACT_APP_BACKEND_PORT || '4000';
-  return `${protocol}//${hostname}:${port}/graphql`;
-}
-
 const httpLink = new HttpLink({
-  uri: getGraphQLUri(),
+  uri: process.env.REACT_APP_GRAPHQL_URL || '/graphql',
 });
 
 const authLink = new ApolloLink((operation, forward) => {
