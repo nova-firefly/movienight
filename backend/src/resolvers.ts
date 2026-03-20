@@ -42,6 +42,28 @@ async function logLoginHistory(
 
 export const resolvers = {
   Query: {
+    searchTmdb: async (_: any, { query }: { query: string }) => {
+      const apiKey = process.env.TMDB_API_KEY;
+      if (!apiKey) {
+        throw new GraphQLError('TMDB API key not configured', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new GraphQLError('TMDB search failed', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      const data = await response.json() as any;
+      return (data.results as any[]).slice(0, 10).map((movie: any) => ({
+        tmdb_id: movie.id,
+        title: movie.title,
+        release_year: movie.release_date ? movie.release_date.split('-')[0] : null,
+        overview: movie.overview || null,
+      }));
+    },
     movies: async () => {
       const result = await pool.query(
         `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
@@ -154,7 +176,7 @@ export const resolvers = {
     },
   },
   Mutation: {
-    addMovie: async (_: any, { title }: { title: string }, context: any) => {
+    addMovie: async (_: any, { title, tmdb_id }: { title: string; tmdb_id?: number }, context: any) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -165,8 +187,8 @@ export const resolvers = {
       );
       const newRank = Number(maxRankResult.rows[0].max_rank) + 1;
       const insertResult = await pool.query(
-        'INSERT INTO movies (title, requested_by, rank) VALUES ($1, $2, $3) RETURNING *',
-        [title, context.user.userId, newRank]
+        'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [title, context.user.userId, newRank, tmdb_id ?? null]
       );
       const userRow = await pool.query(
         'SELECT username, display_name FROM users WHERE id = $1',

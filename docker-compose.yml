@@ -33,6 +33,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: ${BACKEND_PORT}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
     ports:
       - "${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}"
     depends_on:

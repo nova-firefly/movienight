@@ -8,6 +8,7 @@ export const GET_MOVIES = gql`
       requester
       date_submitted
       rank
+      tmdb_id
     }
   }
 `;
@@ -25,13 +26,25 @@ export const GET_MOVIE = gql`
 `;
 
 export const ADD_MOVIE = gql`
-  mutation AddMovie($title: String!) {
-    addMovie(title: $title) {
+  mutation AddMovie($title: String!, $tmdb_id: Int) {
+    addMovie(title: $title, tmdb_id: $tmdb_id) {
       id
       title
       requester
       date_submitted
       rank
+      tmdb_id
+    }
+  }
+`;
+
+export const SEARCH_TMDB = gql`
+  query SearchTmdb($query: String!) {
+    searchTmdb(query: $query) {
+      tmdb_id
+      title
+      release_year
+      overview
     }
   }
 `;
