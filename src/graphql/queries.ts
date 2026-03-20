@@ -25,8 +25,8 @@ export const GET_MOVIE = gql`
 `;
 
 export const ADD_MOVIE = gql`
-  mutation AddMovie($title: String!, $requester: String!) {
-    addMovie(title: $title, requester: $requester) {
+  mutation AddMovie($title: String!) {
+    addMovie(title: $title) {
       id
       title
       requester

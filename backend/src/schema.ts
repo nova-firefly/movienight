@@ -30,7 +30,7 @@ export const typeDefs = `#graphql
   }
 
   type Mutation {
-    addMovie(title: String!, requester: String!): Movie!
+    addMovie(title: String!): Movie!
     deleteMovie(id: ID!): Boolean!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, is_admin: Boolean): User!
