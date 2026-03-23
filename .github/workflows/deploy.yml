@@ -56,7 +56,7 @@ jobs:
             REACT_APP_GIT_HASH=${{ github.sha }}
 
       - name: Image digest
-        run: echo ${{ steps.meta.outputs.tags }}
+        run: echo "${{ steps.meta.outputs.tags }}"
 
   deploy:
     name: Deploy via Nova Compose
