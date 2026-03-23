@@ -59,12 +59,12 @@ jobs:
         run: echo ${{ steps.meta.outputs.tags }}
 
   deploy:
-    name: Deploy to Remote Host
+    name: Deploy via Nova Compose
     needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to remote Docker host via SSH
+      - name: Deploy to nova host via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -72,36 +72,32 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.REMOTE_PORT || 22 }}
           script: |
-            # Login to GitHub Container Registry
+            NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
+            COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
+
+            # Update movienight submodule to latest master (picks up backend changes)
+            cd "$NOVA_DIR"
+            git submodule update --remote movienight
+
+            # Login to GHCR so compose can pull the new frontend image
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull the latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            # Pull new frontend image
+            docker compose -f "$COMPOSE_FILE" pull movienight-frontend
 
-            # Stop and remove old container if it exists
-            docker stop movienight 2>/dev/null || true
-            docker rm movienight 2>/dev/null || true
+            # Rebuild backend from updated source + restart all services
+            docker compose -f "$COMPOSE_FILE" up -d --build
 
-            # Run new container
-            docker run -d \
-              --name movienight \
-              --restart unless-stopped \
-              -p 8080:80 \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # Clean up old/dangling images
+            # Clean up dangling images
             docker image prune -f
 
-            # Wait for container to start
-            sleep 5
-
-            # Verify container is running
-            if docker ps | grep -q movienight; then
-              echo "✓ Deployment successful - movienight container is running"
+            # Verify frontend container is running
+            if docker ps | grep -q movienight-frontend; then
+              echo "Deployment successful - movienight-frontend is running"
               docker ps | grep movienight
             else
-              echo "✗ Deployment failed - container is not running"
-              docker logs movienight
+              echo "Deployment failed - movienight-frontend is not running"
+              docker compose -f "$COMPOSE_FILE" logs --tail=50
               exit 1
             fi
 
@@ -111,5 +107,5 @@ jobs:
           echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Host:** \`${{ secrets.REMOTE_HOST }}:8080\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Host:** \`${{ secrets.REMOTE_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
