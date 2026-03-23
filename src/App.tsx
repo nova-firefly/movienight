@@ -4,6 +4,7 @@ import HomePage from "./components/home/Homepage";
 import { Login } from "./components/auth/Login";
 import { UserManagement } from "./components/admin/UserManagement";
 import { Navbar } from "./components/common/Navbar";
+import { Footer } from "./components/common/Footer";
 import { useAuth } from "./contexts/AuthContext";
 
 const App = () => {
@@ -24,7 +25,7 @@ const App = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar
         showUserManagement={showUserManagement}
         onShowMovies={() => setShowUserManagement(false)}
@@ -39,6 +40,8 @@ const App = () => {
       ) : (
         <HomePage />
       )}
+
+      <Footer />
     </Box>
   );
 };

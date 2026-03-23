@@ -14,6 +14,12 @@ RUN npm ci --ignore-scripts
 # Copy application source
 COPY . .
 
+# Git info baked into the bundle at build time
+ARG REACT_APP_GIT_BRANCH=unknown
+ARG REACT_APP_GIT_HASH=unknown
+ENV REACT_APP_GIT_BRANCH=$REACT_APP_GIT_BRANCH
+ENV REACT_APP_GIT_HASH=$REACT_APP_GIT_HASH
+
 # Build the application (creates /app/build directory)
 RUN npm run build
 
