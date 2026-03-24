@@ -57,7 +57,7 @@ export const AuditLog: React.FC = () => {
       </Typography>
       <Sheet
         variant="outlined"
-        sx={{ borderRadius: 'md', overflow: 'hidden', borderColor: 'var(--mn-border-vis)' }}
+        sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
       >
         <Box sx={{ overflowX: 'auto' }}>
           <Table

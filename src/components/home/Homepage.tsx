@@ -362,7 +362,7 @@ const HomePage: React.FC = () => {
           variant="outlined"
           sx={{
             borderRadius: "md",
-            overflow: "hidden",
+            overflow: "clip",
             borderColor: "var(--mn-border-vis)",
           }}
         >
@@ -370,18 +370,11 @@ const HomePage: React.FC = () => {
             <table
               style={{
                 width: "100%",
+                minWidth: 480,
                 borderCollapse: "collapse",
-                tableLayout: "fixed",
+                tableLayout: "auto",
               }}
             >
-              <colgroup>
-                {isAdmin && <col style={{ width: 36 }} />}
-                <col style={{ width: 44 }} />
-                <col />
-                <col style={{ width: 160 }} />
-                <col style={{ width: 130 }} />
-                {isAdmin && <col style={{ width: 52 }} />}
-              </colgroup>
               <thead>
                 <tr
                   style={{
