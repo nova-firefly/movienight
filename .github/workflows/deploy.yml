@@ -92,8 +92,18 @@ jobs:
             # Login to GHCR so compose can pull the new frontend image
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull new images
-            docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
+            # postgres:18rc1-trixie changed VOLUME /var/lib/postgresql/data to
+            # VOLUME /var/lib/postgresql.  Docker mounts an empty anonymous volume
+            # at the parent path; the named volume mount at /var/lib/postgresql/data
+            # then fails with "no such file or directory" because the empty parent
+            # has no data/ subdirectory — db stays in Created state and backend loops.
+            # Use a compose override to force postgres:15-alpine regardless of what
+            # the host's compose file specifies (sed was unreliable due to unknown quoting).
+            OVERRIDE_FILE="$NOVA_DIR/docker-compose.movienight.db-override.yaml"
+            printf 'services:\n  movienight-db:\n    image: postgres:15-alpine\n' > "$OVERRIDE_FILE"
+
+            # Pull new images (override ensures postgres:15-alpine is pulled for db)
+            docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" pull
 
             # Gracefully stop db so postgres can remove postmaster.pid cleanly;
             # docker rm -f (SIGKILL) leaves postmaster.pid with PID 1, which the
@@ -102,16 +112,8 @@ jobs:
             docker stop movienight-db 2>/dev/null || true
             docker rm movienight-db 2>/dev/null || true
 
-            # postgres:18rc1-trixie changed VOLUME /var/lib/postgresql/data to
-            # VOLUME /var/lib/postgresql.  Docker then mounts an empty anonymous
-            # volume at the parent path; our named volume mount at the child path
-            # (/var/lib/postgresql/data) fails with "no such file or directory"
-            # because the empty parent has no data/ subdirectory.
-            # Enforce the same stable image the repo declares (postgres:15-alpine).
-            sed -i 's|image: postgres:.*|image: postgres:15-alpine|g' "$COMPOSE_FILE"
-
             # Restart all services with new images
-            docker compose -f "$COMPOSE_FILE" up -d
+            docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" up -d
 
             # Clean up dangling images
             docker image prune -f
