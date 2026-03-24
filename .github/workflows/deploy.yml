@@ -95,8 +95,8 @@ jobs:
             # Pull new images
             docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
 
-            # Restart all services with new images
-            docker compose -f "$COMPOSE_FILE" up -d
+            # Restart all services with new images; --force-recreate avoids stale container state
+            docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 
             # Clean up dangling images
             docker image prune -f
