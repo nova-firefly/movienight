@@ -8,7 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  FRONTEND_IMAGE: ${{ github.repository }}
+  BACKEND_IMAGE: ${{ github.repository }}-backend
 
 jobs:
   build-and-push:
@@ -32,17 +33,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
+      - name: Extract Docker metadata (frontend)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -54,6 +55,15 @@ jobs:
           build-args: |
             REACT_APP_GIT_BRANCH=${{ github.ref_name }}
             REACT_APP_GIT_HASH=${{ github.sha }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Image digest
         run: echo "${{ steps.meta.outputs.tags }}"
@@ -82,11 +92,11 @@ jobs:
             # Login to GHCR so compose can pull the new frontend image
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull new frontend image
-            docker compose -f "$COMPOSE_FILE" pull movienight-frontend
+            # Pull new images
+            docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
 
-            # Rebuild backend from updated source + restart all services
-            docker compose -f "$COMPOSE_FILE" up -d --build
+            # Restart all services with new images
+            docker compose -f "$COMPOSE_FILE" up -d
 
             # Clean up dangling images
             docker image prune -f
@@ -106,6 +116,7 @@ jobs:
         run: |
           echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend:** \`${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend:** \`${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "**Host:** \`${{ secrets.REMOTE_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
