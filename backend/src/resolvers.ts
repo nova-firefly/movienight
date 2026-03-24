@@ -189,16 +189,76 @@ export const resolvers = {
       };
     },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const movieResult = await pool.query('SELECT title FROM movies WHERE id = $1', [id]);
+      const movie = movieResult.rows[0];
       const result = await pool.query('DELETE FROM movies WHERE id = $1', [id]);
+      if ((result.rowCount ?? 0) > 0) {
+        await logAudit(
+          context.user.userId,
+          'MOVIE_DELETE',
+          'movie',
+          id,
+          movie ? { title: movie.title } : null,
+          context.ipAddress ?? 'unknown'
+        );
+      }
+      return (result.rowCount ?? 0) > 0;
+    },
+    reorderMovie: async (_: any, { id, afterId }: { id: string; afterId?: string | null }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const currentResult = await pool.query('SELECT id, title, rank FROM movies WHERE id = $1', [id]);
+      if (currentResult.rows.length === 0) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      const current = currentResult.rows[0];
+
+      // Fetch all other movies ordered by rank to compute new rank via fractional indexing
+      const othersResult = await pool.query(
+        'SELECT id, rank FROM movies WHERE id != $1 ORDER BY rank ASC',
+        [id]
+      );
+      const others = othersResult.rows;
+
+      let newRank: number;
+      if (!afterId) {
+        // Move to the very beginning
+        const first = others[0];
+        newRank = first ? Number(first.rank) / 2 : 1;
+      } else {
+        const afterIndex = others.findIndex((m: any) => String(m.id) === String(afterId));
+        if (afterIndex === -1) {
+          throw new GraphQLError('afterId not found', {
+            extensions: { code: 'BAD_USER_INPUT' },
+          });
+        }
+        const afterRank = Number(others[afterIndex].rank);
+        const nextItem = others[afterIndex + 1];
+        newRank = nextItem ? (afterRank + Number(nextItem.rank)) / 2 : afterRank + 1;
+      }
+
+      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [newRank, id]);
+
       await logAudit(
-        context.user?.userId ?? null,
-        'MOVIE_DELETE',
+        context.user.userId,
+        'MOVIE_REORDER',
         'movie',
-        id,
-        null,
+        String(current.id),
+        { title: current.title, afterId: afterId ?? null },
         context.ipAddress ?? 'unknown'
       );
-      return (result.rowCount ?? 0) > 0;
+      return true;
     },
     login: async (
       _: any,

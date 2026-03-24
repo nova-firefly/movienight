@@ -59,6 +59,7 @@ export const typeDefs = `#graphql
   type Mutation {
     addMovie(title: String!): Movie!
     deleteMovie(id: ID!): Boolean!
+    reorderMovie(id: ID!, afterId: ID): Boolean!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
