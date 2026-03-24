@@ -95,8 +95,12 @@ jobs:
             # Pull new images
             docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
 
-            # Remove db container to clear any stale overlay2 state; data is safe in named volume
-            docker rm -f movienight-db 2>/dev/null || true
+            # Gracefully stop db so postgres can remove postmaster.pid cleanly;
+            # docker rm -f (SIGKILL) leaves postmaster.pid with PID 1, which the
+            # next container's init also runs as, causing postgres to think another
+            # instance is already running and enter a restart loop.
+            docker stop movienight-db 2>/dev/null || true
+            docker rm movienight-db 2>/dev/null || true
 
             # Restart all services with new images
             docker compose -f "$COMPOSE_FILE" up -d
