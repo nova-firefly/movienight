@@ -24,7 +24,25 @@ export const Login: React.FC = () => {
       setError('');
     },
     onError: (err) => {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      if (err.networkError) {
+        const status = (err.networkError as any)?.statusCode;
+        if (status === 502 || status === 503 || status === 504) {
+          setError('Server is temporarily unavailable. Please try again in a moment.');
+        } else {
+          setError('Cannot connect to the server. Please check your connection and try again.');
+        }
+      } else if (err.graphQLErrors?.length) {
+        const code = err.graphQLErrors[0]?.extensions?.code;
+        if (code === 'UNAUTHENTICATED') {
+          setError('Incorrect username or password.');
+        } else if (code === 'FORBIDDEN') {
+          setError('Your account has been disabled. Please contact an administrator.');
+        } else {
+          setError('Login failed. Please try again.');
+        }
+      } else {
+        setError('Login failed. Please try again.');
+      }
     },
   });
 
