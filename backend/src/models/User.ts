@@ -2,7 +2,10 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  display_name?: string | null;
   is_admin: boolean;
+  is_active: boolean;
+  last_login_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -15,7 +18,9 @@ export interface CreateUserInput {
   username: string;
   email: string;
   password: string;
+  display_name?: string;
   is_admin?: boolean;
+  is_active?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -23,7 +28,9 @@ export interface UpdateUserInput {
   username?: string;
   email?: string;
   password?: string;
+  display_name?: string;
   is_admin?: boolean;
+  is_active?: boolean;
 }
 
 export interface LoginInput {
