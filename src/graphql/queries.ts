@@ -42,6 +42,12 @@ export const DELETE_MOVIE = gql`
   }
 `;
 
+export const MOVE_MOVIE = gql`
+  mutation MoveMovie($id: ID!, $direction: String!) {
+    moveMovie(id: $id, direction: $direction)
+  }
+`;
+
 export const LOGIN = gql`
   mutation Login($username: String!, $password: String!) {
     login(username: $username, password: $password) {

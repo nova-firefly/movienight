@@ -189,16 +189,72 @@ export const resolvers = {
       };
     },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const movieResult = await pool.query('SELECT title FROM movies WHERE id = $1', [id]);
+      const movie = movieResult.rows[0];
       const result = await pool.query('DELETE FROM movies WHERE id = $1', [id]);
+      if ((result.rowCount ?? 0) > 0) {
+        await logAudit(
+          context.user.userId,
+          'MOVIE_DELETE',
+          'movie',
+          id,
+          movie ? { title: movie.title } : null,
+          context.ipAddress ?? 'unknown'
+        );
+      }
+      return (result.rowCount ?? 0) > 0;
+    },
+    moveMovie: async (_: any, { id, direction }: { id: string; direction: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      if (direction !== 'up' && direction !== 'down') {
+        throw new GraphQLError('direction must be "up" or "down"', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const currentResult = await pool.query('SELECT id, title, rank FROM movies WHERE id = $1', [id]);
+      if (currentResult.rows.length === 0) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      const current = currentResult.rows[0];
+
+      // Find adjacent movie in the requested direction
+      const adjacentResult = await pool.query(
+        direction === 'up'
+          ? 'SELECT id, rank FROM movies WHERE rank < $1 ORDER BY rank DESC LIMIT 1'
+          : 'SELECT id, rank FROM movies WHERE rank > $1 ORDER BY rank ASC LIMIT 1',
+        [current.rank]
+      );
+      if (adjacentResult.rows.length === 0) {
+        // Already at the boundary, nothing to do
+        return false;
+      }
+      const adjacent = adjacentResult.rows[0];
+
+      // Swap ranks
+      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [adjacent.rank, current.id]);
+      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [current.rank, adjacent.id]);
+
       await logAudit(
-        context.user?.userId ?? null,
-        'MOVIE_DELETE',
+        context.user.userId,
+        'MOVIE_REORDER',
         'movie',
-        id,
-        null,
+        String(current.id),
+        { title: current.title, direction },
         context.ipAddress ?? 'unknown'
       );
-      return (result.rowCount ?? 0) > 0;
+      return true;
     },
     login: async (
       _: any,
