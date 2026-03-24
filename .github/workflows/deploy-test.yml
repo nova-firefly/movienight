@@ -41,6 +41,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            REACT_APP_GIT_BRANCH=${{ github.ref_name }}
+            REACT_APP_GIT_HASH=${{ github.sha }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5
