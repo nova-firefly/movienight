@@ -3,6 +3,7 @@ import { Box, Tabs, TabList, Tab, TabPanel, Typography } from '@mui/joy';
 import { UserManagement } from './UserManagement';
 import { AuditLog } from './AuditLog';
 import { LoginHistory } from './LoginHistory';
+import { KometaExport } from './KometaExport';
 
 export const AdminPanel: React.FC = () => {
   return (
@@ -71,6 +72,20 @@ export const AdminPanel: React.FC = () => {
           >
             Login History
           </Tab>
+          <Tab
+            value="kometa"
+            sx={{
+              borderRadius: 'xs',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              '&[aria-selected="true"]': {
+                bgcolor: 'background.level2',
+                color: 'primary.400',
+              },
+            }}
+          >
+            Kometa Export
+          </Tab>
         </TabList>
         <TabPanel value="users" sx={{ p: 0 }}>
           <UserManagement />
@@ -80,6 +95,9 @@ export const AdminPanel: React.FC = () => {
         </TabPanel>
         <TabPanel value="logins" sx={{ p: 0 }}>
           <LoginHistory />
+        </TabPanel>
+        <TabPanel value="kometa" sx={{ p: 0 }}>
+          <KometaExport />
         </TabPanel>
       </Tabs>
     </Box>
