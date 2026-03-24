@@ -42,9 +42,9 @@ export const DELETE_MOVIE = gql`
   }
 `;
 
-export const MOVE_MOVIE = gql`
-  mutation MoveMovie($id: ID!, $direction: String!) {
-    moveMovie(id: $id, direction: $direction)
+export const REORDER_MOVIE = gql`
+  mutation ReorderMovie($id: ID!, $afterId: ID) {
+    reorderMovie(id: $id, afterId: $afterId)
   }
 `;
 

@@ -209,15 +209,10 @@ export const resolvers = {
       }
       return (result.rowCount ?? 0) > 0;
     },
-    moveMovie: async (_: any, { id, direction }: { id: string; direction: string }, context: any) => {
+    reorderMovie: async (_: any, { id, afterId }: { id: string; afterId?: string | null }, context: any) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
           extensions: { code: 'FORBIDDEN' },
-        });
-      }
-      if (direction !== 'up' && direction !== 'down') {
-        throw new GraphQLError('direction must be "up" or "down"', {
-          extensions: { code: 'BAD_USER_INPUT' },
         });
       }
 
@@ -229,29 +224,38 @@ export const resolvers = {
       }
       const current = currentResult.rows[0];
 
-      // Find adjacent movie in the requested direction
-      const adjacentResult = await pool.query(
-        direction === 'up'
-          ? 'SELECT id, rank FROM movies WHERE rank < $1 ORDER BY rank DESC LIMIT 1'
-          : 'SELECT id, rank FROM movies WHERE rank > $1 ORDER BY rank ASC LIMIT 1',
-        [current.rank]
+      // Fetch all other movies ordered by rank to compute new rank via fractional indexing
+      const othersResult = await pool.query(
+        'SELECT id, rank FROM movies WHERE id != $1 ORDER BY rank ASC',
+        [id]
       );
-      if (adjacentResult.rows.length === 0) {
-        // Already at the boundary, nothing to do
-        return false;
-      }
-      const adjacent = adjacentResult.rows[0];
+      const others = othersResult.rows;
 
-      // Swap ranks
-      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [adjacent.rank, current.id]);
-      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [current.rank, adjacent.id]);
+      let newRank: number;
+      if (!afterId) {
+        // Move to the very beginning
+        const first = others[0];
+        newRank = first ? Number(first.rank) / 2 : 1;
+      } else {
+        const afterIndex = others.findIndex((m: any) => String(m.id) === String(afterId));
+        if (afterIndex === -1) {
+          throw new GraphQLError('afterId not found', {
+            extensions: { code: 'BAD_USER_INPUT' },
+          });
+        }
+        const afterRank = Number(others[afterIndex].rank);
+        const nextItem = others[afterIndex + 1];
+        newRank = nextItem ? (afterRank + Number(nextItem.rank)) / 2 : afterRank + 1;
+      }
+
+      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [newRank, id]);
 
       await logAudit(
         context.user.userId,
         'MOVIE_REORDER',
         'movie',
         String(current.id),
-        { title: current.title, direction },
+        { title: current.title, afterId: afterId ?? null },
         context.ipAddress ?? 'unknown'
       );
       return true;
