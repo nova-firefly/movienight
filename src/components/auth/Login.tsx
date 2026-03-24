@@ -37,6 +37,8 @@ export const Login: React.FC = () => {
           setError('Incorrect username or password.');
         } else if (code === 'FORBIDDEN') {
           setError('Your account has been disabled. Please contact an administrator.');
+        } else if (code === 'INTERNAL_SERVER_ERROR') {
+          setError('Server is temporarily unavailable. Please try again in a moment.');
         } else {
           setError('Login failed. Please try again.');
         }
