@@ -31,8 +31,11 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
 
   const current = movies[index];
 
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   const [searchTmdb, { loading: searching }] = useLazyQuery(SEARCH_TMDB, {
-    onCompleted: (d) => setResults(d.searchTmdb || []),
+    onCompleted: (d) => { setResults(d.searchTmdb || []); setSearchError(null); },
+    onError: (e) => setSearchError(e.message),
     fetchPolicy: "network-only",
   });
 
@@ -43,6 +46,7 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
   useEffect(() => {
     if (current) {
       setResults([]);
+      setSearchError(null);
       searchTmdb({ variables: { query: current.title } });
     }
   }, [current, searchTmdb]);
@@ -97,6 +101,10 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
               <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
                 <CircularProgress size="sm" />
               </Box>
+            ) : searchError ? (
+              <Typography level="body-sm" sx={{ color: "danger.400", py: 2, textAlign: "center" }}>
+                Search failed: {searchError}
+              </Typography>
             ) : results.length === 0 ? (
               <Typography level="body-sm" sx={{ color: "text.tertiary", py: 2, textAlign: "center" }}>
                 No results found.

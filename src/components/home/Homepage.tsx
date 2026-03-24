@@ -232,6 +232,7 @@ const HomePage: React.FC = () => {
 
   const [searchTmdb] = useLazyQuery(SEARCH_TMDB, {
     onCompleted: (d) => setTmdbOptions(d.searchTmdb || []),
+    onError: () => setTmdbOptions([]),
   });
 
   useEffect(() => {
