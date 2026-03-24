@@ -149,7 +149,12 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      const requester = context.user.username;
+      const userRow = await pool.query(
+        'SELECT username, display_name FROM users WHERE id = $1',
+        [context.user.userId]
+      );
+      const requester =
+        userRow.rows[0]?.display_name || userRow.rows[0]?.username || context.user.username;
       const maxRankResult = await pool.query(
         'SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies'
       );
