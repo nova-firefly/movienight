@@ -62,6 +62,7 @@ export const GET_ME = gql`
       id
       username
       email
+      display_name
       is_admin
       created_at
       updated_at
@@ -75,6 +76,7 @@ export const GET_USERS = gql`
       id
       username
       email
+      display_name
       is_admin
       created_at
       updated_at
@@ -83,11 +85,12 @@ export const GET_USERS = gql`
 `;
 
 export const CREATE_USER = gql`
-  mutation CreateUser($username: String!, $email: String!, $password: String!, $is_admin: Boolean) {
-    createUser(username: $username, email: $email, password: $password, is_admin: $is_admin) {
+  mutation CreateUser($username: String!, $email: String!, $password: String!, $display_name: String, $is_admin: Boolean) {
+    createUser(username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin) {
       id
       username
       email
+      display_name
       is_admin
       created_at
       updated_at
@@ -96,11 +99,12 @@ export const CREATE_USER = gql`
 `;
 
 export const UPDATE_USER = gql`
-  mutation UpdateUser($id: ID!, $username: String, $email: String, $password: String, $is_admin: Boolean) {
-    updateUser(id: $id, username: $username, email: $email, password: $password, is_admin: $is_admin) {
+  mutation UpdateUser($id: ID!, $username: String, $email: String, $password: String, $display_name: String, $is_admin: Boolean) {
+    updateUser(id: $id, username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin) {
       id
       username
       email
+      display_name
       is_admin
       created_at
       updated_at

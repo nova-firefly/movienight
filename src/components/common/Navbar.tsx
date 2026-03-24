@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {isAuthenticated ? (
           <>
             <Typography level="body-sm">
-              Welcome, {user?.username} {user?.is_admin && '(Admin)'}
+              Welcome, {user?.display_name || user?.username} {user?.is_admin && '(Admin)'}
             </Typography>
             <Button variant="outlined" color="neutral" onClick={logout}>
               Logout

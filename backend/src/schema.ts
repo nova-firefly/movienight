@@ -11,6 +11,7 @@ export const typeDefs = `#graphql
     id: ID!
     username: String!
     email: String!
+    display_name: String
     is_admin: Boolean!
     created_at: String!
     updated_at: String!
@@ -33,8 +34,8 @@ export const typeDefs = `#graphql
     addMovie(title: String!): Movie!
     deleteMovie(id: ID!): Boolean!
     login(username: String!, password: String!): AuthPayload!
-    createUser(username: String!, email: String!, password: String!, is_admin: Boolean): User!
-    updateUser(id: ID!, username: String, email: String, password: String, is_admin: Boolean): User!
+    createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean): User!
+    updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean): User!
     deleteUser(id: ID!): Boolean!
   }
 `;

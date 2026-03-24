@@ -24,6 +24,7 @@ export const UserManagement: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
+    display_name: '',
     password: '',
     is_admin: false,
   });
@@ -58,6 +59,7 @@ export const UserManagement: React.FC = () => {
       setFormData({
         username: user.username,
         email: user.email,
+        display_name: user.display_name || '',
         password: '',
         is_admin: user.is_admin,
       });
@@ -66,6 +68,7 @@ export const UserManagement: React.FC = () => {
       setFormData({
         username: '',
         email: '',
+        display_name: '',
         password: '',
         is_admin: false,
       });
@@ -80,6 +83,7 @@ export const UserManagement: React.FC = () => {
     setFormData({
       username: '',
       email: '',
+      display_name: '',
       password: '',
       is_admin: false,
     });
@@ -95,6 +99,7 @@ export const UserManagement: React.FC = () => {
         const variables: any = { id: editingUser.id };
         if (formData.username !== editingUser.username) variables.username = formData.username;
         if (formData.email !== editingUser.email) variables.email = formData.email;
+        if (formData.display_name !== (editingUser.display_name || '')) variables.display_name = formData.display_name || null;
         if (formData.password) variables.password = formData.password;
         if (formData.is_admin !== editingUser.is_admin) variables.is_admin = formData.is_admin;
 
@@ -104,7 +109,7 @@ export const UserManagement: React.FC = () => {
           setError('Password is required for new users');
           return;
         }
-        await createUser({ variables: formData });
+        await createUser({ variables: { ...formData, display_name: formData.display_name || null } });
       }
     } catch (err) {
       // Error is handled by onError callback
@@ -131,6 +136,7 @@ export const UserManagement: React.FC = () => {
           <thead>
             <tr>
               <th>Username</th>
+              <th>Display Name</th>
               <th>Email</th>
               <th>Admin</th>
               <th>Created</th>
@@ -141,6 +147,7 @@ export const UserManagement: React.FC = () => {
             {data?.users.map((user: User) => (
               <tr key={user.id}>
                 <td>{user.username}</td>
+                <td>{user.display_name || <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>—</Typography>}</td>
                 <td>{user.email}</td>
                 <td>{user.is_admin ? 'Yes' : 'No'}</td>
                 <td>{new Date(user.created_at!).toLocaleDateString()}</td>
@@ -172,6 +179,15 @@ export const UserManagement: React.FC = () => {
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 required
+              />
+            </FormControl>
+
+            <FormControl sx={{ mb: 2 }}>
+              <FormLabel>Display Name</FormLabel>
+              <Input
+                value={formData.display_name}
+                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                placeholder="Optional — shown in place of username"
               />
             </FormControl>
 

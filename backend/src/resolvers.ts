@@ -25,7 +25,7 @@ export const resolvers = {
         });
       }
       const result = await pool.query(
-        'SELECT id, username, email, is_admin, created_at, updated_at FROM users WHERE id = $1',
+        'SELECT id, username, email, display_name, is_admin, created_at, updated_at FROM users WHERE id = $1',
         [context.user.userId]
       );
       return result.rows[0];
@@ -37,7 +37,7 @@ export const resolvers = {
         });
       }
       const result = await pool.query(
-        'SELECT id, username, email, is_admin, created_at, updated_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, display_name, is_admin, created_at, updated_at FROM users ORDER BY created_at DESC'
       );
       return result.rows;
     },
@@ -48,7 +48,7 @@ export const resolvers = {
         });
       }
       const result = await pool.query(
-        'SELECT id, username, email, is_admin, created_at, updated_at FROM users WHERE id = $1',
+        'SELECT id, username, email, display_name, is_admin, created_at, updated_at FROM users WHERE id = $1',
         [id]
       );
       return result.rows[0];
@@ -106,6 +106,7 @@ export const resolvers = {
         id: user.id,
         username: user.username,
         email: user.email,
+        display_name: user.display_name,
         is_admin: user.is_admin,
         created_at: user.created_at,
         updated_at: user.updated_at,
@@ -123,8 +124,8 @@ export const resolvers = {
 
       const passwordHash = await hashPassword(args.password);
       const result = await pool.query(
-        'INSERT INTO users (username, email, password_hash, is_admin) VALUES ($1, $2, $3, $4) RETURNING id, username, email, is_admin, created_at, updated_at',
-        [args.username, args.email, passwordHash, args.is_admin || false]
+        'INSERT INTO users (username, email, password_hash, display_name, is_admin) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, display_name, is_admin, created_at, updated_at',
+        [args.username, args.email, passwordHash, args.display_name || null, args.is_admin || false]
       );
       return result.rows[0];
     },
@@ -152,6 +153,10 @@ export const resolvers = {
         updates.push(`password_hash = $${paramCount++}`);
         values.push(passwordHash);
       }
+      if (args.display_name !== undefined) {
+        updates.push(`display_name = $${paramCount++}`);
+        values.push(args.display_name || null);
+      }
       if (args.is_admin !== undefined) {
         updates.push(`is_admin = $${paramCount++}`);
         values.push(args.is_admin);
@@ -161,7 +166,7 @@ export const resolvers = {
       values.push(args.id);
 
       const result = await pool.query(
-        `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING id, username, email, is_admin, created_at, updated_at`,
+        `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING id, username, email, display_name, is_admin, created_at, updated_at`,
         values
       );
       return result.rows[0];
