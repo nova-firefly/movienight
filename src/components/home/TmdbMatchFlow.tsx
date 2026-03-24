@@ -59,8 +59,8 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
     }
   };
 
-  const handlePick = async (tmdbId: number) => {
-    await matchMovie({ variables: { id: current.id, tmdb_id: tmdbId } });
+  const handlePick = async (tmdbId: number, tmdbTitle: string) => {
+    await matchMovie({ variables: { id: current.id, tmdb_id: tmdbId, title: tmdbTitle } });
     advance();
   };
 
@@ -117,7 +117,7 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
                     variant="outlined"
                     color="neutral"
                     disabled={matching}
-                    onClick={() => handlePick(r.tmdb_id)}
+                    onClick={() => handlePick(r.tmdb_id, r.title)}
                     sx={{
                       justifyContent: "flex-start",
                       textAlign: "left",

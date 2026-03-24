@@ -210,7 +210,7 @@ export const resolvers = {
         user_display_name: userRow.rows[0]?.display_name,
       };
     },
-    matchMovie: async (_: any, { id, tmdb_id }: { id: string; tmdb_id: number }, context: any) => {
+    matchMovie: async (_: any, { id, tmdb_id, title }: { id: string; tmdb_id: number; title: string }, context: any) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -235,16 +235,16 @@ export const resolvers = {
         });
       }
       const result = await pool.query(
-        `UPDATE movies SET tmdb_id = $1 WHERE id = $2
+        `UPDATE movies SET tmdb_id = $1, title = $2 WHERE id = $3
          RETURNING *`,
-        [tmdb_id, id]
+        [tmdb_id, title, id]
       );
       await logAudit(
         context.user.userId,
         'MOVIE_TMDB_MATCH',
         'movie',
         String(id),
-        { title: movie.title, tmdb_id },
+        { original_title: movie.title, matched_title: title, tmdb_id },
         context.ipAddress ?? 'unknown'
       );
       return {

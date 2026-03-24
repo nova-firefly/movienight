@@ -51,8 +51,8 @@ export const SEARCH_TMDB = gql`
 `;
 
 export const MATCH_MOVIE = gql`
-  mutation MatchMovie($id: ID!, $tmdb_id: Int!) {
-    matchMovie(id: $id, tmdb_id: $tmdb_id) {
+  mutation MatchMovie($id: ID!, $tmdb_id: Int!, $title: String!) {
+    matchMovie(id: $id, tmdb_id: $tmdb_id, title: $title) {
       id
       title
       requester

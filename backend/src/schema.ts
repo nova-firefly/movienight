@@ -68,7 +68,7 @@ export const typeDefs = `#graphql
 
   type Mutation {
     addMovie(title: String!, tmdb_id: Int): Movie!
-    matchMovie(id: ID!, tmdb_id: Int!): Movie!
+    matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     deleteMovie(id: ID!): Boolean!
     reorderMovie(id: ID!, afterId: ID): Boolean!
     login(username: String!, password: String!): AuthPayload!
