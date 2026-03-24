@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
 import { Autocomplete, AutocompleteOption, Box, Button, Typography, Sheet, Chip, IconButton, ListItemContent } from "@mui/joy";
+import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -220,6 +221,7 @@ const HomePage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [localMovies, setLocalMovies] = useState<Movie[] | null>(null);
+  const [matchFlowOpen, setMatchFlowOpen] = useState(false);
 
   const debouncedTitle = useDebounce(title, 400);
 
@@ -253,6 +255,11 @@ const HomePage: React.FC = () => {
   });
 
   const movies: Movie[] = localMovies ?? data?.movies ?? [];
+
+  // Movies without a TMDB match that the current user is allowed to act on
+  const unmatchedMovies = movies.filter((m) => !m.tmdb_id && (
+    isAdmin || (user && String(m.requested_by) === String(user.id))
+  ));
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -418,6 +425,26 @@ const HomePage: React.FC = () => {
               </Typography>
             )}
           </Box>
+        )}
+
+        {/* TMDB match flow */}
+        {isAuthenticated && unmatchedMovies.length > 0 && (
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Button
+              variant="outlined"
+              color="neutral"
+              size="sm"
+              onClick={() => setMatchFlowOpen(true)}
+            >
+              Match {unmatchedMovies.length} unmatched movie{unmatchedMovies.length !== 1 ? "s" : ""} with TMDB
+            </Button>
+          </Box>
+        )}
+        {matchFlowOpen && (
+          <TmdbMatchFlow
+            movies={unmatchedMovies}
+            onClose={() => setMatchFlowOpen(false)}
+          />
         )}
 
         {/* Unauthenticated prompt */}

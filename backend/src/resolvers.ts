@@ -210,6 +210,49 @@ export const resolvers = {
         user_display_name: userRow.rows[0]?.display_name,
       };
     },
+    matchMovie: async (_: any, { id, tmdb_id }: { id: string; tmdb_id: number }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const movieResult = await pool.query(
+        `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         WHERE m.id = $1`,
+        [id]
+      );
+      const movie = movieResult.rows[0];
+      if (!movie) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (!context.user.isAdmin && movie.requested_by !== context.user.userId) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const result = await pool.query(
+        `UPDATE movies SET tmdb_id = $1 WHERE id = $2
+         RETURNING *`,
+        [tmdb_id, id]
+      );
+      await logAudit(
+        context.user.userId,
+        'MOVIE_TMDB_MATCH',
+        'movie',
+        String(id),
+        { title: movie.title, tmdb_id },
+        context.ipAddress ?? 'unknown'
+      );
+      return {
+        ...result.rows[0],
+        user_username: movie.user_username,
+        user_display_name: movie.user_display_name,
+      };
+    },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
