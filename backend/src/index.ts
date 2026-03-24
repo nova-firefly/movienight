@@ -27,7 +27,12 @@ async function startServer() {
       context: async ({ req }) => {
         const token = getTokenFromHeader(req.headers.authorization);
         const user = token ? verifyToken(token) : null;
-        return { user };
+        const ipAddress =
+          (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+          req.ip ||
+          'unknown';
+        const userAgent = (req.headers['user-agent'] as string) || 'unknown';
+        return { user, ipAddress, userAgent };
       },
     })
   );

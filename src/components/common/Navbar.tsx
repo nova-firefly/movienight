@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography, Sheet } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
+import { getGravatarUrl } from '../../utils/gravatar';
 
 interface NavbarProps {
   showUserManagement: boolean;
@@ -49,6 +50,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         {isAuthenticated ? (
           <>
+            {user?.email && (
+              <img
+                src={getGravatarUrl(user.email, 32)}
+                alt="avatar"
+                style={{ width: 32, height: 32, borderRadius: '50%' }}
+              />
+            )}
             <Typography level="body-sm">
               Welcome, {user?.display_name || user?.username} {user?.is_admin && '(Admin)'}
             </Typography>

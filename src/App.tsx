@@ -2,7 +2,7 @@ import React from "react";
 import { Box, Typography } from '@mui/joy';
 import HomePage from "./components/home/Homepage";
 import { Login } from "./components/auth/Login";
-import { UserManagement } from "./components/admin/UserManagement";
+import { AdminPanel } from "./components/admin/AdminPanel";
 import { Navbar } from "./components/common/Navbar";
 import { Footer } from "./components/common/Footer";
 import { useAuth } from "./contexts/AuthContext";
@@ -35,7 +35,7 @@ const App = () => {
 
       {showUserManagement && user?.is_admin ? (
         <Box sx={{ p: 3 }}>
-          <UserManagement />
+          <AdminPanel />
         </Box>
       ) : (
         <HomePage />

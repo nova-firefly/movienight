@@ -13,10 +13,11 @@ import {
   Input,
   Checkbox,
   Alert,
-  IconButton,
+  Chip,
 } from '@mui/joy';
 import { GET_USERS, CREATE_USER, UPDATE_USER, DELETE_USER } from '../../graphql/queries';
 import { User } from '../../models/User';
+import { getGravatarUrl } from '../../utils/gravatar';
 
 export const UserManagement: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -27,6 +28,7 @@ export const UserManagement: React.FC = () => {
     display_name: '',
     password: '',
     is_admin: false,
+    is_active: true,
   });
   const [error, setError] = useState('');
 
@@ -62,6 +64,7 @@ export const UserManagement: React.FC = () => {
         display_name: user.display_name || '',
         password: '',
         is_admin: user.is_admin,
+        is_active: user.is_active,
       });
     } else {
       setEditingUser(null);
@@ -71,6 +74,7 @@ export const UserManagement: React.FC = () => {
         display_name: '',
         password: '',
         is_admin: false,
+        is_active: true,
       });
     }
     setError('');
@@ -86,6 +90,7 @@ export const UserManagement: React.FC = () => {
       display_name: '',
       password: '',
       is_admin: false,
+      is_active: true,
     });
     setError('');
   };
@@ -99,9 +104,11 @@ export const UserManagement: React.FC = () => {
         const variables: any = { id: editingUser.id };
         if (formData.username !== editingUser.username) variables.username = formData.username;
         if (formData.email !== editingUser.email) variables.email = formData.email;
-        if (formData.display_name !== (editingUser.display_name || '')) variables.display_name = formData.display_name || null;
+        if (formData.display_name !== (editingUser.display_name || ''))
+          variables.display_name = formData.display_name || null;
         if (formData.password) variables.password = formData.password;
         if (formData.is_admin !== editingUser.is_admin) variables.is_admin = formData.is_admin;
+        if (formData.is_active !== editingUser.is_active) variables.is_active = formData.is_active;
 
         await updateUser({ variables });
       } else {
@@ -109,7 +116,12 @@ export const UserManagement: React.FC = () => {
           setError('Password is required for new users');
           return;
         }
-        await createUser({ variables: { ...formData, display_name: formData.display_name || null } });
+        await createUser({
+          variables: {
+            ...formData,
+            display_name: formData.display_name || null,
+          },
+        });
       }
     } catch (err) {
       // Error is handled by onError callback
@@ -135,28 +147,65 @@ export const UserManagement: React.FC = () => {
         <Table>
           <thead>
             <tr>
+              <th style={{ width: 40 }}></th>
               <th>Username</th>
               <th>Display Name</th>
               <th>Email</th>
-              <th>Admin</th>
-              <th>Created</th>
+              <th style={{ width: 70 }}>Admin</th>
+              <th style={{ width: 80 }}>Status</th>
+              <th style={{ width: 110 }}>Last Login</th>
+              <th style={{ width: 100 }}>Created</th>
               <th style={{ width: 120 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {data?.users.map((user: User) => (
               <tr key={user.id}>
+                <td>
+                  <img
+                    src={getGravatarUrl(user.email, 28)}
+                    alt=""
+                    style={{ width: 28, height: 28, borderRadius: '50%', display: 'block' }}
+                  />
+                </td>
                 <td>{user.username}</td>
-                <td>{user.display_name || <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>—</Typography>}</td>
+                <td>
+                  {user.display_name || (
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                      —
+                    </Typography>
+                  )}
+                </td>
                 <td>{user.email}</td>
                 <td>{user.is_admin ? 'Yes' : 'No'}</td>
+                <td>
+                  <Chip
+                    size="sm"
+                    color={user.is_active ? 'success' : 'neutral'}
+                    variant="soft"
+                  >
+                    {user.is_active ? 'Active' : 'Suspended'}
+                  </Chip>
+                </td>
+                <td>
+                  <Typography level="body-xs">
+                    {user.last_login_at
+                      ? new Date(user.last_login_at).toLocaleDateString()
+                      : '—'}
+                  </Typography>
+                </td>
                 <td>{new Date(user.created_at!).toLocaleDateString()}</td>
                 <td>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button size="sm" variant="soft" onClick={() => handleOpen(user)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="soft" color="danger" onClick={() => handleDelete(user.id)}>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      color="danger"
+                      onClick={() => handleDelete(user.id)}
+                    >
                       Delete
                     </Button>
                   </Box>
@@ -168,7 +217,7 @@ export const UserManagement: React.FC = () => {
       </Sheet>
 
       <Modal open={open} onClose={handleClose}>
-        <ModalDialog>
+        <ModalDialog sx={{ minWidth: 400 }}>
           <Typography level="h4" sx={{ mb: 2 }}>
             {editingUser ? 'Edit User' : 'Create User'}
           </Typography>
@@ -211,13 +260,22 @@ export const UserManagement: React.FC = () => {
               />
             </FormControl>
 
-            <FormControl sx={{ mb: 2 }}>
-              <Checkbox
-                label="Is Admin"
-                checked={formData.is_admin}
-                onChange={(e) => setFormData({ ...formData, is_admin: e.target.checked })}
-              />
-            </FormControl>
+            <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
+              <FormControl>
+                <Checkbox
+                  label="Is Admin"
+                  checked={formData.is_admin}
+                  onChange={(e) => setFormData({ ...formData, is_admin: e.target.checked })}
+                />
+              </FormControl>
+              <FormControl>
+                <Checkbox
+                  label="Active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                />
+              </FormControl>
+            </Box>
 
             {error && (
               <Alert color="danger" sx={{ mb: 2 }}>

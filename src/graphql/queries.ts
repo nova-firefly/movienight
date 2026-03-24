@@ -50,7 +50,9 @@ export const LOGIN = gql`
         id
         username
         email
+        display_name
         is_admin
+        is_active
       }
     }
   }
@@ -64,6 +66,8 @@ export const GET_ME = gql`
       email
       display_name
       is_admin
+      is_active
+      last_login_at
       created_at
       updated_at
     }
@@ -78,6 +82,8 @@ export const GET_USERS = gql`
       email
       display_name
       is_admin
+      is_active
+      last_login_at
       created_at
       updated_at
     }
@@ -85,13 +91,15 @@ export const GET_USERS = gql`
 `;
 
 export const CREATE_USER = gql`
-  mutation CreateUser($username: String!, $email: String!, $password: String!, $display_name: String, $is_admin: Boolean) {
-    createUser(username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin) {
+  mutation CreateUser($username: String!, $email: String!, $password: String!, $display_name: String, $is_admin: Boolean, $is_active: Boolean) {
+    createUser(username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin, is_active: $is_active) {
       id
       username
       email
       display_name
       is_admin
+      is_active
+      last_login_at
       created_at
       updated_at
     }
@@ -99,13 +107,15 @@ export const CREATE_USER = gql`
 `;
 
 export const UPDATE_USER = gql`
-  mutation UpdateUser($id: ID!, $username: String, $email: String, $password: String, $display_name: String, $is_admin: Boolean) {
-    updateUser(id: $id, username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin) {
+  mutation UpdateUser($id: ID!, $username: String, $email: String, $password: String, $display_name: String, $is_admin: Boolean, $is_active: Boolean) {
+    updateUser(id: $id, username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin, is_active: $is_active) {
       id
       username
       email
       display_name
       is_admin
+      is_active
+      last_login_at
       created_at
       updated_at
     }
@@ -115,5 +125,35 @@ export const UPDATE_USER = gql`
 export const DELETE_USER = gql`
   mutation DeleteUser($id: ID!) {
     deleteUser(id: $id)
+  }
+`;
+
+export const GET_AUDIT_LOGS = gql`
+  query GetAuditLogs($limit: Int, $offset: Int) {
+    auditLogs(limit: $limit, offset: $offset) {
+      id
+      actor_id
+      actor_username
+      action
+      target_type
+      target_id
+      metadata
+      ip_address
+      created_at
+    }
+  }
+`;
+
+export const GET_LOGIN_HISTORY = gql`
+  query GetLoginHistory($userId: ID, $limit: Int) {
+    loginHistory(userId: $userId, limit: $limit) {
+      id
+      user_id
+      username
+      ip_address
+      user_agent
+      succeeded
+      created_at
+    }
   }
 `;
