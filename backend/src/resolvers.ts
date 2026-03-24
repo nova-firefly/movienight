@@ -42,6 +42,28 @@ async function logLoginHistory(
 
 export const resolvers = {
   Query: {
+    searchTmdb: async (_: any, { query }: { query: string }) => {
+      const apiKey = process.env.TMDB_API_KEY;
+      if (!apiKey) {
+        throw new GraphQLError('TMDB API key not configured', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new GraphQLError('TMDB search failed', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      const data = await response.json() as any;
+      return (data.results as any[]).slice(0, 10).map((movie: any) => ({
+        tmdb_id: movie.id,
+        title: movie.title,
+        release_year: movie.release_date ? movie.release_date.split('-')[0] : null,
+        overview: movie.overview || null,
+      }));
+    },
     movies: async () => {
       const result = await pool.query(
         `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
@@ -154,7 +176,7 @@ export const resolvers = {
     },
   },
   Mutation: {
-    addMovie: async (_: any, { title }: { title: string }, context: any) => {
+    addMovie: async (_: any, { title, tmdb_id }: { title: string; tmdb_id?: number }, context: any) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -165,8 +187,8 @@ export const resolvers = {
       );
       const newRank = Number(maxRankResult.rows[0].max_rank) + 1;
       const insertResult = await pool.query(
-        'INSERT INTO movies (title, requested_by, rank) VALUES ($1, $2, $3) RETURNING *',
-        [title, context.user.userId, newRank]
+        'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [title, context.user.userId, newRank, tmdb_id ?? null]
       );
       const userRow = await pool.query(
         'SELECT username, display_name FROM users WHERE id = $1',
@@ -186,6 +208,49 @@ export const resolvers = {
         ...insertResult.rows[0],
         user_username: userRow.rows[0]?.username,
         user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
+    matchMovie: async (_: any, { id, tmdb_id, title }: { id: string; tmdb_id: number; title: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const movieResult = await pool.query(
+        `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         WHERE m.id = $1`,
+        [id]
+      );
+      const movie = movieResult.rows[0];
+      if (!movie) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (!context.user.isAdmin && movie.requested_by !== context.user.userId) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const result = await pool.query(
+        `UPDATE movies SET tmdb_id = $1, title = $2 WHERE id = $3
+         RETURNING *`,
+        [tmdb_id, title, id]
+      );
+      await logAudit(
+        context.user.userId,
+        'MOVIE_TMDB_MATCH',
+        'movie',
+        String(id),
+        { original_title: movie.title, matched_title: title, tmdb_id },
+        context.ipAddress ?? 'unknown'
+      );
+      return {
+        ...result.rows[0],
+        user_username: movie.user_username,
+        user_display_name: movie.user_display_name,
       };
     },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {

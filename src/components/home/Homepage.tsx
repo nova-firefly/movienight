@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { useQuery, useMutation } from "@apollo/client";
-import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, REORDER_MOVIE } from "../../graphql/queries";
-import { Box, Button, Input, Typography, Sheet, Chip, IconButton } from "@mui/joy";
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
+import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
+import { Autocomplete, AutocompleteOption, Box, Button, Typography, Sheet, Chip, IconButton, ListItemContent } from "@mui/joy";
+import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -152,6 +153,20 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelet
         </Typography>
       </td>
 
+      {/* TMDB */}
+      <td style={{ verticalAlign: "middle", padding: "12px 8px", textAlign: "center" }}>
+        {movie.tmdb_id ? (
+          <a
+            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--joy-palette-primary-500)", fontSize: "0.75rem" }}
+          >
+            ↗
+          </a>
+        ) : null}
+      </td>
+
       {/* Actions */}
       {isAdmin && (
         <td
@@ -181,18 +196,52 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelet
   );
 };
 
+type TmdbOption = {
+  tmdb_id: number;
+  title: string;
+  release_year: string | null;
+  overview: string | null;
+};
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.is_admin ?? false;
   const [title, setTitle] = useState("");
+  const [tmdbId, setTmdbId] = useState<number | null>(null);
+  const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [localMovies, setLocalMovies] = useState<Movie[] | null>(null);
+  const [matchFlowOpen, setMatchFlowOpen] = useState(false);
+
+  const debouncedTitle = useDebounce(title, 400);
 
   const { data } = useQuery(GET_MOVIES, {
     pollInterval: 5000,
     onCompleted: () => setLocalMovies(null),
   });
+
+  const [searchTmdb] = useLazyQuery(SEARCH_TMDB, {
+    onCompleted: (d) => setTmdbOptions(d.searchTmdb || []),
+    onError: () => setTmdbOptions([]),
+  });
+
+  useEffect(() => {
+    if (debouncedTitle.trim().length >= 2) {
+      searchTmdb({ variables: { query: debouncedTitle } });
+    } else {
+      setTmdbOptions([]);
+    }
+  }, [debouncedTitle, searchTmdb]);
 
   const [addMovie] = useMutation(ADD_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
@@ -207,6 +256,11 @@ const HomePage: React.FC = () => {
   });
 
   const movies: Movie[] = localMovies ?? data?.movies ?? [];
+
+  // Movies without a TMDB match that the current user is allowed to act on
+  const unmatchedMovies = movies.filter((m) => !m.tmdb_id && (
+    isAdmin || (user && String(m.requested_by) === String(user.id))
+  ));
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -244,9 +298,11 @@ const HomePage: React.FC = () => {
       return;
     }
     try {
-      await addMovie({ variables: { title: title.trim() } });
+      await addMovie({ variables: { title: title.trim(), tmdb_id: tmdbId } });
       setSuccessMessage("Added to the list!");
       setTitle("");
+      setTmdbId(null);
+      setTmdbOptions([]);
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error: any) {
       setErrorMessage(`Error: ${error.message}`);
@@ -295,11 +351,36 @@ const HomePage: React.FC = () => {
                   mx: "auto",
                 }}
               >
-                <Input
-                  type="text"
+                <Autocomplete
+                  freeSolo
+                  options={tmdbOptions}
+                  getOptionLabel={(option) =>
+                    typeof option === "string"
+                      ? option
+                      : option.release_year
+                      ? `${option.title} (${option.release_year})`
+                      : option.title
+                  }
+                  inputValue={title}
+                  onInputChange={(_, value) => {
+                    setTitle(value);
+                    if (!value) setTmdbId(null);
+                  }}
+                  onChange={(_, value) => {
+                    if (value && typeof value !== "string") {
+                      setTitle(value.title);
+                      setTmdbId(value.tmdb_id);
+                    }
+                  }}
+                  renderOption={(props, option) => (
+                    <AutocompleteOption {...props} key={option.tmdb_id}>
+                      <ListItemContent>
+                        <strong>{option.title}</strong>
+                        {option.release_year && ` (${option.release_year})`}
+                      </ListItemContent>
+                    </AutocompleteOption>
+                  )}
                   placeholder="Suggest a movie title..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
                   sx={{
                     flex: 1,
                     bgcolor: "background.surface",
@@ -345,6 +426,26 @@ const HomePage: React.FC = () => {
               </Typography>
             )}
           </Box>
+        )}
+
+        {/* TMDB match flow */}
+        {isAuthenticated && unmatchedMovies.length > 0 && (
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Button
+              variant="outlined"
+              color="neutral"
+              size="sm"
+              onClick={() => setMatchFlowOpen(true)}
+            >
+              Match {unmatchedMovies.length} unmatched movie{unmatchedMovies.length !== 1 ? "s" : ""} with TMDB
+            </Button>
+          </Box>
+        )}
+        {matchFlowOpen && (
+          <TmdbMatchFlow
+            movies={unmatchedMovies}
+            onClose={() => setMatchFlowOpen(false)}
+          />
         )}
 
         {/* Unauthenticated prompt */}
@@ -435,6 +536,19 @@ const HomePage: React.FC = () => {
                   >
                     Added
                   </th>
+                  <th
+                    style={{
+                      padding: "10px 8px",
+                      textAlign: "center",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "var(--mn-text-muted)",
+                    }}
+                  >
+                    TMDB
+                  </th>
                   {isAdmin && (
                     <th
                       style={{
@@ -463,7 +577,7 @@ const HomePage: React.FC = () => {
                     {movies.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={isAdmin ? 6 : 4}
+                          colSpan={isAdmin ? 7 : 5}
                           style={{
                             padding: "48px 16px",
                             textAlign: "center",
