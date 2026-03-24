@@ -55,7 +55,14 @@ export const resolvers = {
     },
   },
   Mutation: {
-    addMovie: async (_: any, { title, requester }: { title: string; requester: string }) => {
+    addMovie: async (_: any, { title }: { title: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const requester = context.user.username;
+
       // Get the current max rank and add 1 to place new movie at the bottom
       const maxRankResult = await pool.query(
         'SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies'

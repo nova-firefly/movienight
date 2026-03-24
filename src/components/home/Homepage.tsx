@@ -17,7 +17,6 @@ const StyledApp = styled.body`
 const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [title, setTitle] = useState("");
-  const [requester, setRequester] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -33,14 +32,13 @@ const HomePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (title && requester) {
+    if (title) {
       try {
         await addMovie({
-          variables: { title, requester },
+          variables: { title },
         });
         setSuccessMessage("Movie suggestion added successfully!");
         setTitle("");
-        setRequester("");
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
@@ -68,12 +66,6 @@ const HomePage: React.FC = () => {
                   placeholder="Title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                />
-                <Input
-                  type="text"
-                  placeholder="Requester"
-                  value={requester}
-                  onChange={(e) => setRequester(e.target.value)}
                 />
                 <Button type="submit">Submit</Button>
               </Stack>
