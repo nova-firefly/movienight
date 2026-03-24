@@ -43,11 +43,22 @@ async function logLoginHistory(
 export const resolvers = {
   Query: {
     movies: async () => {
-      const result = await pool.query('SELECT * FROM movies ORDER BY rank ASC');
+      const result = await pool.query(
+        `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         ORDER BY m.rank ASC`
+      );
       return result.rows;
     },
     movie: async (_: any, { id }: { id: string }) => {
-      const result = await pool.query('SELECT * FROM movies WHERE id = $1', [id]);
+      const result = await pool.query(
+        `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         WHERE m.id = $1`,
+        [id]
+      );
       return result.rows[0];
     },
     me: async (_: any, __: any, context: any) => {
@@ -149,29 +160,33 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      const userRow = await pool.query(
-        'SELECT username, display_name FROM users WHERE id = $1',
-        [context.user.userId]
-      );
-      const requester =
-        userRow.rows[0]?.display_name || userRow.rows[0]?.username || context.user.username;
       const maxRankResult = await pool.query(
         'SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies'
       );
       const newRank = Number(maxRankResult.rows[0].max_rank) + 1;
-      const result = await pool.query(
-        'INSERT INTO movies (title, requester, rank) VALUES ($1, $2, $3) RETURNING *',
-        [title, requester, newRank]
+      const insertResult = await pool.query(
+        'INSERT INTO movies (title, requested_by, rank) VALUES ($1, $2, $3) RETURNING *',
+        [title, context.user.userId, newRank]
       );
+      const userRow = await pool.query(
+        'SELECT username, display_name FROM users WHERE id = $1',
+        [context.user.userId]
+      );
+      const requesterName =
+        userRow.rows[0]?.display_name || userRow.rows[0]?.username || context.user.username;
       await logAudit(
         context.user.userId,
         'MOVIE_ADD',
         'movie',
-        String(result.rows[0].id),
-        { title, requester },
+        String(insertResult.rows[0].id),
+        { title, requester: requesterName },
         context.ipAddress
       );
-      return result.rows[0];
+      return {
+        ...insertResult.rows[0],
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
     },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {
       const result = await pool.query('DELETE FROM movies WHERE id = $1', [id]);
@@ -359,6 +374,12 @@ export const resolvers = {
     },
   },
   Movie: {
+    requester: (parent: any) => {
+      if (parent.requested_by != null) {
+        return parent.user_display_name || parent.user_username || parent.requester || 'Unknown';
+      }
+      return parent.requester || 'Unknown';
+    },
     date_submitted: (parent: any) => {
       const date =
         parent.date_submitted instanceof Date
