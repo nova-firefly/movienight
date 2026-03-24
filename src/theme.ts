@@ -5,7 +5,6 @@ import { extendTheme } from '@mui/joy/styles';
 // Background: deep navy-black (#0d0f1a)
 // Surfaces: layered dark blues (#141624, #1c1f30, #242840)
 const theme = extendTheme({
-  defaultColorScheme: 'dark',
   colorSchemes: {
     dark: {
       palette: {
