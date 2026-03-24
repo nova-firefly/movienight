@@ -95,8 +95,11 @@ jobs:
             # Pull new images
             docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
 
-            # Restart all services with new images; --force-recreate avoids stale container state
-            docker compose -f "$COMPOSE_FILE" up -d --force-recreate
+            # Remove db container to clear any stale overlay2 state; data is safe in named volume
+            docker rm -f movienight-db 2>/dev/null || true
+
+            # Restart all services with new images
+            docker compose -f "$COMPOSE_FILE" up -d
 
             # Clean up dangling images
             docker image prune -f
