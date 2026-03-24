@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { Box, Button, FormControl, FormLabel, Input, Typography, Sheet, Alert } from '@mui/joy';
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  Typography,
+  Alert,
+} from '@mui/joy';
 import { LOGIN } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -23,93 +31,162 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     if (!username || !password) {
       setError('Please enter both username and password');
       return;
     }
-
     try {
-      await loginMutation({
-        variables: { username, password },
-      });
-    } catch (err) {
-      // Error is handled by onError callback
+      await loginMutation({ variables: { username, password } });
+    } catch {
+      // handled by onError
     }
   };
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
         minHeight: '100vh',
+        display: 'flex',
         bgcolor: 'background.body',
       }}
     >
-      <Sheet
-        variant="outlined"
+      {/* Left — branding panel (hidden on small screens) */}
+      <Box
         sx={{
-          maxWidth: 400,
-          width: '100%',
-          mx: 2,
-          py: 3,
-          px: 4,
-          borderRadius: 'sm',
-          boxShadow: 'md',
+          display: { xs: 'none', md: 'flex' },
+          flex: 1,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 2,
+          bgcolor: 'background.surface',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          px: 6,
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <Box sx={{ mb: 3, textAlign: 'center' }}>
-          <Typography level="h3" sx={{ mb: 1 }}>
+        {/* Decorative glow */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '30%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 300,
+            height: 300,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(245,197,24,0.08) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <Typography sx={{ fontSize: '5rem', lineHeight: 1 }}>🎬</Typography>
+        <Typography
+          level="h1"
+          sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'primary.400' }}
+        >
+          MovieNight
+        </Typography>
+        <Typography level="body-lg" sx={{ color: 'text.secondary', maxWidth: 280 }}>
+          Keep track of what to watch next — together.
+        </Typography>
+      </Box>
+
+      {/* Right — login form */}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          px: { xs: 3, sm: 5 },
+          py: 6,
+        }}
+      >
+        {/* Mobile logo */}
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 4, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '3rem', lineHeight: 1 }}>🎬</Typography>
+          <Typography
+            level="h3"
+            sx={{ fontWeight: 800, color: 'primary.400', mt: 1 }}
+          >
             MovieNight
-          </Typography>
-          <Typography level="body-sm" color="neutral">
-            Sign in to continue
           </Typography>
         </Box>
 
-        <form onSubmit={handleSubmit}>
-          <FormControl sx={{ mb: 2 }}>
-            <FormLabel>Username</FormLabel>
-            <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              autoFocus
-              required
-            />
-          </FormControl>
+        <Box sx={{ width: '100%', maxWidth: 380 }}>
+          <Typography level="h3" sx={{ mb: 0.5, fontWeight: 700 }}>
+            Welcome back
+          </Typography>
+          <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 4 }}>
+            Sign in to your account
+          </Typography>
 
-          <FormControl sx={{ mb: 3 }}>
-            <FormLabel>Password</FormLabel>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-            />
-          </FormControl>
+          <form onSubmit={handleSubmit}>
+            <FormControl sx={{ mb: 2 }}>
+              <FormLabel sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
+                Username
+              </FormLabel>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                autoFocus
+                required
+                sx={{
+                  bgcolor: 'background.surface',
+                  '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
+                }}
+              />
+            </FormControl>
 
-          {error && (
-            <Alert color="danger" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+            <FormControl sx={{ mb: 3 }}>
+              <FormLabel sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
+                Password
+              </FormLabel>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                sx={{
+                  bgcolor: 'background.surface',
+                  '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
+                }}
+              />
+            </FormControl>
 
-          <Button type="submit" fullWidth loading={loading}>
-            Sign In
-          </Button>
-        </form>
+            {error && (
+              <Alert color="danger" variant="soft" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography level="body-sm" color="neutral">
+            <Button
+              type="submit"
+              fullWidth
+              loading={loading}
+              color="primary"
+              variant="solid"
+              sx={{ fontWeight: 700, color: '#0d0f1a', py: 1.25 }}
+            >
+              Sign In
+            </Button>
+          </form>
+
+          <Typography
+            level="body-xs"
+            sx={{ mt: 3, textAlign: 'center', color: 'text.tertiary' }}
+          >
             Default credentials: admin / admin123
           </Typography>
         </Box>
-      </Sheet>
+      </Box>
     </Box>
   );
 };
