@@ -6,6 +6,7 @@ import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { initializeDatabase } from './db';
 import { verifyToken, getTokenFromHeader } from './auth';
+import { initScheduler } from './scheduler';
 
 const PORT = process.env.PORT || 4000;
 
@@ -38,6 +39,7 @@ async function startServer() {
   );
 
   await initializeDatabase();
+  await initScheduler();
 
   app.listen(PORT, () => {
     console.log(`🚀 GraphQL server ready at http://localhost:${PORT}/graphql`);
