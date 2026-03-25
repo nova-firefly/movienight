@@ -196,3 +196,14 @@ export const GET_LOGIN_HISTORY = gql`
     }
   }
 `;
+
+export const IMPORT_FROM_LETTERBOXD = gql`
+  mutation ImportFromLetterboxd($url: String!) {
+    importFromLetterboxd(url: $url) {
+      imported
+      skipped
+      tmdb_matched
+      errors
+    }
+  }
+`;

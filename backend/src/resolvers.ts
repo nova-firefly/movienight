@@ -389,6 +389,149 @@ export const resolvers = {
 
       return filePath;
     },
+    importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      // Validate URL is a Letterboxd list
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        throw new GraphQLError('Invalid URL', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      if (parsedUrl.hostname !== 'letterboxd.com' && parsedUrl.hostname !== 'www.letterboxd.com') {
+        throw new GraphQLError('URL must be a letterboxd.com list', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const films: { title: string; year: number | null }[] = [];
+      const errors: string[] = [];
+
+      function decodeEntities(s: string): string {
+        return s
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+      }
+
+      function extractFilms(html: string): { title: string; year: number | null }[] {
+        const found: { title: string; year: number | null }[] = [];
+        // data-item-name="Once Upon a Time... in Hollywood (2019)"
+        for (const m of html.matchAll(/data-item-name="([^"]+)"/g)) {
+          const raw = decodeEntities(m[1]);
+          const yearMatch = raw.match(/\((\d{4})\)$/);
+          const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+          const title = raw.replace(/\s*\(\d{4}\)$/, '').trim();
+          if (title) found.push({ title, year });
+        }
+        return found;
+      }
+
+      // Fetch all pages of the list
+      const baseUrl = url.replace(/\/$/, '');
+      for (let page = 1; page <= 100; page++) {
+        const pageUrl = page === 1 ? `${baseUrl}/` : `${baseUrl}/page/${page}/`;
+        let html: string;
+        try {
+          const response = await fetch(pageUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+            },
+          });
+          if (response.status === 404) break;
+          if (!response.ok) {
+            errors.push(`Page ${page}: HTTP ${response.status}`);
+            break;
+          }
+          html = await response.text();
+        } catch (err: any) {
+          errors.push(`Page ${page}: ${err.message}`);
+          break;
+        }
+
+        const pageFilms = extractFilms(html);
+        if (pageFilms.length === 0) break;
+        films.push(...pageFilms);
+      }
+
+      if (films.length === 0 && errors.length === 0) {
+        errors.push('No films found — check that the URL is a public Letterboxd list');
+      }
+
+      // TMDB lookup helper (best-effort, silently skips if no API key)
+      const tmdbApiKey = process.env.TMDB_API_KEY;
+      async function lookupTmdbId(title: string, year: number | null): Promise<number | null> {
+        if (!tmdbApiKey) return null;
+        try {
+          const params = new URLSearchParams({
+            api_key: tmdbApiKey,
+            query: title,
+            language: 'en-US',
+            page: '1',
+            ...(year ? { year: String(year) } : {}),
+          });
+          const res = await fetch(`https://api.themoviedb.org/3/search/movie?${params}`);
+          if (!res.ok) return null;
+          const data = await res.json() as any;
+          return data.results?.[0]?.id ?? null;
+        } catch {
+          return null;
+        }
+      }
+
+      // Get current max rank and existing titles
+      const maxRankResult = await pool.query('SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies');
+      let nextRank = Number(maxRankResult.rows[0].max_rank) + 1;
+
+      const existingResult = await pool.query('SELECT LOWER(title) AS title FROM movies');
+      const existingTitles = new Set(existingResult.rows.map((r: any) => r.title));
+
+      let imported = 0;
+      let skipped = 0;
+      let tmdb_matched = 0;
+
+      for (const { title, year } of films) {
+        if (existingTitles.has(title.toLowerCase())) {
+          skipped++;
+          continue;
+        }
+        const tmdbId = await lookupTmdbId(title, year);
+        if (tmdbId) tmdb_matched++;
+        try {
+          await pool.query(
+            'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, $3, $4)',
+            [title, context.user.userId, nextRank, tmdbId]
+          );
+          existingTitles.add(title.toLowerCase());
+          nextRank++;
+          imported++;
+        } catch (err: any) {
+          errors.push(`"${title}": ${err.message}`);
+        }
+      }
+
+      await logAudit(
+        context.user.userId,
+        'LETTERBOXD_IMPORT',
+        'movie',
+        null,
+        { url, imported, skipped, tmdb_matched, errors: errors.length },
+        context.ipAddress ?? 'unknown'
+      );
+
+      return { imported, skipped, tmdb_matched, errors };
+    },
     login: async (
       _: any,
       { username, password }: { username: string; password: string },

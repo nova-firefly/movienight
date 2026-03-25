@@ -4,6 +4,7 @@ import { UserManagement } from './UserManagement';
 import { AuditLog } from './AuditLog';
 import { LoginHistory } from './LoginHistory';
 import { KometaExport } from './KometaExport';
+import { LetterboxdImport } from './LetterboxdImport';
 
 export const AdminPanel: React.FC = () => {
   return (
@@ -86,6 +87,20 @@ export const AdminPanel: React.FC = () => {
           >
             Kometa Export
           </Tab>
+          <Tab
+            value="import"
+            sx={{
+              borderRadius: 'xs',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              '&[aria-selected="true"]': {
+                bgcolor: 'background.level2',
+                color: 'primary.400',
+              },
+            }}
+          >
+            Import
+          </Tab>
         </TabList>
         <TabPanel value="users" sx={{ p: 0 }}>
           <UserManagement />
@@ -98,6 +113,9 @@ export const AdminPanel: React.FC = () => {
         </TabPanel>
         <TabPanel value="kometa" sx={{ p: 0 }}>
           <KometaExport />
+        </TabPanel>
+        <TabPanel value="import" sx={{ p: 0 }}>
+          <LetterboxdImport />
         </TabPanel>
       </Tabs>
     </Box>
