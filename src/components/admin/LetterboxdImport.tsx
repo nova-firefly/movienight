@@ -38,6 +38,7 @@ export const LetterboxdImport: React.FC = () => {
       setResult({
         imported: 0,
         skipped: 0,
+        tmdb_matched: 0,
         errors: [err.message ?? 'Unknown error'],
       });
     }
