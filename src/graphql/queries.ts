@@ -161,6 +161,12 @@ export const DELETE_USER = gql`
   }
 `;
 
+export const EXPORT_KOMETA = gql`
+  mutation ExportKometa($collectionName: String) {
+    exportKometa(collectionName: $collectionName)
+  }
+`;
+
 export const GET_AUDIT_LOGS = gql`
   query GetAuditLogs($limit: Int, $offset: Int) {
     auditLogs(limit: $limit, offset: $offset) {

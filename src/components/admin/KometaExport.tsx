@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
   CircularProgress,
@@ -8,7 +8,7 @@ import {
   Alert,
   Sheet,
 } from '@mui/joy';
-import { GET_MOVIES } from '../../graphql/queries';
+import { GET_MOVIES, EXPORT_KOMETA } from '../../graphql/queries';
 
 interface Movie {
   id: string;
@@ -20,9 +20,7 @@ interface Movie {
 function generateKometaYaml(movies: Movie[], collectionName: string): string {
   const matched = movies.filter((m) => m.tmdb_id != null);
   const today = new Date().toISOString().split('T')[0];
-
   const idLines = matched.map((m) => `      - ${m.tmdb_id}`).join('\n');
-
   return (
     `collections:\n` +
     `  ${collectionName}:\n` +
@@ -30,6 +28,10 @@ function generateKometaYaml(movies: Movie[], collectionName: string): string {
     `${idLines}\n` +
     `    collection_order: custom\n` +
     `    sync_mode: sync\n` +
+    `    radarr_add_missing: true\n` +
+    `    radarr_search: true\n` +
+    `    visible_home: true\n` +
+    `    visible_shared: true\n` +
     `    summary: "MovieNight watchlist — exported ${today}"\n`
   );
 }
@@ -38,17 +40,18 @@ export const KometaExport: React.FC = () => {
   const { data, loading } = useQuery(GET_MOVIES, {
     fetchPolicy: 'cache-and-network',
   });
+  const [exportKometa, { loading: exporting }] = useMutation(EXPORT_KOMETA);
 
   const [copied, setCopied] = useState(false);
+  const [exportResult, setExportResult] = useState<{ path: string } | { error: string } | null>(null);
+
   const collectionName = 'MovieNight Watchlist';
 
   const movies: Movie[] = [...(data?.movies ?? [])].sort(
     (a: Movie, b: Movie) => a.rank - b.rank
   );
-
   const matched = movies.filter((m) => m.tmdb_id != null);
   const unmatched = movies.filter((m) => m.tmdb_id == null);
-
   const yaml = movies.length > 0 ? generateKometaYaml(movies, collectionName) : '';
 
   const handleCopy = async () => {
@@ -65,6 +68,18 @@ export const KometaExport: React.FC = () => {
     a.download = 'movienight.yml';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async () => {
+    setExportResult(null);
+    try {
+      const { data: result } = await exportKometa({
+        variables: { collectionName },
+      });
+      setExportResult({ path: result.exportKometa });
+    } catch (err: any) {
+      setExportResult({ error: err.message });
+    }
   };
 
   if (loading && movies.length === 0) {
@@ -84,8 +99,9 @@ export const KometaExport: React.FC = () => {
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
         Generates a Kometa collection file using{' '}
         <code>tmdb_movie</code> + <code>collection_order: custom</code> to
-        preserve the current ranked order in Plex. Place the downloaded file at{' '}
-        <code>nova-config/kometa/collections/movienight.yml</code>.
+        preserve the current ranked order in Plex.{' '}
+        <strong>Write to Kometa</strong> writes directly to the configured{' '}
+        <code>KOMETA_COLLECTIONS_PATH</code> on the server.
       </Typography>
 
       {unmatched.length > 0 && (
@@ -101,6 +117,18 @@ export const KometaExport: React.FC = () => {
         </Alert>
       )}
 
+      {exportResult && (
+        <Alert
+          color={'error' in exportResult ? 'danger' : 'success'}
+          sx={{ mb: 2 }}
+          onClose={() => setExportResult(null)}
+        >
+          {'error' in exportResult
+            ? exportResult.error
+            : `Written to ${exportResult.path}`}
+        </Alert>
+      )}
+
       {matched.length === 0 ? (
         <Alert color="danger" sx={{ mb: 2 }}>
           No movies have TMDB IDs. Use the TMDB match feature on the homepage to
@@ -108,11 +136,20 @@ export const KometaExport: React.FC = () => {
         </Alert>
       ) : (
         <>
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
             <Button
               size="sm"
               variant="solid"
               color="primary"
+              loading={exporting}
+              onClick={handleExport}
+            >
+              Write to Kometa
+            </Button>
+            <Button
+              size="sm"
+              variant="outlined"
+              color="neutral"
               onClick={handleDownload}
             >
               Download .yml
