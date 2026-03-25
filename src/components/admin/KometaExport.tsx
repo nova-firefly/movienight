@@ -67,7 +67,11 @@ export const KometaExport: React.FC = () => {
   const [updateSchedule, { loading: savingSchedule }] = useMutation(UPDATE_KOMETA_SCHEDULE);
 
   const [copied, setCopied] = useState(false);
-  const [exportResult, setExportResult] = useState<{ path: string } | { error: string } | null>(null);
+  const [exportResult, setExportResult] = useState<{
+    path: string;
+    triggered: boolean;
+    triggerError?: string;
+  } | { error: string } | null>(null);
 
   // Local form state for schedule
   const [schedEnabled, setSchedEnabled] = useState(false);
@@ -116,7 +120,8 @@ export const KometaExport: React.FC = () => {
       const { data: result } = await exportKometa({
         variables: { collectionName },
       });
-      setExportResult({ path: result.exportKometa });
+      const { filePath, triggered, triggerError } = result.exportKometa;
+      setExportResult({ path: filePath, triggered, triggerError });
     } catch (err: any) {
       setExportResult({ error: err.message });
     }
@@ -181,9 +186,23 @@ export const KometaExport: React.FC = () => {
           color={'error' in exportResult ? 'danger' : 'success'}
           sx={{ mb: 2 }}
         >
-          {'error' in exportResult
-            ? exportResult.error
-            : `Written to ${exportResult.path}`}
+          {'error' in exportResult ? (
+            exportResult.error
+          ) : (
+            <Box>
+              <Typography level="body-sm">Written to {exportResult.path}</Typography>
+              {exportResult.triggered && (
+                <Typography level="body-xs" sx={{ mt: 0.5, opacity: 0.8 }}>
+                  Kometa run triggered.
+                </Typography>
+              )}
+              {exportResult.triggerError && (
+                <Typography level="body-xs" sx={{ mt: 0.5, color: 'warning.600' }}>
+                  Could not trigger Kometa run: {exportResult.triggerError}
+                </Typography>
+              )}
+            </Box>
+          )}
         </Alert>
       )}
 

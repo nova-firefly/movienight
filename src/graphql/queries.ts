@@ -163,7 +163,11 @@ export const DELETE_USER = gql`
 
 export const EXPORT_KOMETA = gql`
   mutation ExportKometa($collectionName: String) {
-    exportKometa(collectionName: $collectionName)
+    exportKometa(collectionName: $collectionName) {
+      filePath
+      triggered
+      triggerError
+    }
   }
 `;
 

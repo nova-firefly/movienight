@@ -34,6 +34,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: ${BACKEND_PORT}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
+      KOMETA_COLLECTIONS_PATH: ${KOMETA_COLLECTIONS_PATH:-}
+      KOMETA_TRIGGER_URL: ${KOMETA_TRIGGER_URL:-}
     ports:
       - "${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}"
     depends_on:
@@ -77,6 +79,8 @@ services:
       - "8080:80"
     environment:
       - TZ=America/New_York
+      - KOMETA_COLLECTIONS_PATH=${KOMETA_COLLECTIONS_PATH:-}
+      - KOMETA_TRIGGER_URL=${KOMETA_TRIGGER_URL:-}
     networks:
       - frontend
     labels:
