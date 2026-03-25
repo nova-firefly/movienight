@@ -412,6 +412,28 @@ export const resolvers = {
       const titles: string[] = [];
       const errors: string[] = [];
 
+      function decodeEntities(s: string): string {
+        return s
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+      }
+
+      function extractTitles(html: string): string[] {
+        const found: string[] = [];
+
+        // data-item-name="Once Upon a Time... in Hollywood (2019)"
+        for (const m of html.matchAll(/data-item-name="([^"]+)"/g)) {
+          const title = decodeEntities(m[1]).replace(/\s*\(\d{4}\)$/, '').trim();
+          if (title) found.push(title);
+        }
+
+        return found;
+      }
+
       // Fetch all pages of the list
       const baseUrl = url.replace(/\/$/, '');
       for (let page = 1; page <= 100; page++) {
@@ -419,11 +441,17 @@ export const resolvers = {
         let html: string;
         try {
           const response = await fetch(pageUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MovieNight/1.0)' },
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+            },
           });
           if (response.status === 404) break;
           if (!response.ok) {
             errors.push(`Page ${page}: HTTP ${response.status}`);
+            console.error(`[letterboxd-import] page ${page} status ${response.status} for ${pageUrl}`);
             break;
           }
           html = await response.text();
@@ -432,17 +460,13 @@ export const resolvers = {
           break;
         }
 
-        // Extract film names from data-film-name attributes
-        const matches = html.matchAll(/data-film-name="([^"]+)"/g);
-        const pageTitles: string[] = [];
-        for (const match of matches) {
-          const title = match[1]
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'")
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>');
-          pageTitles.push(title);
+        const pageTitles = extractTitles(html);
+
+        if (page === 1) {
+          console.log(
+            `[letterboxd-import] page 1 status OK, html length=${html.length}, ` +
+            `found=${pageTitles.length} titles, snippet: ${html.slice(0, 300).replace(/\n/g, ' ')}`
+          );
         }
 
         if (pageTitles.length === 0) break;
