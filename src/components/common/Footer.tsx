@@ -8,14 +8,13 @@ const DEPLOY_TIME = process.env.REACT_APP_DEPLOY_TIME;
 function formatDeployTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString("en-US", {
+  return d.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     timeZoneName: "short",
-    timeZone: "UTC",
   });
 }
 
