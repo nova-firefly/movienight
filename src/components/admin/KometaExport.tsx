@@ -62,7 +62,7 @@ export const KometaExport: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'kometa-movienight.yml';
+    a.download = 'movienight.yml';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -84,7 +84,8 @@ export const KometaExport: React.FC = () => {
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
         Generates a Kometa collection file using{' '}
         <code>tmdb_movie</code> + <code>collection_order: custom</code> to
-        preserve the current ranked order in Plex.
+        preserve the current ranked order in Plex. Place the downloaded file at{' '}
+        <code>nova-config/kometa/collections/movienight.yml</code>.
       </Typography>
 
       {unmatched.length > 0 && (
