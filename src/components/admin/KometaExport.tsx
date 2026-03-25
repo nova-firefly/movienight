@@ -26,7 +26,7 @@ function generateKometaYaml(movies: Movie[], collectionName: string): string {
     `  ${collectionName}:\n` +
     `    tmdb_movie:\n` +
     `${idLines}\n` +
-    `    collection_order: custom\n` +
+    `    collection_order: release\n` +
     `    sync_mode: sync\n` +
     `    radarr_add_missing: true\n` +
     `    radarr_search: true\n` +
@@ -98,8 +98,8 @@ export const KometaExport: React.FC = () => {
 
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
         Generates a Kometa collection file using{' '}
-        <code>tmdb_movie</code> + <code>collection_order: custom</code> to
-        preserve the current ranked order in Plex.{' '}
+        <code>tmdb_movie</code> + <code>collection_order: release</code> sorted
+        by release date.{' '}
         <strong>Write to Kometa</strong> writes directly to the configured{' '}
         <code>KOMETA_COLLECTIONS_PATH</code> on the server.
       </Typography>
