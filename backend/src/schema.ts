@@ -63,7 +63,12 @@ export const typeDefs = `#graphql
     lastRunAt: String
   }
 
+  type AppInfo {
+    isProduction: Boolean!
+  }
+
   type Query {
+    appInfo: AppInfo!
     movies: [Movie!]!
     movie(id: ID!): Movie
     me: User
