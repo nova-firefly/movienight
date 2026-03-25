@@ -389,6 +389,109 @@ export const resolvers = {
 
       return filePath;
     },
+    importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      // Validate URL is a Letterboxd list
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        throw new GraphQLError('Invalid URL', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      if (parsedUrl.hostname !== 'letterboxd.com' && parsedUrl.hostname !== 'www.letterboxd.com') {
+        throw new GraphQLError('URL must be a letterboxd.com list', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const titles: string[] = [];
+      const errors: string[] = [];
+
+      // Fetch all pages of the list
+      const baseUrl = url.replace(/\/$/, '');
+      for (let page = 1; page <= 100; page++) {
+        const pageUrl = page === 1 ? `${baseUrl}/` : `${baseUrl}/page/${page}/`;
+        let html: string;
+        try {
+          const response = await fetch(pageUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MovieNight/1.0)' },
+          });
+          if (response.status === 404) break;
+          if (!response.ok) {
+            errors.push(`Page ${page}: HTTP ${response.status}`);
+            break;
+          }
+          html = await response.text();
+        } catch (err: any) {
+          errors.push(`Page ${page}: ${err.message}`);
+          break;
+        }
+
+        // Extract film names from data-film-name attributes
+        const matches = html.matchAll(/data-film-name="([^"]+)"/g);
+        const pageTitles: string[] = [];
+        for (const match of matches) {
+          const title = match[1]
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+          pageTitles.push(title);
+        }
+
+        if (pageTitles.length === 0) break;
+        titles.push(...pageTitles);
+      }
+
+      if (titles.length === 0 && errors.length === 0) {
+        errors.push('No films found — check that the URL is a public Letterboxd list');
+      }
+
+      // Get current max rank and existing titles
+      const maxRankResult = await pool.query('SELECT COALESCE(MAX(rank), 0) as max_rank FROM movies');
+      let nextRank = Number(maxRankResult.rows[0].max_rank) + 1;
+
+      const existingResult = await pool.query('SELECT LOWER(title) AS title FROM movies');
+      const existingTitles = new Set(existingResult.rows.map((r: any) => r.title));
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const title of titles) {
+        if (existingTitles.has(title.toLowerCase())) {
+          skipped++;
+          continue;
+        }
+        try {
+          await pool.query(
+            'INSERT INTO movies (title, requested_by, rank) VALUES ($1, $2, $3)',
+            [title, context.user.userId, nextRank]
+          );
+          existingTitles.add(title.toLowerCase());
+          nextRank++;
+          imported++;
+        } catch (err: any) {
+          errors.push(`"${title}": ${err.message}`);
+        }
+      }
+
+      await logAudit(
+        context.user.userId,
+        'LETTERBOXD_IMPORT',
+        'movie',
+        null,
+        { url, imported, skipped, errors: errors.length },
+        context.ipAddress ?? 'unknown'
+      );
+
+      return { imported, skipped, errors };
+    },
     login: async (
       _: any,
       { username, password }: { username: string; password: string },
