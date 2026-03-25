@@ -112,6 +112,11 @@ function scheduleNext(frequency: string, dailyTime: string): void {
 }
 
 export async function initScheduler(): Promise<void> {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Kometa Scheduler] Disabled (non-production environment)');
+    return;
+  }
+
   try {
     const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
     if (result.rows.length === 0) return;
@@ -129,6 +134,11 @@ export async function initScheduler(): Promise<void> {
 }
 
 export function rescheduleKometa(enabled: boolean, frequency: string, dailyTime: string): void {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Kometa Scheduler] Reschedule skipped (non-production environment)');
+    return;
+  }
+
   if (scheduledTimeout) {
     clearTimeout(scheduledTimeout);
     scheduledTimeout = null;

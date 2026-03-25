@@ -10,8 +10,7 @@ import {
   List,
   ListItem,
 } from '@mui/joy';
-import { IMPORT_FROM_LETTERBOXD } from '../../graphql/queries';
-import { GET_MOVIES } from '../../graphql/queries';
+import { IMPORT_FROM_LETTERBOXD, GET_MOVIES } from '../../graphql/queries';
 
 interface ImportResult {
   imported: number;
@@ -27,7 +26,6 @@ export const LetterboxdImport: React.FC = () => {
   const [importMovies, { loading }] = useMutation(IMPORT_FROM_LETTERBOXD, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);

@@ -43,8 +43,11 @@ async function logLoginHistory(
   }
 }
 
+const isProduction = () => process.env.NODE_ENV === 'production';
+
 export const resolvers = {
   Query: {
+    appInfo: () => ({ isProduction: isProduction() }),
     searchTmdb: async (_: any, { query }: { query: string }) => {
       const apiKey = process.env.TMDB_API_KEY;
       if (!apiKey) {
@@ -358,6 +361,12 @@ export const resolvers = {
         });
       }
 
+      if (!isProduction()) {
+        throw new GraphQLError('Kometa export is disabled outside of production', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
       const collectionsPath = process.env.KOMETA_COLLECTIONS_PATH;
       if (!collectionsPath) {
         throw new GraphQLError('KOMETA_COLLECTIONS_PATH is not configured', {
@@ -438,6 +447,12 @@ export const resolvers = {
     ) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      if (enabled === true && !isProduction()) {
+        throw new GraphQLError('Scheduled Kometa export cannot be enabled outside of production', {
           extensions: { code: 'FORBIDDEN' },
         });
       }

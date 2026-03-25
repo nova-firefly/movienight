@@ -33,6 +33,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: ${BACKEND_PORT}
+      NODE_ENV: development
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       KOMETA_COLLECTIONS_PATH: ${KOMETA_COLLECTIONS_PATH:-}
       KOMETA_TRIGGER_URL: ${KOMETA_TRIGGER_URL:-}
@@ -79,6 +80,7 @@ services:
       - "8080:80"
     environment:
       - TZ=America/New_York
+      - NODE_ENV=production
       - KOMETA_COLLECTIONS_PATH=${KOMETA_COLLECTIONS_PATH:-}
       - KOMETA_TRIGGER_URL=${KOMETA_TRIGGER_URL:-}
     networks:

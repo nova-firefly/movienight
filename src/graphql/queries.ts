@@ -224,6 +224,14 @@ export const GET_KOMETA_SCHEDULE = gql`
   }
 `;
 
+export const GET_APP_INFO = gql`
+  query GetAppInfo {
+    appInfo {
+      isProduction
+    }
+  }
+`;
+
 export const UPDATE_KOMETA_SCHEDULE = gql`
   mutation UpdateKometaSchedule(
     $enabled: Boolean
