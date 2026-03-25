@@ -82,12 +82,18 @@ export const typeDefs = `#graphql
     errors: [String!]!
   }
 
+  type KometaExportResult {
+    filePath: String!
+    triggered: Boolean!
+    triggerError: String
+  }
+
   type Mutation {
     addMovie(title: String!, tmdb_id: Int): Movie!
     matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     deleteMovie(id: ID!): Boolean!
     reorderMovie(id: ID!, afterId: ID): Boolean!
-    exportKometa(collectionName: String): String!
+    exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
     login(username: String!, password: String!): AuthPayload!

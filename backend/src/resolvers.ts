@@ -398,16 +398,33 @@ export const resolvers = {
       const filePath = path.join(collectionsPath, 'movienight.yml');
       await fs.promises.writeFile(filePath, yaml, 'utf8');
 
+      let triggered = false;
+      let triggerError: string | undefined;
+      const triggerUrl = process.env.KOMETA_TRIGGER_URL;
+      if (triggerUrl) {
+        try {
+          await fetch(triggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'run', collection: name }),
+            signal: AbortSignal.timeout(10000),
+          });
+          triggered = true;
+        } catch (err: any) {
+          triggerError = err.message;
+        }
+      }
+
       await logAudit(
         context.user.userId,
         'KOMETA_EXPORT',
         'kometa',
         filePath,
-        { count: matched.length, skipped: movies.length - matched.length },
+        { count: matched.length, skipped: movies.length - matched.length, triggered, triggerError },
         context.ipAddress ?? 'unknown'
       );
 
-      return filePath;
+      return { filePath, triggered, triggerError: triggerError ?? null };
     },
     updateKometaSchedule: async (
       _: any,
