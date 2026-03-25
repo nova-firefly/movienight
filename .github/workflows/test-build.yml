@@ -9,32 +9,77 @@ on:
       - dev
 
 jobs:
-  test-build:
-    name: Test Docker Build
+  changes:
+    name: Detect changed paths
     runs-on: ubuntu-latest
-
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'package*.json'
+              - 'Dockerfile'
+              - 'nginx.conf'
+            backend:
+              - 'backend/**'
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
+  build-frontend:
+    name: Build Frontend Image
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build frontend Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          tags: movienight:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: movienight-frontend:test
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
 
-      - name: Build summary
-        if: success()
+  build-backend:
+    name: Build Backend Image
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: movienight-backend:test
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+  build-summary:
+    name: Build Summary
+    needs: [changes, build-frontend, build-backend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
         run: |
-          echo "### Docker Build Successful! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Build Results :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This was a test build only - no deployment performed." >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.changes.outputs.frontend == 'true' && needs.build-frontend.result || 'skipped (no changes)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend  | ${{ needs.changes.outputs.backend == 'true'  && needs.build-backend.result  || 'skipped (no changes)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test build only — no images pushed." >> $GITHUB_STEP_SUMMARY
