@@ -55,6 +55,14 @@ export const typeDefs = `#graphql
     created_at: String!
   }
 
+  type KometaSchedule {
+    enabled: Boolean!
+    frequency: String!
+    dailyTime: String!
+    collectionName: String
+    lastRunAt: String
+  }
+
   type Query {
     movies: [Movie!]!
     movie(id: ID!): Movie
@@ -64,6 +72,7 @@ export const typeDefs = `#graphql
     auditLogs(limit: Int, offset: Int): [AuditLog!]!
     loginHistory(userId: ID, limit: Int): [LoginHistory!]!
     searchTmdb(query: String!): [TmdbMovie!]!
+    kometaSchedule: KometaSchedule!
   }
 
   type ImportResult {
@@ -79,6 +88,7 @@ export const typeDefs = `#graphql
     deleteMovie(id: ID!): Boolean!
     reorderMovie(id: ID!, afterId: ID): Boolean!
     exportKometa(collectionName: String): String!
+    updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!

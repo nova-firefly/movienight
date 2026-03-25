@@ -207,3 +207,37 @@ export const IMPORT_FROM_LETTERBOXD = gql`
     }
   }
 `;
+
+export const GET_KOMETA_SCHEDULE = gql`
+  query GetKometaSchedule {
+    kometaSchedule {
+      enabled
+      frequency
+      dailyTime
+      collectionName
+      lastRunAt
+    }
+  }
+`;
+
+export const UPDATE_KOMETA_SCHEDULE = gql`
+  mutation UpdateKometaSchedule(
+    $enabled: Boolean
+    $frequency: String
+    $dailyTime: String
+    $collectionName: String
+  ) {
+    updateKometaSchedule(
+      enabled: $enabled
+      frequency: $frequency
+      dailyTime: $dailyTime
+      collectionName: $collectionName
+    ) {
+      enabled
+      frequency
+      dailyTime
+      collectionName
+      lastRunAt
+    }
+  }
+`;

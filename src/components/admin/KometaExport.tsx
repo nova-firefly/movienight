@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -7,14 +7,34 @@ import {
   Button,
   Alert,
   Sheet,
+  Divider,
+  Switch,
+  Select,
+  Option,
+  Input,
+  FormLabel,
+  FormControl,
 } from '@mui/joy';
-import { GET_MOVIES, EXPORT_KOMETA } from '../../graphql/queries';
+import {
+  GET_MOVIES,
+  EXPORT_KOMETA,
+  GET_KOMETA_SCHEDULE,
+  UPDATE_KOMETA_SCHEDULE,
+} from '../../graphql/queries';
 
 interface Movie {
   id: string;
   title: string;
   rank: number;
   tmdb_id: number | null;
+}
+
+interface ScheduleData {
+  enabled: boolean;
+  frequency: string;
+  dailyTime: string;
+  collectionName: string | null;
+  lastRunAt: string | null;
 }
 
 function generateKometaYaml(movies: Movie[], collectionName: string): string {
@@ -41,8 +61,29 @@ export const KometaExport: React.FC = () => {
   });
   const [exportKometa, { loading: exporting }] = useMutation(EXPORT_KOMETA);
 
+  const { data: scheduleData, loading: scheduleLoading } = useQuery(GET_KOMETA_SCHEDULE, {
+    fetchPolicy: 'cache-and-network',
+  });
+  const [updateSchedule, { loading: savingSchedule }] = useMutation(UPDATE_KOMETA_SCHEDULE);
+
   const [copied, setCopied] = useState(false);
   const [exportResult, setExportResult] = useState<{ path: string } | { error: string } | null>(null);
+
+  // Local form state for schedule
+  const [schedEnabled, setSchedEnabled] = useState(false);
+  const [schedFrequency, setSchedFrequency] = useState('daily');
+  const [schedDailyTime, setSchedDailyTime] = useState('03:00');
+  const [schedSaveResult, setSchedSaveResult] = useState<'saved' | { error: string } | null>(null);
+
+  // Sync form state when server data loads
+  useEffect(() => {
+    const s: ScheduleData | undefined = scheduleData?.kometaSchedule;
+    if (s) {
+      setSchedEnabled(s.enabled);
+      setSchedFrequency(s.frequency);
+      setSchedDailyTime(s.dailyTime);
+    }
+  }, [scheduleData]);
 
   const collectionName = 'MovieNight Watchlist';
 
@@ -80,6 +121,25 @@ export const KometaExport: React.FC = () => {
       setExportResult({ error: err.message });
     }
   };
+
+  const handleSaveSchedule = async () => {
+    setSchedSaveResult(null);
+    try {
+      await updateSchedule({
+        variables: {
+          enabled: schedEnabled,
+          frequency: schedFrequency,
+          dailyTime: schedDailyTime,
+        },
+      });
+      setSchedSaveResult('saved');
+      setTimeout(() => setSchedSaveResult(null), 3000);
+    } catch (err: any) {
+      setSchedSaveResult({ error: err.message });
+    }
+  };
+
+  const lastRun: string | null = scheduleData?.kometaSchedule?.lastRunAt ?? null;
 
   if (loading && movies.length === 0) {
     return (
@@ -187,6 +247,83 @@ export const KometaExport: React.FC = () => {
             </Box>
           </Sheet>
         </>
+      )}
+
+      <Divider sx={{ my: 3 }} />
+
+      <Typography level="title-sm" fontWeight={700} sx={{ mb: 2 }}>
+        Scheduled Export
+      </Typography>
+
+      {scheduleLoading && !scheduleData ? (
+        <CircularProgress size="sm" />
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 380 }}>
+          <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
+            <FormLabel>Enable scheduled export</FormLabel>
+            <Switch
+              checked={schedEnabled}
+              onChange={(e) => setSchedEnabled(e.target.checked)}
+              size="sm"
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Frequency</FormLabel>
+            <Select
+              size="sm"
+              value={schedFrequency}
+              onChange={(_, v) => v && setSchedFrequency(v)}
+              disabled={!schedEnabled}
+            >
+              <Option value="hourly">Hourly (at :00)</Option>
+              <Option value="daily">Daily</Option>
+            </Select>
+          </FormControl>
+
+          {schedFrequency === 'daily' && (
+            <FormControl>
+              <FormLabel>Time (24-hour)</FormLabel>
+              <Input
+                size="sm"
+                type="time"
+                value={schedDailyTime}
+                onChange={(e) => setSchedDailyTime(e.target.value)}
+                disabled={!schedEnabled}
+                sx={{ maxWidth: 140 }}
+              />
+            </FormControl>
+          )}
+
+          {schedSaveResult && (
+            <Alert
+              color={schedSaveResult === 'saved' ? 'success' : 'danger'}
+              size="sm"
+            >
+              {schedSaveResult === 'saved'
+                ? 'Schedule saved'
+                : (schedSaveResult as { error: string }).error}
+            </Alert>
+          )}
+
+          {lastRun && (
+            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+              Last scheduled run: {new Date(lastRun).toLocaleString()}
+            </Typography>
+          )}
+
+          <Box>
+            <Button
+              size="sm"
+              variant="outlined"
+              color="primary"
+              loading={savingSchedule}
+              onClick={handleSaveSchedule}
+            >
+              Save Schedule
+            </Button>
+          </Box>
+        </Box>
       )}
     </Box>
   );

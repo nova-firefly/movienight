@@ -4,6 +4,7 @@ import pool from './db';
 import { hashPassword, comparePassword, generateToken } from './auth';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
+import { rescheduleKometa } from './scheduler';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
@@ -175,6 +176,25 @@ export const resolvers = {
         [cap]
       );
       return result.rows;
+    },
+    kometaSchedule: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
+      if (result.rows.length === 0) {
+        return { enabled: false, frequency: 'daily', dailyTime: '03:00', collectionName: null, lastRunAt: null };
+      }
+      const row = result.rows[0];
+      return {
+        enabled: row.enabled,
+        frequency: row.frequency,
+        dailyTime: row.daily_time,
+        collectionName: row.collection_name ?? null,
+        lastRunAt: row.last_run_at ? (row.last_run_at instanceof Date ? row.last_run_at.toISOString() : new Date(row.last_run_at).toISOString()) : null,
+      };
     },
   },
   Mutation: {
@@ -388,6 +408,63 @@ export const resolvers = {
       );
 
       return filePath;
+    },
+    updateKometaSchedule: async (
+      _: any,
+      { enabled, frequency, dailyTime, collectionName }: {
+        enabled?: boolean;
+        frequency?: string;
+        dailyTime?: string;
+        collectionName?: string;
+      },
+      context: any
+    ) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      if (frequency !== undefined && frequency !== 'hourly' && frequency !== 'daily') {
+        throw new GraphQLError('frequency must be "hourly" or "daily"', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      if (dailyTime !== undefined && !/^\d{2}:\d{2}$/.test(dailyTime)) {
+        throw new GraphQLError('dailyTime must be in HH:MM format', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const sets: string[] = [];
+      const values: any[] = [];
+      let i = 1;
+
+      if (enabled !== undefined) { sets.push(`enabled = $${i++}`); values.push(enabled); }
+      if (frequency !== undefined) { sets.push(`frequency = $${i++}`); values.push(frequency); }
+      if (dailyTime !== undefined) { sets.push(`daily_time = $${i++}`); values.push(dailyTime); }
+      if (collectionName !== undefined) { sets.push(`collection_name = $${i++}`); values.push(collectionName || null); }
+      sets.push(`updated_at = NOW()`);
+      values.push(1);
+
+      await pool.query(
+        `UPDATE kometa_schedule SET ${sets.join(', ')} WHERE id = $${i}`,
+        values
+      );
+
+      const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
+      const row = result.rows[0];
+
+      rescheduleKometa(row.enabled, row.frequency, row.daily_time);
+
+      return {
+        enabled: row.enabled,
+        frequency: row.frequency,
+        dailyTime: row.daily_time,
+        collectionName: row.collection_name ?? null,
+        lastRunAt: row.last_run_at ? (row.last_run_at instanceof Date ? row.last_run_at.toISOString() : new Date(row.last_run_at).toISOString()) : null,
+      };
     },
     importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {
       if (!context.user?.isAdmin) {
