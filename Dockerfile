@@ -29,8 +29,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy built application from build stage
-# The build output goes to /movienight because of homepage in package.json
-COPY --from=build /app/build /usr/share/nginx/html/movienight
+COPY --from=build /app/build /usr/share/nginx/html
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -40,7 +39,7 @@ EXPOSE 80
 
 # Health check to verify container is serving content
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/movienight/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 # Run nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]
