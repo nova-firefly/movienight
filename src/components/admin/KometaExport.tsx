@@ -26,7 +26,6 @@ function generateKometaYaml(movies: Movie[], collectionName: string): string {
     `  ${collectionName}:\n` +
     `    tmdb_movie:\n` +
     `${idLines}\n` +
-    `    collection_order: release\n` +
     `    sync_mode: sync\n` +
     `    radarr_add_missing: true\n` +
     `    radarr_search: true\n` +
