@@ -43,6 +43,10 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Set build timestamp
+        id: timestamp
+        run: echo "value=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -55,6 +59,7 @@ jobs:
           build-args: |
             REACT_APP_GIT_BRANCH=${{ github.ref_name }}
             REACT_APP_GIT_HASH=${{ github.sha }}
+            REACT_APP_DEPLOY_TIME=${{ steps.timestamp.outputs.value }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5

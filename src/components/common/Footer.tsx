@@ -3,9 +3,28 @@ import { Box, Typography } from "@mui/joy";
 
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
 const GIT_HASH = process.env.REACT_APP_GIT_HASH;
+const DEPLOY_TIME = process.env.REACT_APP_DEPLOY_TIME;
+
+function formatDeployTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
 
 export const Footer: React.FC = () => {
   const year = new Date().getFullYear();
+
+  const parts: string[] = [];
+  if (GIT_BRANCH) parts.push(`branch: ${GIT_BRANCH}`);
+  if (GIT_HASH) parts.push(`commit: ${GIT_HASH.slice(0, 7)}`);
+  if (DEPLOY_TIME && DEPLOY_TIME !== "unknown") parts.push(`deployed: ${formatDeployTime(DEPLOY_TIME)}`);
 
   return (
     <Box
@@ -23,11 +42,9 @@ export const Footer: React.FC = () => {
       <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
         &copy; {year} MovieNight
       </Typography>
-      {(GIT_BRANCH || GIT_HASH) && (
+      {parts.length > 0 && (
         <Typography level="body-xs" sx={{ color: "text.tertiary", mt: 0.25, opacity: 0.5 }}>
-          {GIT_BRANCH && <>branch: {GIT_BRANCH}</>}
-          {GIT_BRANCH && GIT_HASH && " · "}
-          {GIT_HASH && <>commit: {GIT_HASH.slice(0, 7)}</>}
+          {parts.join(" · ")}
         </Typography>
       )}
     </Box>

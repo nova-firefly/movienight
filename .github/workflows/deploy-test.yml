@@ -33,6 +33,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set build timestamp
+        id: timestamp
+        run: echo "value=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -42,8 +46,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_GIT_BRANCH=${{ github.ref_name }}
+            REACT_APP_GIT_BRANCH=${{ github.head_ref || github.ref_name }}
             REACT_APP_GIT_HASH=${{ github.sha }}
+            REACT_APP_DEPLOY_TIME=${{ steps.timestamp.outputs.value }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5
@@ -77,6 +82,6 @@ jobs:
         run: |
           echo "### Test Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.head_ref || github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Frontend:** \`${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:test\`" >> $GITHUB_STEP_SUMMARY
           echo "**Backend:** \`${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:test\`" >> $GITHUB_STEP_SUMMARY
