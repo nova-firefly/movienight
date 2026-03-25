@@ -202,6 +202,7 @@ export const IMPORT_FROM_LETTERBOXD = gql`
     importFromLetterboxd(url: $url) {
       imported
       skipped
+      tmdb_matched
       errors
     }
   }

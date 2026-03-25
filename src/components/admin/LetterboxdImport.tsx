@@ -16,6 +16,7 @@ import { GET_MOVIES } from '../../graphql/queries';
 interface ImportResult {
   imported: number;
   skipped: number;
+  tmdb_matched: number;
   errors: string[];
 }
 
@@ -83,6 +84,7 @@ export const LetterboxdImport: React.FC = () => {
             <Alert color="success" variant="soft">
               <Typography level="body-sm" fontWeight={600}>
                 {result.imported} film{result.imported !== 1 ? 's' : ''} imported
+                {result.tmdb_matched > 0 && ` (${result.tmdb_matched} auto-matched to TMDB)`}
                 {result.skipped > 0 && `, ${result.skipped} already in list`}
               </Typography>
             </Alert>

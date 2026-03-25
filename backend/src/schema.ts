@@ -69,6 +69,7 @@ export const typeDefs = `#graphql
   type ImportResult {
     imported: Int!
     skipped: Int!
+    tmdb_matched: Int!
     errors: [String!]!
   }
 

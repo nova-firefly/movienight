@@ -409,7 +409,7 @@ export const resolvers = {
         });
       }
 
-      const titles: string[] = [];
+      const films: { title: string; year: number | null }[] = [];
       const errors: string[] = [];
 
       function decodeEntities(s: string): string {
@@ -422,15 +422,16 @@ export const resolvers = {
           .replace(/&gt;/g, '>');
       }
 
-      function extractTitles(html: string): string[] {
-        const found: string[] = [];
-
+      function extractFilms(html: string): { title: string; year: number | null }[] {
+        const found: { title: string; year: number | null }[] = [];
         // data-item-name="Once Upon a Time... in Hollywood (2019)"
         for (const m of html.matchAll(/data-item-name="([^"]+)"/g)) {
-          const title = decodeEntities(m[1]).replace(/\s*\(\d{4}\)$/, '').trim();
-          if (title) found.push(title);
+          const raw = decodeEntities(m[1]);
+          const yearMatch = raw.match(/\((\d{4})\)$/);
+          const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+          const title = raw.replace(/\s*\(\d{4}\)$/, '').trim();
+          if (title) found.push({ title, year });
         }
-
         return found;
       }
 
@@ -451,7 +452,6 @@ export const resolvers = {
           if (response.status === 404) break;
           if (!response.ok) {
             errors.push(`Page ${page}: HTTP ${response.status}`);
-            console.error(`[letterboxd-import] page ${page} status ${response.status} for ${pageUrl}`);
             break;
           }
           html = await response.text();
@@ -460,21 +460,34 @@ export const resolvers = {
           break;
         }
 
-        const pageTitles = extractTitles(html);
-
-        if (page === 1) {
-          console.log(
-            `[letterboxd-import] page 1 status OK, html length=${html.length}, ` +
-            `found=${pageTitles.length} titles, snippet: ${html.slice(0, 300).replace(/\n/g, ' ')}`
-          );
-        }
-
-        if (pageTitles.length === 0) break;
-        titles.push(...pageTitles);
+        const pageFilms = extractFilms(html);
+        if (pageFilms.length === 0) break;
+        films.push(...pageFilms);
       }
 
-      if (titles.length === 0 && errors.length === 0) {
+      if (films.length === 0 && errors.length === 0) {
         errors.push('No films found — check that the URL is a public Letterboxd list');
+      }
+
+      // TMDB lookup helper (best-effort, silently skips if no API key)
+      const tmdbApiKey = process.env.TMDB_API_KEY;
+      async function lookupTmdbId(title: string, year: number | null): Promise<number | null> {
+        if (!tmdbApiKey) return null;
+        try {
+          const params = new URLSearchParams({
+            api_key: tmdbApiKey,
+            query: title,
+            language: 'en-US',
+            page: '1',
+            ...(year ? { year: String(year) } : {}),
+          });
+          const res = await fetch(`https://api.themoviedb.org/3/search/movie?${params}`);
+          if (!res.ok) return null;
+          const data = await res.json() as any;
+          return data.results?.[0]?.id ?? null;
+        } catch {
+          return null;
+        }
       }
 
       // Get current max rank and existing titles
@@ -486,16 +499,19 @@ export const resolvers = {
 
       let imported = 0;
       let skipped = 0;
+      let tmdb_matched = 0;
 
-      for (const title of titles) {
+      for (const { title, year } of films) {
         if (existingTitles.has(title.toLowerCase())) {
           skipped++;
           continue;
         }
+        const tmdbId = await lookupTmdbId(title, year);
+        if (tmdbId) tmdb_matched++;
         try {
           await pool.query(
-            'INSERT INTO movies (title, requested_by, rank) VALUES ($1, $2, $3)',
-            [title, context.user.userId, nextRank]
+            'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, $3, $4)',
+            [title, context.user.userId, nextRank, tmdbId]
           );
           existingTitles.add(title.toLowerCase());
           nextRank++;
@@ -510,11 +526,11 @@ export const resolvers = {
         'LETTERBOXD_IMPORT',
         'movie',
         null,
-        { url, imported, skipped, errors: errors.length },
+        { url, imported, skipped, tmdb_matched, errors: errors.length },
         context.ipAddress ?? 'unknown'
       );
 
-      return { imported, skipped, errors };
+      return { imported, skipped, tmdb_matched, errors };
     },
     login: async (
       _: any,
