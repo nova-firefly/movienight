@@ -95,14 +95,21 @@ jobs:
             # postgres:18rc1-trixie changed VOLUME /var/lib/postgresql/data to
             # VOLUME /var/lib/postgresql.  Docker mounts an empty anonymous volume
             # at the parent path; the named volume mount at /var/lib/postgresql/data
-            # then fails with "no such file or directory" because the empty parent
-            # has no data/ subdirectory — db stays in Created state and backend loops.
-            # Use a compose override to force postgres:15-alpine regardless of what
-            # the host's compose file specifies (sed was unreliable due to unknown quoting).
-            OVERRIDE_FILE="$NOVA_DIR/docker-compose.movienight.db-override.yaml"
-            printf 'services:\n  movienight-db:\n    image: postgres:15-alpine\n' > "$OVERRIDE_FILE"
+            # then fails with "no such file or directory" — db stays in Created and
+            # backend loops.  Pin to postgres:15-alpine three ways so it sticks even
+            # if a nova watcher re-runs docker compose without our override:
+            #  1. Patch compose file directly (persists across future auto-runs)
+            #  2. Patch any .env files in NOVA_DIR that might set the image via variable
+            #  3. Override file as final fallback for unknown compose structures
+            sed -i 's/postgres:18rc1-trixie/postgres:15-alpine/g' "$COMPOSE_FILE" 2>/dev/null || true
+            sed -i 's/postgres:18rc1-trixie/postgres:15-alpine/g' "$NOVA_DIR"/.env "$NOVA_DIR"/*.env 2>/dev/null || true
 
-            # Pull new images (override ensures postgres:15-alpine is pulled for db)
+            OVERRIDE_FILE="$NOVA_DIR/docker-compose.movienight.db-override.yaml"
+            echo "services:"                            >  "$OVERRIDE_FILE"
+            echo "  movienight-db:"                    >> "$OVERRIDE_FILE"
+            echo "    image: postgres:15-alpine"       >> "$OVERRIDE_FILE"
+
+            # Pull new images
             docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" pull
 
             # Gracefully stop db so postgres can remove postmaster.pid cleanly;
@@ -114,6 +121,17 @@ jobs:
 
             # Restart all services with new images
             docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" up -d
+
+            # Hard-fail if DB ended up on wrong image — catches cases where a nova
+            # watcher recreated the container after our compose up.
+            DB_IMAGE=$(docker inspect movienight-db --format '{{.Config.Image}}' 2>/dev/null || echo "missing")
+            if echo "$DB_IMAGE" | grep -q "18rc"; then
+              echo "ERROR: movienight-db is still using $DB_IMAGE after deploy."
+              echo "Compose effective config for db:"
+              docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" config 2>&1 | grep -A5 "movienight-db:" | head -20
+              exit 1
+            fi
+            echo "DB image OK: $DB_IMAGE"
 
             # Clean up dangling images
             docker image prune -f
