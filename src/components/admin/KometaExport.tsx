@@ -121,7 +121,6 @@ export const KometaExport: React.FC = () => {
         <Alert
           color={'error' in exportResult ? 'danger' : 'success'}
           sx={{ mb: 2 }}
-          onClose={() => setExportResult(null)}
         >
           {'error' in exportResult
             ? exportResult.error
