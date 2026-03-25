@@ -505,12 +505,6 @@ export const resolvers = {
         });
       }
 
-      if (!isProduction()) {
-        throw new GraphQLError('Letterboxd import is disabled outside of production', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
-
       // Validate URL is a Letterboxd list
       let parsedUrl: URL;
       try {

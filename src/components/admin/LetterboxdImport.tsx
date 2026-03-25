@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation } from '@apollo/client';
 import {
   Box,
   Button,
@@ -10,7 +10,7 @@ import {
   List,
   ListItem,
 } from '@mui/joy';
-import { IMPORT_FROM_LETTERBOXD, GET_MOVIES, GET_APP_INFO } from '../../graphql/queries';
+import { IMPORT_FROM_LETTERBOXD, GET_MOVIES } from '../../graphql/queries';
 
 interface ImportResult {
   imported: number;
@@ -26,9 +26,6 @@ export const LetterboxdImport: React.FC = () => {
   const [importMovies, { loading }] = useMutation(IMPORT_FROM_LETTERBOXD, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-  const { data: appInfoData } = useQuery(GET_APP_INFO, { fetchPolicy: 'cache-first' });
-  const isProd = appInfoData?.appInfo?.isProduction ?? true;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);
@@ -55,15 +52,6 @@ export const LetterboxdImport: React.FC = () => {
         skipped.
       </Typography>
 
-      {!isProd && (
-        <Alert color="warning" sx={{ mb: 2 }}>
-          <Typography level="body-sm">
-            <strong>Dev/test environment:</strong> Letterboxd import is disabled to prevent
-            unintended bulk data changes outside of production.
-          </Typography>
-        </Alert>
-      )}
-
       <Box
         component="form"
         onSubmit={handleSubmit}
@@ -73,11 +61,11 @@ export const LetterboxdImport: React.FC = () => {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://letterboxd.com/username/list/list-name/"
-          disabled={loading || !isProd}
+          disabled={loading}
           sx={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem' }}
           required
         />
-        <Button type="submit" loading={loading} disabled={!url.trim() || !isProd}>
+        <Button type="submit" loading={loading} disabled={!url.trim()}>
           Import
         </Button>
       </Box>
