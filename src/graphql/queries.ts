@@ -63,6 +63,15 @@ export const MATCH_MOVIE = gql`
   }
 `;
 
+export const MARK_WATCHED = gql`
+  mutation MarkWatched($id: ID!) {
+    markWatched(id: $id) {
+      id
+      watched_at
+    }
+  }
+`;
+
 export const DELETE_MOVIE = gql`
   mutation DeleteMovie($id: ID!) {
     deleteMovie(id: $id)

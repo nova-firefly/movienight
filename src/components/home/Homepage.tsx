@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
-import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
+import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, MARK_WATCHED, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
 import { Autocomplete, AutocompleteOption, Box, Button, Typography, Sheet, Chip, IconButton, ListItemContent } from "@mui/joy";
 import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
@@ -43,10 +43,11 @@ interface SortableRowProps {
   movie: Movie;
   rank: number;
   isAdmin: boolean;
+  onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelete }) => {
+const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onMarkWatched, onDelete }) => {
   const {
     attributes,
     listeners,
@@ -174,8 +175,24 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelet
             verticalAlign: "middle",
             padding: "0 12px",
             textAlign: "right",
+            whiteSpace: "nowrap",
           }}
         >
+          <IconButton
+            size="sm"
+            color="success"
+            variant="plain"
+            onClick={() => onMarkWatched(movie.id, movie.title)}
+            title={`Mark "${movie.title}" as watched`}
+            sx={{
+              opacity: 0.5,
+              transition: "opacity 0.15s",
+              "&:hover": { opacity: 1 },
+              mr: 0.5,
+            }}
+          >
+            ✓
+          </IconButton>
           <IconButton
             size="sm"
             color="danger"
@@ -247,6 +264,10 @@ const HomePage: React.FC = () => {
     refetchQueries: [{ query: GET_MOVIES }],
   });
 
+  const [markWatched] = useMutation(MARK_WATCHED, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
@@ -279,6 +300,15 @@ const HomePage: React.FC = () => {
     } catch (err: any) {
       setLocalMovies(null);
       setErrorMessage(`Error reordering: ${err.message}`);
+    }
+  };
+
+  const handleMarkWatched = async (id: string, movieTitle: string) => {
+    if (!window.confirm(`Mark "${movieTitle}" as watched? It will be removed from the watchlist.`)) return;
+    try {
+      await markWatched({ variables: { id } });
+    } catch (err: any) {
+      setErrorMessage(`Error marking movie as watched: ${err.message}`);
     }
   };
 
@@ -595,6 +625,7 @@ const HomePage: React.FC = () => {
                           movie={movie}
                           rank={idx + 1}
                           isAdmin={isAdmin}
+                          onMarkWatched={handleMarkWatched}
                           onDelete={handleDelete}
                         />
                       ))

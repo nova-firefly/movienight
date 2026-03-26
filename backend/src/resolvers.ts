@@ -75,6 +75,7 @@ export const resolvers = {
         `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
+         WHERE m.watched_at IS NULL
          ORDER BY m.rank ASC`
       );
       return result.rows;
@@ -276,6 +277,41 @@ export const resolvers = {
         ...result.rows[0],
         user_username: movie.user_username,
         user_display_name: movie.user_display_name,
+      };
+    },
+    markWatched: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const result = await pool.query(
+        `UPDATE movies SET watched_at = NOW() WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+      if (result.rows.length === 0) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      const movie = result.rows[0];
+      const userRow = await pool.query(
+        'SELECT username, display_name FROM users WHERE id = $1',
+        [movie.requested_by]
+      );
+      await logAudit(
+        context.user.userId,
+        'MOVIE_WATCHED',
+        'movie',
+        String(id),
+        { title: movie.title },
+        context.ipAddress ?? 'unknown'
+      );
+      return {
+        ...movie,
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
       };
     },
     deleteMovie: async (_: any, { id }: { id: string }, context: any) => {
@@ -826,6 +862,14 @@ export const resolvers = {
         parent.date_submitted instanceof Date
           ? parent.date_submitted
           : new Date(Number(parent.date_submitted));
+      return date.toISOString();
+    },
+    watched_at: (parent: any) => {
+      if (!parent.watched_at) return null;
+      const date =
+        parent.watched_at instanceof Date
+          ? parent.watched_at
+          : new Date(parent.watched_at);
       return date.toISOString();
     },
   },
