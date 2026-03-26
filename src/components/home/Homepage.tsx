@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
-import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
+import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, MARK_WATCHED, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
 import { Autocomplete, AutocompleteOption, Box, Button, Typography, Sheet, Chip, IconButton, ListItemContent } from "@mui/joy";
 import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
@@ -43,10 +43,12 @@ interface SortableRowProps {
   movie: Movie;
   rank: number;
   isAdmin: boolean;
+  canMarkWatched: boolean;
+  onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelete }) => {
+const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMarkWatched, onMarkWatched, onDelete }) => {
   const {
     attributes,
     listeners,
@@ -168,28 +170,48 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, onDelet
       </td>
 
       {/* Actions */}
-      {isAdmin && (
+      {(canMarkWatched || isAdmin) && (
         <td
           style={{
             verticalAlign: "middle",
             padding: "0 12px",
             textAlign: "right",
+            whiteSpace: "nowrap",
           }}
         >
-          <IconButton
-            size="sm"
-            color="danger"
-            variant="plain"
-            onClick={() => onDelete(movie.id, movie.title)}
-            title={`Remove "${movie.title}"`}
-            sx={{
-              opacity: 0.5,
-              transition: "opacity 0.15s",
-              "&:hover": { opacity: 1 },
-            }}
-          >
-            ✕
-          </IconButton>
+          {canMarkWatched && (
+            <IconButton
+              size="sm"
+              color="success"
+              variant="plain"
+              onClick={() => onMarkWatched(movie.id, movie.title)}
+              title={`Mark "${movie.title}" as watched`}
+              sx={{
+                opacity: 0.5,
+                transition: "opacity 0.15s",
+                "&:hover": { opacity: 1 },
+                mr: isAdmin ? 0.5 : 0,
+              }}
+            >
+              ✓
+            </IconButton>
+          )}
+          {isAdmin && (
+            <IconButton
+              size="sm"
+              color="danger"
+              variant="plain"
+              onClick={() => onDelete(movie.id, movie.title)}
+              title={`Remove "${movie.title}"`}
+              sx={{
+                opacity: 0.5,
+                transition: "opacity 0.15s",
+                "&:hover": { opacity: 1 },
+              }}
+            >
+              ✕
+            </IconButton>
+          )}
         </td>
       )}
     </tr>
@@ -247,6 +269,10 @@ const HomePage: React.FC = () => {
     refetchQueries: [{ query: GET_MOVIES }],
   });
 
+  const [markWatched] = useMutation(MARK_WATCHED, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
@@ -279,6 +305,15 @@ const HomePage: React.FC = () => {
     } catch (err: any) {
       setLocalMovies(null);
       setErrorMessage(`Error reordering: ${err.message}`);
+    }
+  };
+
+  const handleMarkWatched = async (id: string, movieTitle: string) => {
+    if (!window.confirm(`Mark "${movieTitle}" as watched? It will be removed from the watchlist.`)) return;
+    try {
+      await markWatched({ variables: { id } });
+    } catch (err: any) {
+      setErrorMessage(`Error marking movie as watched: ${err.message}`);
     }
   };
 
@@ -549,7 +584,7 @@ const HomePage: React.FC = () => {
                   >
                     TMDB
                   </th>
-                  {isAdmin && (
+                  {isAuthenticated && (
                     <th
                       style={{
                         padding: "10px 12px",
@@ -577,7 +612,7 @@ const HomePage: React.FC = () => {
                     {movies.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={isAdmin ? 7 : 5}
+                          colSpan={isAdmin ? 7 : isAuthenticated ? 6 : 5}
                           style={{
                             padding: "48px 16px",
                             textAlign: "center",
@@ -595,6 +630,8 @@ const HomePage: React.FC = () => {
                           movie={movie}
                           rank={idx + 1}
                           isAdmin={isAdmin}
+                          canMarkWatched={isAdmin || (isAuthenticated && String(movie.requested_by) === String(user?.id))}
+                          onMarkWatched={handleMarkWatched}
                           onDelete={handleDelete}
                         />
                       ))

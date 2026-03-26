@@ -6,4 +6,5 @@ export type Movie = {
   date_submitted: string;
   rank: number;
   tmdb_id?: number | null;
+  watched_at?: string | null;
 };
