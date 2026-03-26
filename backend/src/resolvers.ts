@@ -280,7 +280,18 @@ export const resolvers = {
       };
     },
     markWatched: async (_: any, { id }: { id: string }, context: any) => {
-      if (!context.user?.isAdmin) {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const movieResult = await pool.query('SELECT * FROM movies WHERE id = $1', [id]);
+      if (movieResult.rows.length === 0) {
+        throw new GraphQLError('Movie not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (!context.user.isAdmin && movieResult.rows[0].requested_by !== context.user.userId) {
         throw new GraphQLError('Not authorized', {
           extensions: { code: 'FORBIDDEN' },
         });
