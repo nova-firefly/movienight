@@ -56,6 +56,29 @@ services:
     profiles:
       - development
 
+  db-backup:
+    image: postgres:15-alpine
+    container_name: movienight-db-backup
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_CRON: ${BACKUP_CRON:-0 2 * * *}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - db_backups:/backups
+      - ./scripts/backup-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+    profiles:
+      - development
+
   frontend:
     image: node:18-alpine
     container_name: movienight-frontend
@@ -114,6 +137,7 @@ services:
 
 volumes:
   postgres_data:
+  db_backups:
 
 networks:
   backend:
