@@ -102,10 +102,9 @@ jobs:
       - name: Deploy to nova host via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.REMOTE_PORT || 22 }}
+          host: ${{ secrets.NOVA_HOST }}
+          username: ${{ secrets.NOVA_USER }}
+          key: ${{ secrets.NOVA_SSH_KEY }}
           script: |
             NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
             COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
@@ -158,5 +157,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Frontend:** \`${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "**Backend:** \`${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Host:** \`${{ secrets.REMOTE_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Host:** \`${{ secrets.NOVA_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
