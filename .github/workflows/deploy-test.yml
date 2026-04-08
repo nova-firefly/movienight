@@ -1,6 +1,9 @@
 name: Deploy Test Branch
 
 on:
+  push:
+    branches:
+      - 2512-ux-suggestion
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
