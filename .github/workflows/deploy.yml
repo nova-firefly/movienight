@@ -105,6 +105,7 @@ jobs:
           host: ${{ secrets.NOVA_HOST }}
           username: ${{ secrets.NOVA_USER }}
           key: ${{ secrets.NOVA_SSH_KEY }}
+          port: ${{ secrets.NOVA_SSH_PORT || 22 }}
           script: |
             NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
             COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
