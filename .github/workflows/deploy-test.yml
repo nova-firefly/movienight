@@ -71,10 +71,34 @@ jobs:
           host: ${{ secrets.NOVA_HOST }}
           username: ${{ secrets.NOVA_USER }}
           key: ${{ secrets.NOVA_SSH_KEY }}
+          port: ${{ secrets.NOVA_SSH_PORT || 22 }}
           script: |
+            NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
+            BRANCH="${{ github.head_ref || github.ref_name }}"
+            COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight-test.yaml"
+
+            # Update movienight submodule to the feature branch
+            cd "$NOVA_DIR/movienight"
+            git fetch origin
+            git checkout "$BRANCH"
+            git pull origin "$BRANCH"
+
+            # Login and pull new test images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            cd ${{ secrets.NOVA_CONFIG_PATH }}
-            ./nova.sh update movienight-test
+            docker compose -f "$COMPOSE_FILE" pull
+
+            # Restart with new images
+            docker compose -f "$COMPOSE_FILE" up -d
+
+            # Verify
+            if docker ps | grep -q movienight-test; then
+              echo "Deployment successful - movienight-test is running"
+              docker ps | grep movienight-test
+            else
+              echo "Deployment failed"
+              docker compose -f "$COMPOSE_FILE" logs --tail=50
+              exit 1
+            fi
 
       - name: Deployment summary
         if: success()
