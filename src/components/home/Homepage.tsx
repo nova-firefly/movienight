@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
-import { GET_MOVIES, ADD_MOVIE, DELETE_MOVIE, MARK_WATCHED, REORDER_MOVIE, SEARCH_TMDB } from "../../graphql/queries";
-import { Autocomplete, AutocompleteOption, Box, Button, Typography, Sheet, Chip, IconButton, ListItemContent } from "@mui/joy";
+import {
+  GET_MOVIES,
+  ADD_MOVIE,
+  DELETE_MOVIE,
+  MARK_WATCHED,
+  REORDER_MOVIE,
+  SEARCH_TMDB,
+  VOTE_MOVIE,
+} from "../../graphql/queries";
+import {
+  Autocomplete,
+  AutocompleteOption,
+  Box,
+  Button,
+  Typography,
+  Sheet,
+  Chip,
+  IconButton,
+  ListItemContent,
+} from "@mui/joy";
 import TmdbMatchFlow from "./TmdbMatchFlow";
-import { Movie } from "../../models/Movies";
+import { Movie, MovieVote } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   DndContext,
@@ -39,6 +57,146 @@ const DragHandleIcon: React.FC = () => (
   </svg>
 );
 
+// ── Vote pill ─────────────────────────────────────────────────────────────────
+
+interface VotePillProps {
+  votes: MovieVote[];
+  currentUserId?: string;
+  onVote: (vote: boolean | null) => void;
+  disabled?: boolean;
+}
+
+function initials(v: MovieVote): string {
+  const name = v.displayName || v.username;
+  return name.slice(0, 2).toUpperCase();
+}
+
+function segmentStyle(vote: boolean | null | undefined, isMe: boolean): React.CSSProperties {
+  const base: React.CSSProperties = {
+    width: 30,
+    height: 24,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "0.65rem",
+    fontWeight: 700,
+    letterSpacing: "0.02em",
+    cursor: isMe ? "pointer" : "default",
+    userSelect: "none",
+    transition: "background 0.12s, color 0.12s",
+    flexShrink: 0,
+  };
+  if (vote === true) {
+    return { ...base, background: "rgba(76, 175, 80, 0.25)", color: "#81c784" };
+  }
+  if (vote === false) {
+    return { ...base, background: "rgba(239, 83, 80, 0.2)", color: "#e57373" };
+  }
+  return {
+    ...base,
+    background: "rgba(255,255,255,0.05)",
+    color: "rgba(255,255,255,0.25)",
+  };
+}
+
+const VotePill: React.FC<VotePillProps> = ({ votes, currentUserId, onVote, disabled }) => {
+  if (votes.length === 0) return null;
+
+  function handleClick(v: MovieVote) {
+    if (!currentUserId || String(v.userId) !== String(currentUserId) || disabled) return;
+    // Cycle: null → true → false → null
+    if (v.vote === null || v.vote === undefined) onVote(true);
+    else if (v.vote === true) onVote(false);
+    else onVote(null);
+  }
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        borderRadius: 20,
+        overflow: "hidden",
+        border: "1px solid rgba(255,255,255,0.08)",
+        gap: 1,
+        background: "rgba(255,255,255,0.04)",
+      }}
+      title={votes
+        .map((v) => {
+          const name = v.displayName || v.username;
+          if (v.vote === true) return `${name}: Yes`;
+          if (v.vote === false) return `${name}: No`;
+          return `${name}: Not voted`;
+        })
+        .join(" · ")}
+    >
+      {votes.map((v) => {
+        const isMe = !!currentUserId && String(v.userId) === String(currentUserId);
+        return (
+          <div
+            key={v.userId}
+            style={segmentStyle(v.vote, isMe && !disabled)}
+            onClick={() => handleClick(v)}
+            title={
+              isMe
+                ? v.vote === true
+                  ? "You: Yes — click to change to No"
+                  : v.vote === false
+                  ? "You: No — click to clear"
+                  : "Click to vote Yes"
+                : `${v.displayName || v.username}: ${
+                    v.vote === true ? "Yes" : v.vote === false ? "No" : "Not voted"
+                  }`
+            }
+          >
+            {initials(v)}
+            {v.vote === true && (
+              <span style={{ marginLeft: 1, fontSize: "0.55rem" }}>✓</span>
+            )}
+            {v.vote === false && (
+              <span style={{ marginLeft: 1, fontSize: "0.55rem" }}>✕</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Section header row ────────────────────────────────────────────────────────
+
+interface SectionHeaderProps {
+  label: string;
+  count: number;
+  colSpan: number;
+  accent?: string;
+}
+
+const SectionHeader: React.FC<SectionHeaderProps> = ({ label, count, colSpan, accent }) => (
+  <tr>
+    <td
+      colSpan={colSpan}
+      style={{
+        padding: "10px 16px 6px",
+        fontSize: "0.65rem",
+        fontWeight: 800,
+        textTransform: "uppercase",
+        letterSpacing: "0.1em",
+        color: accent ?? "var(--mn-text-muted)",
+        borderTop: "1px solid var(--mn-border-vis)",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        background: "var(--mn-bg-elevated)",
+      }}
+    >
+      {label}{" "}
+      <span style={{ opacity: 0.5, fontWeight: 400, textTransform: "none" }}>
+        ({count})
+      </span>
+    </td>
+  </tr>
+);
+
+// ── Sortable row ──────────────────────────────────────────────────────────────
+
 interface SortableRowProps {
   movie: Movie;
   rank: number;
@@ -46,17 +204,24 @@ interface SortableRowProps {
   canMarkWatched: boolean;
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
+  currentUserId?: string;
+  isAuthenticated: boolean;
+  onVote: (movieId: string, vote: boolean | null) => void;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMarkWatched, onMarkWatched, onDelete }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: movie.id });
+const SortableRow: React.FC<SortableRowProps> = ({
+  movie,
+  rank,
+  isAdmin,
+  canMarkWatched,
+  onMarkWatched,
+  onDelete,
+  currentUserId,
+  isAuthenticated,
+  onVote,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: movie.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -70,13 +235,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMark
     <tr ref={setNodeRef} style={style}>
       {/* Drag handle */}
       {isAdmin && (
-        <td
-          style={{
-            width: 36,
-            padding: "0 4px 0 12px",
-            verticalAlign: "middle",
-          }}
-        >
+        <td style={{ width: 36, padding: "0 4px 0 12px", verticalAlign: "middle" }}>
           <span
             {...attributes}
             {...listeners}
@@ -96,14 +255,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMark
       )}
 
       {/* Rank */}
-      <td
-        style={{
-          width: 44,
-          textAlign: "center",
-          verticalAlign: "middle",
-          padding: "0 8px",
-        }}
-      >
+      <td style={{ width: 44, textAlign: "center", verticalAlign: "middle", padding: "0 8px" }}>
         <Typography
           level="body-xs"
           sx={{
@@ -118,34 +270,30 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMark
 
       {/* Title */}
       <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
-        <Typography
-          level="body-sm"
-          sx={{ fontWeight: 600, color: "text.primary" }}
-        >
+        <Typography level="body-sm" sx={{ fontWeight: 600, color: "text.primary" }}>
           {movie.title}
         </Typography>
       </td>
 
       {/* Suggested by */}
       <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
-        <Chip
-          size="sm"
-          variant="soft"
-          color="neutral"
-          sx={{ fontWeight: 500 }}
-        >
+        <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
           {movie.requester}
         </Chip>
       </td>
 
+      {/* Votes */}
+      <td style={{ verticalAlign: "middle", padding: "8px 12px", textAlign: "center" }}>
+        <VotePill
+          votes={movie.votes ?? []}
+          currentUserId={currentUserId}
+          onVote={(v) => onVote(movie.id, v)}
+          disabled={!isAuthenticated}
+        />
+      </td>
+
       {/* Date */}
-      <td
-        style={{
-          verticalAlign: "middle",
-          padding: "12px 16px",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <td style={{ verticalAlign: "middle", padding: "12px 16px", whiteSpace: "nowrap" }}>
         <Typography level="body-xs" sx={{ color: "text.secondary" }}>
           {new Date(movie.date_submitted).toLocaleDateString(undefined, {
             year: "numeric",
@@ -218,6 +366,8 @@ const SortableRow: React.FC<SortableRowProps> = ({ movie, rank, isAdmin, canMark
   );
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 type TmdbOption = {
   tmdb_id: number;
   title: string;
@@ -234,9 +384,26 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+function getMyVote(movie: Movie, userId?: string): boolean | null {
+  if (!userId) return null;
+  const entry = movie.votes?.find((v) => String(v.userId) === String(userId));
+  return entry ? entry.vote : null;
+}
+
+function allVotedYes(movie: Movie): boolean {
+  return (
+    movie.votes.length > 0 &&
+    movie.votes.every((v) => v.vote === true)
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.is_admin ?? false;
+  const userId = user ? String(user.id) : undefined;
+
   const [title, setTitle] = useState("");
   const [tmdbId, setTmdbId] = useState<number | null>(null);
   const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
@@ -268,25 +435,26 @@ const HomePage: React.FC = () => {
   const [addMovie] = useMutation(ADD_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-
   const [markWatched] = useMutation(MARK_WATCHED, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-
   const [reorderMovie] = useMutation(REORDER_MOVIE, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+  const [voteMovie] = useMutation(VOTE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
 
   const movies: Movie[] = localMovies ?? data?.movies ?? [];
 
-  // Movies without a TMDB match that the current user is allowed to act on
-  const unmatchedMovies = movies.filter((m) => !m.tmdb_id && (
-    isAdmin || (user && String(m.requested_by) === String(user.id))
-  ));
+  const unmatchedMovies = movies.filter(
+    (m) =>
+      !m.tmdb_id &&
+      (isAdmin || (user && String(m.requested_by) === String(user.id)))
+  );
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -309,7 +477,12 @@ const HomePage: React.FC = () => {
   };
 
   const handleMarkWatched = async (id: string, movieTitle: string) => {
-    if (!window.confirm(`Mark "${movieTitle}" as watched? It will be removed from the watchlist.`)) return;
+    if (
+      !window.confirm(
+        `Mark "${movieTitle}" as watched? It will be removed from the watchlist.`
+      )
+    )
+      return;
     try {
       await markWatched({ variables: { id } });
     } catch (err: any) {
@@ -323,6 +496,14 @@ const HomePage: React.FC = () => {
       await deleteMovie({ variables: { id } });
     } catch (err: any) {
       setErrorMessage(`Error removing movie: ${err.message}`);
+    }
+  };
+
+  const handleVote = async (movieId: string, vote: boolean | null) => {
+    try {
+      await voteMovie({ variables: { movieId, vote } });
+    } catch (err: any) {
+      setErrorMessage(`Error saving vote: ${err.message}`);
     }
   };
 
@@ -344,6 +525,71 @@ const HomePage: React.FC = () => {
     }
   };
 
+  // Column count for colSpan calculations
+  const colCount =
+    (isAdmin ? 1 : 0) + // drag
+    1 + // rank
+    1 + // title
+    1 + // suggested by
+    1 + // votes
+    1 + // added
+    1 + // tmdb
+    (isAuthenticated ? 1 : 0); // actions
+
+  // Section grouping (only when authenticated)
+  const needsVote = isAuthenticated
+    ? movies.filter((m) => getMyVote(m, userId) === null)
+    : [];
+  const watchTogether = isAuthenticated
+    ? movies.filter((m) => getMyVote(m, userId) === true && allVotedYes(m))
+    : [];
+  const myPicks = isAuthenticated
+    ? movies.filter(
+        (m) => getMyVote(m, userId) === true && !allVotedYes(m)
+      )
+    : [];
+  const passed = isAuthenticated
+    ? movies.filter((m) => getMyVote(m, userId) === false)
+    : [];
+
+  const renderRow = (movie: Movie, rank: number) => (
+    <SortableRow
+      key={movie.id}
+      movie={movie}
+      rank={rank}
+      isAdmin={isAdmin}
+      canMarkWatched={
+        isAdmin ||
+        (isAuthenticated && String(movie.requested_by) === String(user?.id))
+      }
+      onMarkWatched={handleMarkWatched}
+      onDelete={handleDelete}
+      currentUserId={userId}
+      isAuthenticated={isAuthenticated}
+      onVote={handleVote}
+    />
+  );
+
+  const renderSection = (
+    label: string,
+    sectionMovies: Movie[],
+    startRank: number,
+    accent?: string
+  ) => {
+    if (sectionMovies.length === 0) return null;
+    return (
+      <>
+        <SectionHeader
+          label={label}
+          count={sectionMovies.length}
+          colSpan={colCount}
+          accent={accent}
+        />
+        {sectionMovies.map((movie, idx) => renderRow(movie, startRank + idx))}
+      </>
+    );
+  };
+
   return (
     <Box
       component="main"
@@ -354,16 +600,12 @@ const HomePage: React.FC = () => {
         py: { xs: 3, sm: 5 },
       }}
     >
-      <Box sx={{ maxWidth: 860, mx: "auto" }}>
+      <Box sx={{ maxWidth: 900, mx: "auto" }}>
         {/* Page header */}
         <Box sx={{ textAlign: "center", mb: { xs: 4, sm: 5 } }}>
           <Typography
             level="h2"
-            sx={{
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              mb: 0.5,
-            }}
+            sx={{ fontWeight: 800, letterSpacing: "-0.02em", mb: 0.5 }}
           >
             🍿 Movie List
           </Typography>
@@ -378,14 +620,7 @@ const HomePage: React.FC = () => {
         {isAuthenticated && (
           <Box sx={{ mb: 4 }}>
             <form onSubmit={handleSubmit}>
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 1,
-                  maxWidth: 520,
-                  mx: "auto",
-                }}
-              >
+              <Box sx={{ display: "flex", gap: 1, maxWidth: 520, mx: "auto" }}>
                 <Autocomplete
                   freeSolo
                   options={tmdbOptions}
@@ -433,16 +668,10 @@ const HomePage: React.FC = () => {
               </Box>
             </form>
 
-            {/* Feedback messages */}
             {successMessage && (
               <Typography
                 level="body-sm"
-                sx={{
-                  textAlign: "center",
-                  mt: 1.5,
-                  color: "success.400",
-                  fontWeight: 600,
-                }}
+                sx={{ textAlign: "center", mt: 1.5, color: "success.400", fontWeight: 600 }}
               >
                 ✓ {successMessage}
               </Typography>
@@ -450,12 +679,7 @@ const HomePage: React.FC = () => {
             {errorMessage && (
               <Typography
                 level="body-sm"
-                sx={{
-                  textAlign: "center",
-                  mt: 1.5,
-                  color: "danger.400",
-                  fontWeight: 600,
-                }}
+                sx={{ textAlign: "center", mt: 1.5, color: "danger.400", fontWeight: 600 }}
               >
                 {errorMessage}
               </Typography>
@@ -472,7 +696,8 @@ const HomePage: React.FC = () => {
               size="sm"
               onClick={() => setMatchFlowOpen(true)}
             >
-              Match {unmatchedMovies.length} unmatched movie{unmatchedMovies.length !== 1 ? "s" : ""} with TMDB
+              Match {unmatchedMovies.length} unmatched movie
+              {unmatchedMovies.length !== 1 ? "s" : ""} with TMDB
             </Button>
           </Box>
         )}
@@ -506,7 +731,7 @@ const HomePage: React.FC = () => {
             <table
               style={{
                 width: "100%",
-                minWidth: 480,
+                minWidth: 540,
                 borderCollapse: "collapse",
                 tableLayout: "auto",
               }}
@@ -557,6 +782,19 @@ const HomePage: React.FC = () => {
                     }}
                   >
                     Suggested by
+                  </th>
+                  <th
+                    style={{
+                      padding: "10px 12px",
+                      textAlign: "center",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "var(--mn-text-muted)",
+                    }}
+                  >
+                    Votes
                   </th>
                   <th
                     style={{
@@ -612,7 +850,7 @@ const HomePage: React.FC = () => {
                     {movies.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={isAdmin ? 7 : isAuthenticated ? 6 : 5}
+                          colSpan={colCount}
                           style={{
                             padding: "48px 16px",
                             textAlign: "center",
@@ -623,18 +861,37 @@ const HomePage: React.FC = () => {
                           No movies yet. Be the first to suggest one!
                         </td>
                       </tr>
+                    ) : isAuthenticated ? (
+                      <>
+                        {renderSection(
+                          "Vote needed",
+                          needsVote,
+                          1,
+                          "var(--joy-palette-warning-400)"
+                        )}
+                        {renderSection(
+                          "Watch together",
+                          watchTogether,
+                          needsVote.length + 1,
+                          "#81c784"
+                        )}
+                        {renderSection(
+                          "Your picks",
+                          myPicks,
+                          needsVote.length + watchTogether.length + 1
+                        )}
+                        {renderSection(
+                          "Passed",
+                          passed,
+                          needsVote.length +
+                            watchTogether.length +
+                            myPicks.length +
+                            1,
+                          "#e57373"
+                        )}
+                      </>
                     ) : (
-                      movies.map((movie, idx) => (
-                        <SortableRow
-                          key={movie.id}
-                          movie={movie}
-                          rank={idx + 1}
-                          isAdmin={isAdmin}
-                          canMarkWatched={isAdmin || (isAuthenticated && String(movie.requested_by) === String(user?.id))}
-                          onMarkWatched={handleMarkWatched}
-                          onDelete={handleDelete}
-                        />
-                      ))
+                      movies.map((movie, idx) => renderRow(movie, idx + 1))
                     )}
                   </tbody>
                 </SortableContext>
@@ -643,13 +900,14 @@ const HomePage: React.FC = () => {
           </Box>
         </Sheet>
 
-        {/* Admin hint */}
-        {isAdmin && movies.length > 1 && (
+        {/* Hints */}
+        {isAuthenticated && movies.length > 0 && (
           <Typography
             level="body-xs"
             sx={{ mt: 1.5, textAlign: "center", color: "text.tertiary" }}
           >
-            Drag rows to reorder the watchlist.
+            Click your initials in the Votes column to vote Yes → No → clear.
+            {isAdmin && movies.length > 1 && " Drag rows to reorder the watchlist."}
           </Typography>
         )}
       </Box>

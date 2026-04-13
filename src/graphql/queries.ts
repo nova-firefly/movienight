@@ -10,6 +10,12 @@ export const GET_MOVIES = gql`
       date_submitted
       rank
       tmdb_id
+      votes {
+        userId
+        username
+        displayName
+        vote
+      }
     }
   }
 `;
@@ -229,6 +235,20 @@ export const GET_KOMETA_SCHEDULE = gql`
       dailyTime
       collectionName
       lastRunAt
+    }
+  }
+`;
+
+export const VOTE_MOVIE = gql`
+  mutation VoteMovie($movieId: ID!, $vote: Boolean) {
+    voteMovie(movieId: $movieId, vote: $vote) {
+      id
+      votes {
+        userId
+        username
+        displayName
+        vote
+      }
     }
   }
 `;
