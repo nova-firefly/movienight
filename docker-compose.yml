@@ -44,6 +44,12 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@movienight.local}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      DB_BACKUP_PATH: ${DB_BACKUP_PATH:-/backups}
+      DB_BACKUP_SCHEDULE: ${DB_BACKUP_SCHEDULE:-daily}
+      DB_BACKUP_TIME: ${DB_BACKUP_TIME:-03:00}
+      DB_BACKUP_KEEP_DAYS: ${DB_BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - db_backups:/backups
     ports:
       - '${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}'
     depends_on:
@@ -53,29 +59,6 @@ services:
     networks:
       - backend
       - frontend
-    profiles:
-      - development
-
-  db-backup:
-    image: postgres:15-alpine
-    container_name: movienight-db-backup
-    environment:
-      PGHOST: db
-      PGDATABASE: ${POSTGRES_DB}
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      BACKUP_CRON: ${BACKUP_CRON:-0 2 * * *}
-      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
-    volumes:
-      - db_backups:/backups
-      - ./scripts/backup-entrypoint.sh:/entrypoint.sh:ro
-    entrypoint: /entrypoint.sh
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - backend
     profiles:
       - development
 
@@ -113,6 +96,12 @@ services:
       - NODE_ENV=production
       - KOMETA_COLLECTIONS_PATH=${KOMETA_COLLECTIONS_PATH:-}
       - KOMETA_TRIGGER_URL=${KOMETA_TRIGGER_URL:-}
+      - DB_BACKUP_PATH=${DB_BACKUP_PATH:-/backups}
+      - DB_BACKUP_SCHEDULE=${DB_BACKUP_SCHEDULE:-daily}
+      - DB_BACKUP_TIME=${DB_BACKUP_TIME:-03:00}
+      - DB_BACKUP_KEEP_DAYS=${DB_BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - db_backups:/backups
     networks:
       - frontend
     labels:
