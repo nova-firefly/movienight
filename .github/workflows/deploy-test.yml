@@ -73,7 +73,13 @@ jobs:
           key: ${{ secrets.NOVA_SSH_KEY }}
           port: ${{ secrets.NOVA_SSH_PORT || 22 }}
           script: |
-            COMPOSE_FILE="${{ secrets.NOVA_CONFIG_PATH }}/docker-compose.movienight-test.yaml"
+            NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
+            COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight-test.yaml"
+
+            # Ensure host has latest nova-config compose files
+            cd "$NOVA_DIR"
+            git fetch origin
+            git reset --hard origin/main
 
             # Login and pull new test images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

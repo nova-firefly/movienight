@@ -110,6 +110,11 @@ jobs:
             NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
             COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
 
+            # Ensure host has latest nova-config compose files
+            cd "$NOVA_DIR"
+            git fetch origin
+            git reset --hard origin/main
+
             # Login to GHCR and pull new images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
