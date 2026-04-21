@@ -110,46 +110,28 @@ jobs:
             NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
             COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
 
-            # Update movienight submodule to latest master (picks up backend changes)
-            cd "$NOVA_DIR"
-            git submodule update --remote movienight
-
-            # Login to GHCR so compose can pull the new frontend image
+            # Login to GHCR and pull new images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Pull new images
             docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
 
-            # Gracefully stop db so postgres can remove postmaster.pid cleanly;
-            # docker rm -f (SIGKILL) leaves postmaster.pid with PID 1, which the
-            # next container's init also runs as, causing postgres to think another
-            # instance is already running and enter a restart loop.
-            docker stop movienight-db 2>/dev/null || true
-            docker rm movienight-db 2>/dev/null || true
-
-            # postgres:18rc1-trixie changed VOLUME /var/lib/postgresql/data to
-            # VOLUME /var/lib/postgresql.  Docker then mounts an empty anonymous
-            # volume at the parent path; our named volume mount at the child path
-            # (/var/lib/postgresql/data) fails with "no such file or directory"
-            # because the empty parent has no data/ subdirectory.
-            # Enforce the same stable image the repo declares (postgres:15-alpine).
-            sed -i 's|image: postgres:.*|image: postgres:15-alpine|g' "$COMPOSE_FILE"
-
-            # Restart all services with new images
+            # Restart with new images
             docker compose -f "$COMPOSE_FILE" up -d
 
             # Clean up dangling images
             docker image prune -f
 
-            # Verify frontend container is running
-            if docker ps | grep -q movienight-frontend; then
-              echo "Deployment successful - movienight-frontend is running"
-              docker ps | grep movienight
-            else
-              echo "Deployment failed - movienight-frontend is not running"
-              docker compose -f "$COMPOSE_FILE" logs --tail=50
-              exit 1
-            fi
+            # Verify all containers are running
+            sleep 5
+            for svc in movienight-frontend movienight-backend movienight-db; do
+              STATUS=$(docker inspect --format '{{.State.Status}}' "$svc" 2>/dev/null || echo "missing")
+              if [ "$STATUS" != "running" ]; then
+                echo "FAIL: $svc is $STATUS"
+                docker compose -f "$COMPOSE_FILE" logs --tail=30 "$svc"
+                exit 1
+              fi
+            done
+            echo "Deployment successful"
+            docker compose -f "$COMPOSE_FILE" ps
 
       - name: Deployment summary
         if: success()
