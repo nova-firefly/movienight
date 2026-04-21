@@ -73,32 +73,27 @@ jobs:
           key: ${{ secrets.NOVA_SSH_KEY }}
           port: ${{ secrets.NOVA_SSH_PORT || 22 }}
           script: |
-            NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
-            BRANCH="${{ github.head_ref || github.ref_name }}"
-            COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight-test.yaml"
-
-            # Update movienight submodule to the feature branch
-            cd "$NOVA_DIR/movienight"
-            git fetch origin
-            git checkout "$BRANCH"
-            git pull origin "$BRANCH"
+            COMPOSE_FILE="${{ secrets.NOVA_CONFIG_PATH }}/docker-compose.movienight-test.yaml"
 
             # Login and pull new test images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f "$COMPOSE_FILE" pull
 
-            # Restart with new images
-            docker compose -f "$COMPOSE_FILE" up -d
+            # Recreate containers with new images
+            docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 
-            # Verify
-            if docker ps | grep -q movienight-test; then
-              echo "Deployment successful - movienight-test is running"
-              docker ps | grep movienight-test
-            else
-              echo "Deployment failed"
-              docker compose -f "$COMPOSE_FILE" logs --tail=50
-              exit 1
-            fi
+            # Verify containers were actually recreated (not stale)
+            sleep 5
+            for svc in movienight-test-frontend movienight-test-backend; do
+              STATUS=$(docker inspect --format '{{.State.Status}}' "$svc" 2>/dev/null || echo "missing")
+              if [ "$STATUS" != "running" ]; then
+                echo "FAIL: $svc is $STATUS"
+                docker compose -f "$COMPOSE_FILE" logs --tail=30 "$svc"
+                exit 1
+              fi
+            done
+            echo "Deployment successful"
+            docker compose -f "$COMPOSE_FILE" ps
 
       - name: Deployment summary
         if: success()
