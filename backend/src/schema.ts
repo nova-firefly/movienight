@@ -94,6 +94,7 @@ export const typeDefs = `#graphql
     loginHistory(userId: ID, limit: Int): [LoginHistory!]!
     searchTmdb(query: String!): [TmdbMovie!]!
     kometaSchedule: KometaSchedule!
+    combinedRankings(userIds: [ID!]!): [Movie!]!
   }
 
   type ImportResult {
@@ -114,7 +115,7 @@ export const typeDefs = `#graphql
     matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     markWatched(id: ID!): Movie!
     deleteMovie(id: ID!): Boolean!
-    reorderMovie(id: ID!, afterId: ID): Boolean!
+    reorderMyMovie(id: ID!, afterId: ID): Boolean!
     exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!

@@ -84,9 +84,9 @@ export const DELETE_MOVIE = gql`
   }
 `;
 
-export const REORDER_MOVIE = gql`
-  mutation ReorderMovie($id: ID!, $afterId: ID) {
-    reorderMovie(id: $id, afterId: $afterId)
+export const REORDER_MY_MOVIE = gql`
+  mutation ReorderMyMovie($id: ID!, $afterId: ID) {
+    reorderMyMovie(id: $id, afterId: $afterId)
   }
 `;
 

@@ -5,7 +5,7 @@ import {
   ADD_MOVIE,
   DELETE_MOVIE,
   MARK_WATCHED,
-  REORDER_MOVIE,
+  REORDER_MY_MOVIE,
   SEARCH_TMDB,
   VOTE_MOVIE,
 } from "../../graphql/queries";
@@ -233,8 +233,8 @@ const SortableRow: React.FC<SortableRowProps> = ({
 
   return (
     <tr ref={setNodeRef} style={style}>
-      {/* Drag handle */}
-      {isAdmin && (
+      {/* Drag handle — available to all logged-in users for personal reordering */}
+      {isAuthenticated && (
         <td style={{ width: 36, padding: "0 4px 0 12px", verticalAlign: "middle" }}>
           <span
             {...attributes}
@@ -441,7 +441,7 @@ const HomePage: React.FC = () => {
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-  const [reorderMovie] = useMutation(REORDER_MOVIE, {
+  const [reorderMovie] = useMutation(REORDER_MY_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
   const [voteMovie] = useMutation(VOTE_MOVIE, {
@@ -527,7 +527,7 @@ const HomePage: React.FC = () => {
 
   // Column count for colSpan calculations
   const colCount =
-    (isAdmin ? 1 : 0) + // drag
+    (isAuthenticated ? 1 : 0) + // drag (all logged-in users can reorder their list)
     1 + // rank
     1 + // title
     1 + // suggested by
@@ -743,7 +743,7 @@ const HomePage: React.FC = () => {
                     borderBottom: "1px solid var(--mn-border-vis)",
                   }}
                 >
-                  {isAdmin && <th style={{ width: 36 }} />}
+                  {isAuthenticated && <th style={{ width: 36 }} />}
                   <th
                     style={{
                       padding: "10px 8px",
@@ -907,7 +907,7 @@ const HomePage: React.FC = () => {
             sx={{ mt: 1.5, textAlign: "center", color: "text.tertiary" }}
           >
             Click your initials in the Votes column to vote Yes → No → clear.
-            {isAdmin && movies.length > 1 && " Drag rows to reorder the watchlist."}
+            {movies.length > 1 && " Drag rows to set your personal ranking."}
           </Typography>
         )}
       </Box>
