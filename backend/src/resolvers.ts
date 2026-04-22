@@ -89,25 +89,11 @@ export const resolvers = {
         // Authenticated: order by this user's personal ranking (unranked movies at bottom)
         const result = await pool.query(
           `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                  u.username AS user_username, u.display_name AS user_display_name,
-                  COALESCE(
-                    json_agg(
-                      json_build_object(
-                        'userId', vu.id,
-                        'username', vu.username,
-                        'displayName', vu.display_name,
-                        'vote', mv.vote
-                      ) ORDER BY vu.username
-                    ) FILTER (WHERE vu.id IS NOT NULL),
-                    '[]'::json
-                  ) AS votes
+                  u.username AS user_username, u.display_name AS user_display_name
            FROM movies m
            LEFT JOIN users u ON m.requested_by = u.id
-           CROSS JOIN users vu
-           LEFT JOIN movie_votes mv ON mv.movie_id = m.id AND mv.user_id = vu.id
            LEFT JOIN user_movie_rankings umr ON umr.movie_id = m.id AND umr.user_id = $1
-           WHERE m.watched_at IS NULL AND vu.is_active = true
-           GROUP BY m.id, u.username, u.display_name, umr.rank
+           WHERE m.watched_at IS NULL
            ORDER BY umr.rank ASC NULLS LAST, m.date_submitted ASC`,
           [context.user.userId]
         );
@@ -116,24 +102,10 @@ export const resolvers = {
       // Unauthenticated: order by cached Borda score (higher = more wanted by users)
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                u.username AS user_username, u.display_name AS user_display_name,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'userId', vu.id,
-                      'username', vu.username,
-                      'displayName', vu.display_name,
-                      'vote', mv.vote
-                    ) ORDER BY vu.username
-                  ) FILTER (WHERE vu.id IS NOT NULL),
-                  '[]'::json
-                ) AS votes
+                u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
-         CROSS JOIN users vu
-         LEFT JOIN movie_votes mv ON mv.movie_id = m.id AND mv.user_id = vu.id
-         WHERE m.watched_at IS NULL AND vu.is_active = true
-         GROUP BY m.id, u.username, u.display_name
+         WHERE m.watched_at IS NULL
          ORDER BY m.rank DESC NULLS LAST, m.date_submitted ASC`
       );
       return result.rows;
@@ -141,24 +113,10 @@ export const resolvers = {
     movie: async (_: any, { id }: { id: string }) => {
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                u.username AS user_username, u.display_name AS user_display_name,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'userId', vu.id,
-                      'username', vu.username,
-                      'displayName', vu.display_name,
-                      'vote', mv.vote
-                    ) ORDER BY vu.username
-                  ) FILTER (WHERE vu.id IS NOT NULL),
-                  '[]'::json
-                ) AS votes
+                u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
-         CROSS JOIN users vu
-         LEFT JOIN movie_votes mv ON mv.movie_id = m.id AND mv.user_id = vu.id
-         WHERE m.id = $1 AND vu.is_active = true
-         GROUP BY m.id, u.username, u.display_name`,
+         WHERE m.id = $1`,
         [id]
       );
       return result.rows[0];
@@ -263,24 +221,10 @@ export const resolvers = {
 
       const moviesResult = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                u.username AS user_username, u.display_name AS user_display_name,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'userId', vu.id,
-                      'username', vu.username,
-                      'displayName', vu.display_name,
-                      'vote', mv.vote
-                    ) ORDER BY vu.username
-                  ) FILTER (WHERE vu.id IS NOT NULL),
-                  '[]'::json
-                ) AS votes
+                u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
-         CROSS JOIN users vu
-         LEFT JOIN movie_votes mv ON mv.movie_id = m.id AND mv.user_id = vu.id
-         WHERE m.watched_at IS NULL AND vu.is_active = true
-         GROUP BY m.id, u.username, u.display_name`
+         WHERE m.watched_at IS NULL`
       );
       const movies = moviesResult.rows;
 
@@ -844,52 +788,6 @@ export const resolvers = {
 
       return { imported, skipped, tmdb_matched, errors };
     },
-    voteMovie: async (_: any, { movieId, vote }: { movieId: string; vote?: boolean | null }, context: any) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', {
-          extensions: { code: 'UNAUTHENTICATED' },
-        });
-      }
-      if (vote === null || vote === undefined) {
-        await pool.query(
-          'DELETE FROM movie_votes WHERE movie_id = $1 AND user_id = $2',
-          [movieId, context.user.userId]
-        );
-      } else {
-        await pool.query(
-          `INSERT INTO movie_votes (movie_id, user_id, vote)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (movie_id, user_id) DO UPDATE SET vote = $3, updated_at = NOW()`,
-          [movieId, context.user.userId, vote]
-        );
-      }
-      const result = await pool.query(
-        `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                u.username AS user_username, u.display_name AS user_display_name,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'userId', vu.id,
-                      'username', vu.username,
-                      'displayName', vu.display_name,
-                      'vote', mv.vote
-                    ) ORDER BY vu.username
-                  ) FILTER (WHERE vu.id IS NOT NULL),
-                  '[]'::json
-                ) AS votes
-         FROM movies m
-         LEFT JOIN users u ON m.requested_by = u.id
-         CROSS JOIN users vu
-         LEFT JOIN movie_votes mv ON mv.movie_id = m.id AND mv.user_id = vu.id
-         WHERE m.id = $1 AND vu.is_active = true
-         GROUP BY m.id, u.username, u.display_name`,
-        [movieId]
-      );
-      if (!result.rows[0]) {
-        throw new GraphQLError('Movie not found', { extensions: { code: 'NOT_FOUND' } });
-      }
-      return result.rows[0];
-    },
     login: async (
       _: any,
       { username, password }: { username: string; password: string },
@@ -1064,7 +962,6 @@ export const resolvers = {
     },
   },
   Movie: {
-    votes: (parent: any) => parent.votes || [],
     requester: (parent: any) => {
       if (parent.requested_by != null) {
         return parent.user_display_name || parent.user_username || parent.requester || 'Unknown';

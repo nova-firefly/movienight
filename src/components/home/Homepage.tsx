@@ -7,7 +7,6 @@ import {
   MARK_WATCHED,
   REORDER_MY_MOVIE,
   SEARCH_TMDB,
-  VOTE_MOVIE,
 } from "../../graphql/queries";
 import {
   Autocomplete,
@@ -21,7 +20,7 @@ import {
   ListItemContent,
 } from "@mui/joy";
 import TmdbMatchFlow from "./TmdbMatchFlow";
-import { Movie, MovieVote } from "../../models/Movies";
+import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   DndContext,
@@ -57,144 +56,6 @@ const DragHandleIcon: React.FC = () => (
   </svg>
 );
 
-// ── Vote pill ─────────────────────────────────────────────────────────────────
-
-interface VotePillProps {
-  votes: MovieVote[];
-  currentUserId?: string;
-  onVote: (vote: boolean | null) => void;
-  disabled?: boolean;
-}
-
-function initials(v: MovieVote): string {
-  const name = v.displayName || v.username;
-  return name.slice(0, 2).toUpperCase();
-}
-
-function segmentStyle(vote: boolean | null | undefined, isMe: boolean): React.CSSProperties {
-  const base: React.CSSProperties = {
-    width: 30,
-    height: 24,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "0.65rem",
-    fontWeight: 700,
-    letterSpacing: "0.02em",
-    cursor: isMe ? "pointer" : "default",
-    userSelect: "none",
-    transition: "background 0.12s, color 0.12s",
-    flexShrink: 0,
-  };
-  if (vote === true) {
-    return { ...base, background: "rgba(76, 175, 80, 0.25)", color: "#81c784" };
-  }
-  if (vote === false) {
-    return { ...base, background: "rgba(239, 83, 80, 0.2)", color: "#e57373" };
-  }
-  return {
-    ...base,
-    background: "rgba(255,255,255,0.05)",
-    color: "rgba(255,255,255,0.25)",
-  };
-}
-
-const VotePill: React.FC<VotePillProps> = ({ votes, currentUserId, onVote, disabled }) => {
-  if (votes.length === 0) return null;
-
-  function handleClick(v: MovieVote) {
-    if (!currentUserId || String(v.userId) !== String(currentUserId) || disabled) return;
-    // Cycle: null → true → false → null
-    if (v.vote === null || v.vote === undefined) onVote(true);
-    else if (v.vote === true) onVote(false);
-    else onVote(null);
-  }
-
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        borderRadius: 20,
-        overflow: "hidden",
-        border: "1px solid rgba(255,255,255,0.08)",
-        gap: 1,
-        background: "rgba(255,255,255,0.04)",
-      }}
-      title={votes
-        .map((v) => {
-          const name = v.displayName || v.username;
-          if (v.vote === true) return `${name}: Yes`;
-          if (v.vote === false) return `${name}: No`;
-          return `${name}: Not voted`;
-        })
-        .join(" · ")}
-    >
-      {votes.map((v) => {
-        const isMe = !!currentUserId && String(v.userId) === String(currentUserId);
-        return (
-          <div
-            key={v.userId}
-            style={segmentStyle(v.vote, isMe && !disabled)}
-            onClick={() => handleClick(v)}
-            title={
-              isMe
-                ? v.vote === true
-                  ? "You: Yes — click to change to No"
-                  : v.vote === false
-                  ? "You: No — click to clear"
-                  : "Click to vote Yes"
-                : `${v.displayName || v.username}: ${
-                    v.vote === true ? "Yes" : v.vote === false ? "No" : "Not voted"
-                  }`
-            }
-          >
-            {initials(v)}
-            {v.vote === true && (
-              <span style={{ marginLeft: 1, fontSize: "0.55rem" }}>✓</span>
-            )}
-            {v.vote === false && (
-              <span style={{ marginLeft: 1, fontSize: "0.55rem" }}>✕</span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// ── Section header row ────────────────────────────────────────────────────────
-
-interface SectionHeaderProps {
-  label: string;
-  count: number;
-  colSpan: number;
-  accent?: string;
-}
-
-const SectionHeader: React.FC<SectionHeaderProps> = ({ label, count, colSpan, accent }) => (
-  <tr>
-    <td
-      colSpan={colSpan}
-      style={{
-        padding: "10px 16px 6px",
-        fontSize: "0.65rem",
-        fontWeight: 800,
-        textTransform: "uppercase",
-        letterSpacing: "0.1em",
-        color: accent ?? "var(--mn-text-muted)",
-        borderTop: "1px solid var(--mn-border-vis)",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
-        background: "var(--mn-bg-elevated)",
-      }}
-    >
-      {label}{" "}
-      <span style={{ opacity: 0.5, fontWeight: 400, textTransform: "none" }}>
-        ({count})
-      </span>
-    </td>
-  </tr>
-);
-
 // ── Sortable row ──────────────────────────────────────────────────────────────
 
 interface SortableRowProps {
@@ -204,9 +65,7 @@ interface SortableRowProps {
   canMarkWatched: boolean;
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
-  currentUserId?: string;
   isAuthenticated: boolean;
-  onVote: (movieId: string, vote: boolean | null) => void;
 }
 
 const SortableRow: React.FC<SortableRowProps> = ({
@@ -216,9 +75,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   canMarkWatched,
   onMarkWatched,
   onDelete,
-  currentUserId,
   isAuthenticated,
-  onVote,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: movie.id });
@@ -280,16 +137,6 @@ const SortableRow: React.FC<SortableRowProps> = ({
         <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
           {movie.requester}
         </Chip>
-      </td>
-
-      {/* Votes */}
-      <td style={{ verticalAlign: "middle", padding: "8px 12px", textAlign: "center" }}>
-        <VotePill
-          votes={movie.votes ?? []}
-          currentUserId={currentUserId}
-          onVote={(v) => onVote(movie.id, v)}
-          disabled={!isAuthenticated}
-        />
       </td>
 
       {/* Date */}
@@ -384,18 +231,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-function getMyVote(movie: Movie, userId?: string): boolean | null {
-  if (!userId) return null;
-  const entry = movie.votes?.find((v) => String(v.userId) === String(userId));
-  return entry ? entry.vote : null;
-}
-
-function allVotedYes(movie: Movie): boolean {
-  return (
-    movie.votes.length > 0 &&
-    movie.votes.every((v) => v.vote === true)
-  );
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -444,10 +279,6 @@ const HomePage: React.FC = () => {
   const [reorderMovie] = useMutation(REORDER_MY_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-  const [voteMovie] = useMutation(VOTE_MOVIE, {
-    refetchQueries: [{ query: GET_MOVIES }],
-  });
-
   const movies: Movie[] = localMovies ?? data?.movies ?? [];
 
   const unmatchedMovies = movies.filter(
@@ -499,14 +330,6 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleVote = async (movieId: string, vote: boolean | null) => {
-    try {
-      await voteMovie({ variables: { movieId, vote } });
-    } catch (err: any) {
-      setErrorMessage(`Error saving vote: ${err.message}`);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -531,26 +354,9 @@ const HomePage: React.FC = () => {
     1 + // rank
     1 + // title
     1 + // suggested by
-    1 + // votes
     1 + // added
     1 + // tmdb
     (isAuthenticated ? 1 : 0); // actions
-
-  // Section grouping (only when authenticated)
-  const needsVote = isAuthenticated
-    ? movies.filter((m) => getMyVote(m, userId) === null)
-    : [];
-  const watchTogether = isAuthenticated
-    ? movies.filter((m) => getMyVote(m, userId) === true && allVotedYes(m))
-    : [];
-  const myPicks = isAuthenticated
-    ? movies.filter(
-        (m) => getMyVote(m, userId) === true && !allVotedYes(m)
-      )
-    : [];
-  const passed = isAuthenticated
-    ? movies.filter((m) => getMyVote(m, userId) === false)
-    : [];
 
   const renderRow = (movie: Movie, rank: number) => (
     <SortableRow
@@ -564,31 +370,9 @@ const HomePage: React.FC = () => {
       }
       onMarkWatched={handleMarkWatched}
       onDelete={handleDelete}
-      currentUserId={userId}
       isAuthenticated={isAuthenticated}
-      onVote={handleVote}
     />
   );
-
-  const renderSection = (
-    label: string,
-    sectionMovies: Movie[],
-    startRank: number,
-    accent?: string
-  ) => {
-    if (sectionMovies.length === 0) return null;
-    return (
-      <>
-        <SectionHeader
-          label={label}
-          count={sectionMovies.length}
-          colSpan={colCount}
-          accent={accent}
-        />
-        {sectionMovies.map((movie, idx) => renderRow(movie, startRank + idx))}
-      </>
-    );
-  };
 
   return (
     <Box
@@ -785,19 +569,6 @@ const HomePage: React.FC = () => {
                   </th>
                   <th
                     style={{
-                      padding: "10px 12px",
-                      textAlign: "center",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
-                    }}
-                  >
-                    Votes
-                  </th>
-                  <th
-                    style={{
                       padding: "10px 16px",
                       textAlign: "left",
                       fontSize: "0.7rem",
@@ -861,35 +632,6 @@ const HomePage: React.FC = () => {
                           No movies yet. Be the first to suggest one!
                         </td>
                       </tr>
-                    ) : isAuthenticated ? (
-                      <>
-                        {renderSection(
-                          "Vote needed",
-                          needsVote,
-                          1,
-                          "var(--joy-palette-warning-400)"
-                        )}
-                        {renderSection(
-                          "Watch together",
-                          watchTogether,
-                          needsVote.length + 1,
-                          "#81c784"
-                        )}
-                        {renderSection(
-                          "Your picks",
-                          myPicks,
-                          needsVote.length + watchTogether.length + 1
-                        )}
-                        {renderSection(
-                          "Passed",
-                          passed,
-                          needsVote.length +
-                            watchTogether.length +
-                            myPicks.length +
-                            1,
-                          "#e57373"
-                        )}
-                      </>
                     ) : (
                       movies.map((movie, idx) => renderRow(movie, idx + 1))
                     )}
@@ -906,8 +648,7 @@ const HomePage: React.FC = () => {
             level="body-xs"
             sx={{ mt: 1.5, textAlign: "center", color: "text.tertiary" }}
           >
-            Click your initials in the Votes column to vote Yes → No → clear.
-            {movies.length > 1 && " Drag rows to set your personal ranking."}
+            {movies.length > 1 && "Drag rows to set your personal ranking."}
           </Typography>
         )}
       </Box>
