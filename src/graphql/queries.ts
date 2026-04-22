@@ -8,7 +8,7 @@ export const GET_MOVIES = gql`
       requester
       requested_by
       date_submitted
-      rank
+      elo_rank
       tmdb_id
     }
   }
@@ -21,7 +21,7 @@ export const GET_MOVIE = gql`
       title
       requester
       date_submitted
-      rank
+      elo_rank
     }
   }
 `;
@@ -33,7 +33,7 @@ export const ADD_MOVIE = gql`
       title
       requester
       date_submitted
-      rank
+      elo_rank
       tmdb_id
     }
   }
@@ -57,7 +57,7 @@ export const MATCH_MOVIE = gql`
       title
       requester
       date_submitted
-      rank
+      elo_rank
       tmdb_id
     }
   }
@@ -75,12 +75,6 @@ export const MARK_WATCHED = gql`
 export const DELETE_MOVIE = gql`
   mutation DeleteMovie($id: ID!) {
     deleteMovie(id: $id)
-  }
-`;
-
-export const REORDER_MY_MOVIE = gql`
-  mutation ReorderMyMovie($id: ID!, $afterId: ID) {
-    reorderMyMovie(id: $id, afterId: $afterId)
   }
 `;
 
@@ -265,5 +259,70 @@ export const UPDATE_KOMETA_SCHEDULE = gql`
       collectionName
       lastRunAt
     }
+  }
+`;
+
+export const THIS_OR_THAT = gql`
+  query ThisOrThat($excludeIds: [ID!]) {
+    thisOrThat(excludeIds: $excludeIds) {
+      movieA {
+        id
+        title
+        tmdb_id
+        poster_url
+        release_year
+        director
+        cast
+        tags
+      }
+      movieB {
+        id
+        title
+        tmdb_id
+        poster_url
+        release_year
+        director
+        cast
+        tags
+      }
+    }
+  }
+`;
+
+export const MY_RANKINGS = gql`
+  query MyRankings {
+    myRankings {
+      movie {
+        id
+        title
+        tmdb_id
+        elo_rank
+      }
+      eloRating
+      comparisonCount
+    }
+  }
+`;
+
+export const RECORD_COMPARISON = gql`
+  mutation RecordComparison($winnerId: ID!, $loserId: ID!) {
+    recordComparison(winnerId: $winnerId, loserId: $loserId) {
+      winnerId
+      loserId
+      winnerElo
+      loserElo
+    }
+  }
+`;
+
+export const RESET_MOVIE_COMPARISONS = gql`
+  mutation ResetMovieComparisons($movieId: ID!) {
+    resetMovieComparisons(movieId: $movieId)
+  }
+`;
+
+export const SEED_MOVIES = gql`
+  mutation SeedMovies {
+    seedMovies
   }
 `;

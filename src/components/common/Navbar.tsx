@@ -3,17 +3,21 @@ import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGravatarUrl } from '../../utils/gravatar';
 
+type ViewName = 'movies' | 'this-or-that' | 'admin';
+
 interface NavbarProps {
-  showUserManagement: boolean;
+  currentView: ViewName;
   onShowMovies: () => void;
-  onShowUserManagement: () => void;
+  onShowThisOrThat: () => void;
+  onShowAdmin: () => void;
   onShowLogin: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  showUserManagement,
+  currentView,
   onShowMovies,
-  onShowUserManagement,
+  onShowThisOrThat,
+  onShowAdmin,
   onShowLogin,
 }) => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -22,27 +26,42 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navItems = (
     <>
       <Button
-        variant={!showUserManagement ? 'soft' : 'plain'}
+        variant={currentView === 'movies' ? 'soft' : 'plain'}
         color="neutral"
         size="sm"
         onClick={() => { onShowMovies(); setMobileOpen(false); }}
         sx={{
           fontWeight: 600,
-          color: !showUserManagement ? 'primary.400' : 'text.secondary',
+          color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
           '&:hover': { color: 'primary.300' },
         }}
       >
         Movies
       </Button>
-      {isAuthenticated && user?.is_admin && (
+      {isAuthenticated && (
         <Button
-          variant={showUserManagement ? 'soft' : 'plain'}
+          variant={currentView === 'this-or-that' ? 'soft' : 'plain'}
           color="neutral"
           size="sm"
-          onClick={() => { onShowUserManagement(); setMobileOpen(false); }}
+          onClick={() => { onShowThisOrThat(); setMobileOpen(false); }}
           sx={{
             fontWeight: 600,
-            color: showUserManagement ? 'primary.400' : 'text.secondary',
+            color: currentView === 'this-or-that' ? 'primary.400' : 'text.secondary',
+            '&:hover': { color: 'primary.300' },
+          }}
+        >
+          This or That
+        </Button>
+      )}
+      {isAuthenticated && user?.is_admin && (
+        <Button
+          variant={currentView === 'admin' ? 'soft' : 'plain'}
+          color="neutral"
+          size="sm"
+          onClick={() => { onShowAdmin(); setMobileOpen(false); }}
+          sx={{
+            fontWeight: 600,
+            color: currentView === 'admin' ? 'primary.400' : 'text.secondary',
             '&:hover': { color: 'primary.300' },
           }}
         >
@@ -86,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             onClick={() => { onShowMovies(); setMobileOpen(false); }}
           >
-            🎬 MovieNight
+            MovieNight
           </Typography>
           {/* Desktop nav links */}
           <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>

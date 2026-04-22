@@ -4,7 +4,9 @@ import pool from './db';
 import { hashPassword, comparePassword, generateToken } from './auth';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
-import { rescheduleKometa, scheduleBordaRecalculation } from './scheduler';
+import { rescheduleKometa } from './scheduler';
+import { applyComparison, updateGlobalEloRank } from './elo';
+import { selectPair, MovieCandidate } from './pairSelection';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
@@ -44,6 +46,67 @@ async function logLoginHistory(
 }
 
 const isProduction = () => process.env.NODE_ENV === 'production';
+
+// ── TMDB enrichment cache ────────────────────────────────────────────────────
+
+interface TmdbCacheEntry {
+  data: TmdbEnrichment;
+  expiresAt: number;
+}
+
+interface TmdbEnrichment {
+  poster_url: string | null;
+  release_year: string | null;
+  director: string | null;
+  cast: string[];
+  tags: string[];
+}
+
+const tmdbCache = new Map<number, TmdbCacheEntry>();
+const TMDB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+async function enrichWithTmdb(tmdbId: number): Promise<TmdbEnrichment> {
+  const cached = tmdbCache.get(tmdbId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) {
+    return { poster_url: null, release_year: null, director: null, cast: [], tags: [] };
+  }
+
+  try {
+    const [movieRes, creditsRes, keywordsRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}&language=en-US`),
+      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/credits?api_key=${apiKey}&language=en-US`),
+      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${apiKey}`),
+    ]);
+
+    const movie = movieRes.ok ? await movieRes.json() as any : null;
+    const credits = creditsRes.ok ? await creditsRes.json() as any : null;
+    const keywords = keywordsRes.ok ? await keywordsRes.json() as any : null;
+
+    const genres: string[] = movie?.genres?.map((g: any) => g.name) ?? [];
+    const keywordNames: string[] = keywords?.keywords?.map((k: any) => k.name) ?? [];
+    // Fill tags: genres first, then keywords, up to 5
+    const tags = [...genres, ...keywordNames.filter(k => !genres.includes(k))].slice(0, 5);
+
+    const data: TmdbEnrichment = {
+      poster_url: movie?.poster_path
+        ? `https://image.tmdb.org/t/p/w342${movie.poster_path}`
+        : null,
+      release_year: movie?.release_date ? movie.release_date.split('-')[0] : null,
+      director: credits?.crew?.find((c: any) => c.job === 'Director')?.name ?? null,
+      cast: (credits?.cast ?? []).slice(0, 3).map((c: any) => c.name),
+      tags,
+    };
+
+    tmdbCache.set(tmdbId, { data, expiresAt: Date.now() + TMDB_CACHE_TTL });
+    return data;
+  } catch (err) {
+    console.error(`TMDB enrichment failed for ${tmdbId}:`, err);
+    return { poster_url: null, release_year: null, director: null, cast: [], tags: [] };
+  }
+}
 
 export const resolvers = {
   Query: {
@@ -86,33 +149,36 @@ export const resolvers = {
     },
     movies: async (_: any, __: any, context: any) => {
       if (context.user) {
-        // Authenticated: order by this user's personal ranking (unranked movies at bottom)
+        // Authenticated: order by personal Elo (unrated movies at bottom)
         const result = await pool.query(
           `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+                  COALESCE(ume.elo_rating, m.elo_rank) AS elo_rank,
                   u.username AS user_username, u.display_name AS user_display_name
            FROM movies m
            LEFT JOIN users u ON m.requested_by = u.id
-           LEFT JOIN user_movie_rankings umr ON umr.movie_id = m.id AND umr.user_id = $1
+           LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
            WHERE m.watched_at IS NULL
-           ORDER BY umr.rank ASC NULLS LAST, m.date_submitted ASC`,
+           ORDER BY ume.elo_rating DESC NULLS LAST, m.date_submitted ASC`,
           [context.user.userId]
         );
         return result.rows;
       }
-      // Unauthenticated: order by cached Borda score (higher = more wanted by users)
+      // Unauthenticated: order by global elo_rank
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+                m.elo_rank,
                 u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
          WHERE m.watched_at IS NULL
-         ORDER BY m.rank DESC NULLS LAST, m.date_submitted ASC`
+         ORDER BY m.elo_rank DESC NULLS LAST, m.date_submitted ASC`
       );
       return result.rows;
     },
     movie: async (_: any, { id }: { id: string }) => {
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+                m.elo_rank,
                 u.username AS user_username, u.display_name AS user_display_name
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
@@ -212,56 +278,6 @@ export const resolvers = {
       );
       return result.rows;
     },
-    combinedRankings: async (_: any, { userIds }: { userIds: string[] }, context: any) => {
-      if (!context.user?.isAdmin) {
-        throw new GraphQLError('Not authorized', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
-
-      const moviesResult = await pool.query(
-        `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                u.username AS user_username, u.display_name AS user_display_name
-         FROM movies m
-         LEFT JOIN users u ON m.requested_by = u.id
-         WHERE m.watched_at IS NULL`
-      );
-      const movies = moviesResult.rows;
-
-      // Borda count for specified users
-      const scores = new Map<number, number>(movies.map((m: any) => [m.id, 0]));
-
-      if (userIds.length > 0) {
-        const rankingsResult = await pool.query(
-          `SELECT umr.user_id, umr.movie_id
-           FROM user_movie_rankings umr
-           JOIN movies m ON m.id = umr.movie_id
-           WHERE umr.user_id = ANY($1::int[]) AND m.watched_at IS NULL
-           ORDER BY umr.user_id, umr.rank ASC`,
-          [userIds.map(Number)]
-        );
-
-        // Group by user, then apply Borda points
-        const byUser = new Map<number, number[]>();
-        for (const row of rankingsResult.rows) {
-          if (!byUser.has(row.user_id)) byUser.set(row.user_id, []);
-          byUser.get(row.user_id)!.push(row.movie_id);
-        }
-        for (const [, userMovieIds] of byUser) {
-          const n = userMovieIds.length;
-          for (let i = 0; i < n; i++) {
-            const id = userMovieIds[i];
-            if (scores.has(id)) scores.set(id, scores.get(id)! + (n - i));
-          }
-        }
-      }
-
-      return movies.sort((a: any, b: any) => {
-        const diff = (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0);
-        if (diff !== 0) return diff;
-        return new Date(a.date_submitted).getTime() - new Date(b.date_submitted).getTime();
-      });
-    },
     kometaSchedule: async (_: any, __: any, context: any) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
@@ -281,6 +297,104 @@ export const resolvers = {
         lastRunAt: row.last_run_at ? (row.last_run_at instanceof Date ? row.last_run_at.toISOString() : new Date(row.last_run_at).toISOString()) : null,
       };
     },
+    thisOrThat: async (_: any, { excludeIds }: { excludeIds?: string[] }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const userId = context.user.userId;
+      const excludeIntIds = (excludeIds ?? []).map(Number).filter(n => !isNaN(n));
+
+      // Fetch candidates, excluding recently seen
+      let candidatesResult = await pool.query(
+        `SELECT m.id, m.title, m.tmdb_id,
+                COALESCE(ume.comparison_count, 0) AS user_comparison_count,
+                COALESCE(ume.elo_rating, 1000) AS elo_rating
+         FROM movies m
+         LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
+         WHERE m.watched_at IS NULL
+           AND m.id != ALL($2::int[])`,
+        [userId, excludeIntIds]
+      );
+
+      // If exclusion leaves < 2 candidates, retry without exclusion
+      if (candidatesResult.rows.length < 2) {
+        candidatesResult = await pool.query(
+          `SELECT m.id, m.title, m.tmdb_id,
+                  COALESCE(ume.comparison_count, 0) AS user_comparison_count,
+                  COALESCE(ume.elo_rating, 1000) AS elo_rating
+           FROM movies m
+           LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
+           WHERE m.watched_at IS NULL`,
+          [userId]
+        );
+      }
+
+      if (candidatesResult.rows.length < 2) {
+        throw new GraphQLError('Add more movies to start comparing', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const candidates: MovieCandidate[] = candidatesResult.rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        tmdb_id: r.tmdb_id,
+        userComparisonCount: Number(r.user_comparison_count),
+        elo_rating: Number(r.elo_rating),
+      }));
+
+      const [first, second] = selectPair(candidates);
+
+      // Enrich both movies with TMDB data
+      const [enrichA, enrichB] = await Promise.all([
+        first.tmdb_id ? enrichWithTmdb(first.tmdb_id) : Promise.resolve({ poster_url: null, release_year: null, director: null, cast: [], tags: [] }),
+        second.tmdb_id ? enrichWithTmdb(second.tmdb_id) : Promise.resolve({ poster_url: null, release_year: null, director: null, cast: [], tags: [] }),
+      ]);
+
+      return {
+        movieA: {
+          id: String(first.id),
+          title: first.title,
+          tmdb_id: first.tmdb_id,
+          ...enrichA,
+        },
+        movieB: {
+          id: String(second.id),
+          title: second.title,
+          tmdb_id: second.tmdb_id,
+          ...enrichB,
+        },
+      };
+    },
+    myRankings: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const result = await pool.query(
+        `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+                m.elo_rank,
+                u.username AS user_username, u.display_name AS user_display_name,
+                ume.elo_rating, ume.comparison_count
+         FROM user_movie_elo ume
+         JOIN movies m ON m.id = ume.movie_id
+         LEFT JOIN users u ON m.requested_by = u.id
+         WHERE ume.user_id = $1 AND m.watched_at IS NULL
+         ORDER BY ume.elo_rating DESC`,
+        [context.user.userId]
+      );
+
+      return result.rows.map((r: any) => ({
+        movie: r,
+        eloRating: Number(r.elo_rating),
+        comparisonCount: Number(r.comparison_count),
+      }));
+    },
   },
   Mutation: {
     addMovie: async (_: any, { title, tmdb_id }: { title: string; tmdb_id?: number }, context: any) => {
@@ -289,7 +403,6 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      // rank = 0: no one has ranked this yet; Borda score starts at zero
       const insertResult = await pool.query(
         'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3) RETURNING *',
         [title, context.user.userId, tmdb_id ?? null]
@@ -424,7 +537,11 @@ export const resolvers = {
       }
       return (result.rowCount ?? 0) > 0;
     },
-    reorderMyMovie: async (_: any, { id, afterId }: { id: string; afterId?: string | null }, context: any) => {
+    recordComparison: async (
+      _: any,
+      { winnerId, loserId }: { winnerId: string; loserId: string },
+      context: any
+    ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -432,72 +549,67 @@ export const resolvers = {
       }
 
       const userId = context.user.userId;
-
-      const movieResult = await pool.query(
-        'SELECT id, title FROM movies WHERE id = $1 AND watched_at IS NULL',
-        [id]
+      const { winnerElo, loserElo } = await applyComparison(
+        userId, Number(winnerId), Number(loserId)
       );
+
+      await logAudit(
+        userId,
+        'MOVIE_COMPARISON',
+        'movie',
+        String(winnerId),
+        { winnerId, loserId, winnerElo, loserElo },
+        context.ipAddress ?? 'unknown'
+      );
+
+      return { winnerId, loserId, winnerElo, loserElo };
+    },
+    resetMovieComparisons: async (
+      _: any,
+      { movieId }: { movieId: string },
+      context: any
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const userId = context.user.userId;
+      const mid = Number(movieId);
+
+      // Verify movie exists
+      const movieResult = await pool.query('SELECT id, title FROM movies WHERE id = $1', [mid]);
       if (movieResult.rows.length === 0) {
         throw new GraphQLError('Movie not found', {
           extensions: { code: 'NOT_FOUND' },
         });
       }
 
-      // Fetch all other movies in this user's display order (ranked first, then unranked by date)
-      // Also compute an effective rank for unranked movies so fractional indexing works across both groups.
-      const othersResult = await pool.query(
-        `SELECT m.id, umr.rank AS user_rank, m.date_submitted
-         FROM movies m
-         LEFT JOIN user_movie_rankings umr ON umr.movie_id = m.id AND umr.user_id = $1
-         WHERE m.watched_at IS NULL AND m.id != $2
-         ORDER BY umr.rank ASC NULLS LAST, m.date_submitted ASC`,
-        [userId, id]
-      );
-      const others = othersResult.rows;
-
-      // Assign effective ranks: real rank where available, synthetic rank for unranked tail
-      let maxRealRank = 0;
-      for (const m of others) {
-        if (m.user_rank !== null) maxRealRank = Math.max(maxRealRank, Number(m.user_rank));
-      }
-      let unrankedOffset = 0;
-      const effectiveRanks: number[] = others.map((m: any) => {
-        if (m.user_rank !== null) return Number(m.user_rank);
-        return maxRealRank + 1 + unrankedOffset++;
-      });
-
-      let newRank: number;
-      if (!afterId) {
-        newRank = effectiveRanks.length > 0 ? effectiveRanks[0] / 2 : 1;
-      } else {
-        const afterIndex = others.findIndex((m: any) => String(m.id) === String(afterId));
-        if (afterIndex === -1) {
-          throw new GraphQLError('afterId not found', {
-            extensions: { code: 'BAD_USER_INPUT' },
-          });
-        }
-        const afterRank = effectiveRanks[afterIndex];
-        const nextRank = effectiveRanks[afterIndex + 1];
-        newRank = nextRank !== undefined ? (afterRank + nextRank) / 2 : afterRank + 1;
-      }
-
+      // Delete comparisons involving this movie for this user
       await pool.query(
-        `INSERT INTO user_movie_rankings (user_id, movie_id, rank)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, movie_id) DO UPDATE SET rank = $3, updated_at = NOW()`,
-        [userId, id, newRank]
+        'DELETE FROM movie_comparisons WHERE user_id = $1 AND (winner_id = $2 OR loser_id = $2)',
+        [userId, mid]
       );
+
+      // Delete the user's Elo entry for this movie
+      await pool.query(
+        'DELETE FROM user_movie_elo WHERE user_id = $1 AND movie_id = $2',
+        [userId, mid]
+      );
+
+      // Recompute global elo_rank (becomes NULL if no other users have data)
+      await updateGlobalEloRank(mid);
 
       await logAudit(
         userId,
-        'MOVIE_REORDER',
+        'MOVIE_COMPARISON_RESET',
         'movie',
-        String(id),
-        { title: movieResult.rows[0].title, afterId: afterId ?? null },
+        String(movieId),
+        { title: movieResult.rows[0].title },
         context.ipAddress ?? 'unknown'
       );
 
-      scheduleBordaRecalculation();
       return true;
     },
     exportKometa: async (
@@ -525,7 +637,7 @@ export const resolvers = {
       }
 
       const moviesResult = await pool.query(
-        'SELECT title, tmdb_id, rank FROM movies WHERE watched_at IS NULL ORDER BY rank DESC NULLS LAST, date_submitted ASC'
+        'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC'
       );
       const movies = moviesResult.rows;
       const matched = movies.filter((m: any) => m.tmdb_id != null);
@@ -683,7 +795,6 @@ export const resolvers = {
 
       function extractFilms(html: string): { title: string; year: number | null }[] {
         const found: { title: string; year: number | null }[] = [];
-        // data-item-name="Once Upon a Time... in Hollywood (2019)"
         for (const m of html.matchAll(/data-item-name="([^"]+)"/g)) {
           const raw = decodeEntities(m[1]);
           const yearMatch = raw.match(/\((\d{4})\)$/);
@@ -694,7 +805,6 @@ export const resolvers = {
         return found;
       }
 
-      // Fetch all pages of the list
       const baseUrl = url.replace(/\/$/, '');
       for (let page = 1; page <= 100; page++) {
         const pageUrl = page === 1 ? `${baseUrl}/` : `${baseUrl}/page/${page}/`;
@@ -728,7 +838,6 @@ export const resolvers = {
         errors.push('No films found — check that the URL is a public Letterboxd list');
       }
 
-      // TMDB lookup helper (best-effort, silently skips if no API key)
       const tmdbApiKey = process.env.TMDB_API_KEY;
       async function lookupTmdbId(title: string, year: number | null): Promise<number | null> {
         if (!tmdbApiKey) return null;
@@ -749,7 +858,6 @@ export const resolvers = {
         }
       }
 
-      // Get existing titles (dedup check)
       const existingResult = await pool.query('SELECT LOWER(title) AS title FROM movies');
       const existingTitles = new Set(existingResult.rows.map((r: any) => r.title));
 
@@ -765,7 +873,6 @@ export const resolvers = {
         const tmdbId = await lookupTmdbId(title, year);
         if (tmdbId) tmdb_matched++;
         try {
-          // rank = 0: Borda score starts at zero (no one has ranked this yet)
           await pool.query(
             'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
             [title, context.user.userId, tmdbId]
@@ -960,6 +1067,75 @@ export const resolvers = {
       }
       return (result.rowCount ?? 0) > 0;
     },
+    seedMovies: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      if (isProduction()) {
+        throw new GraphQLError('Seed is disabled in production', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const SEED_MOVIES: { title: string; tmdb_id: number }[] = [
+        { title: 'The Shawshank Redemption', tmdb_id: 278 },
+        { title: 'The Godfather', tmdb_id: 238 },
+        { title: 'The Dark Knight', tmdb_id: 155 },
+        { title: 'Pulp Fiction', tmdb_id: 680 },
+        { title: 'Forrest Gump', tmdb_id: 13 },
+        { title: 'Inception', tmdb_id: 27205 },
+        { title: 'The Matrix', tmdb_id: 603 },
+        { title: 'Interstellar', tmdb_id: 157336 },
+        { title: 'Parasite', tmdb_id: 496243 },
+        { title: 'Fight Club', tmdb_id: 550 },
+        { title: 'Goodfellas', tmdb_id: 769 },
+        { title: 'The Silence of the Lambs', tmdb_id: 274 },
+        { title: 'Whiplash', tmdb_id: 244786 },
+        { title: 'The Grand Budapest Hotel', tmdb_id: 120467 },
+        { title: 'Mad Max: Fury Road', tmdb_id: 76341 },
+        { title: 'Get Out', tmdb_id: 419430 },
+        { title: 'Spirited Away', tmdb_id: 129 },
+        { title: 'Blade Runner 2049', tmdb_id: 335984 },
+        { title: 'The Social Network', tmdb_id: 37799 },
+        { title: 'No Country for Old Men', tmdb_id: 6977 },
+        { title: 'Arrival', tmdb_id: 329865 },
+        { title: 'Everything Everywhere All at Once', tmdb_id: 545611 },
+        { title: 'The Truman Show', tmdb_id: 37165 },
+        { title: 'Moonlight', tmdb_id: 376867 },
+        { title: 'Jaws', tmdb_id: 578 },
+        { title: 'Alien', tmdb_id: 348 },
+        { title: 'Back to the Future', tmdb_id: 105 },
+        { title: 'The Thing', tmdb_id: 1091 },
+        { title: 'Dune', tmdb_id: 438631 },
+        { title: 'The Lighthouse', tmdb_id: 503919 },
+      ];
+
+      // Clear all existing movies and related data
+      await pool.query('DELETE FROM movie_comparisons');
+      await pool.query('DELETE FROM user_movie_elo');
+      await pool.query('DELETE FROM movies');
+
+      // Insert seed movies
+      for (const movie of SEED_MOVIES) {
+        await pool.query(
+          'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
+          [movie.title, context.user.userId, movie.tmdb_id]
+        );
+      }
+
+      await logAudit(
+        context.user.userId,
+        'MOVIE_SEED',
+        'movie',
+        null,
+        { count: SEED_MOVIES.length },
+        context.ipAddress ?? 'unknown'
+      );
+
+      return SEED_MOVIES.length;
+    },
   },
   Movie: {
     requester: (parent: any) => {
@@ -982,6 +1158,9 @@ export const resolvers = {
           ? parent.watched_at
           : new Date(parent.watched_at);
       return date.toISOString();
+    },
+    elo_rank: (parent: any) => {
+      return parent.elo_rank != null ? Number(parent.elo_rank) : null;
     },
   },
   User: {
