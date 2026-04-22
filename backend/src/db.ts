@@ -13,24 +13,17 @@ const pool = new Pool({
 
 const seedAdminUser = async () => {
   try {
-    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    const defaultPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const passwordHash = await hashPassword(defaultPassword);
 
-    if (result.rows.length === 0) {
-      const defaultPassword = process.env.ADMIN_PASSWORD || 'admin123';
-      const passwordHash = await hashPassword(defaultPassword);
+    await pool.query(
+      `INSERT INTO users (username, email, password_hash, is_admin)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_admin = EXCLUDED.is_admin`,
+      ['admin', 'admin@movienight.local', passwordHash, true]
+    );
 
-      await pool.query(
-        'INSERT INTO users (username, email, password_hash, is_admin) VALUES ($1, $2, $3, $4)',
-        ['admin', 'admin@movienight.local', passwordHash, true]
-      );
-
-      console.log('✅ Admin user created successfully');
-      console.log('   Username: admin');
-      console.log(`   Password: ${defaultPassword}`);
-      console.log('   ⚠️  Please change this password after first login!');
-    } else {
-      console.log('Admin user already exists');
-    }
+    console.log('✅ Admin user ensured (username: admin)');
   } catch (error) {
     console.error('Error seeding admin user:', error);
   }
@@ -39,21 +32,17 @@ const seedAdminUser = async () => {
 const seedTestUser = async () => {
   try {
     const username = process.env.TEST_USER_USERNAME || 'testuser';
-    const result = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    const password = process.env.TEST_USER_PASSWORD || 'testpass';
+    const passwordHash = await hashPassword(password);
 
-    if (result.rows.length === 0) {
-      const password = process.env.TEST_USER_PASSWORD || 'testpass';
-      const passwordHash = await hashPassword(password);
+    await pool.query(
+      `INSERT INTO users (username, email, password_hash, display_name, is_admin)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [username, `${username}@movienight.local`, passwordHash, 'Test User', false]
+    );
 
-      await pool.query(
-        'INSERT INTO users (username, email, password_hash, display_name, is_admin) VALUES ($1, $2, $3, $4, $5)',
-        [username, `${username}@movienight.local`, passwordHash, 'Test User', false]
-      );
-
-      console.log('✅ Test user seeded');
-    } else {
-      console.log('Test user already exists');
-    }
+    console.log(`✅ Test user ensured (username: ${username})`);
   } catch (error) {
     console.error('Error seeding test user:', error);
   }
@@ -77,12 +66,6 @@ export const initializeDatabase = async () => {
     });
 
     console.log('Database migrations completed successfully');
-
-    // In development, wipe all users so credentials are always fresh
-    if (process.env.NODE_ENV !== 'production') {
-      await pool.query('DELETE FROM users');
-      console.log('Dev mode: users reset');
-    }
 
     await seedAdminUser();
 
