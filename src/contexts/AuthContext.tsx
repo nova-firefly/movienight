@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { useLazyQuery } from '@apollo/client';
+import { useLazyQuery, useApolloClient } from '@apollo/client';
 import { User } from '../models/User';
 import { GET_ME } from '../graphql/queries';
 
@@ -18,6 +18,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [getMe] = useLazyQuery(GET_ME);
+  const client = useApolloClient();
 
   const refreshUser = async () => {
     const token = localStorage.getItem('authToken');
@@ -45,11 +46,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = (token: string, userData: User) => {
     localStorage.setItem('authToken', token);
     setUser(userData);
+    // Clear stale cache so the next fetch uses the new user's auth context
+    client.clearStore();
   };
 
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
+    // Clear stale cache so the next fetch returns the unauthenticated view
+    client.clearStore();
   };
 
   return (

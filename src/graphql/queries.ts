@@ -10,12 +10,6 @@ export const GET_MOVIES = gql`
       date_submitted
       rank
       tmdb_id
-      votes {
-        userId
-        username
-        displayName
-        vote
-      }
     }
   }
 `;
@@ -84,9 +78,9 @@ export const DELETE_MOVIE = gql`
   }
 `;
 
-export const REORDER_MOVIE = gql`
-  mutation ReorderMovie($id: ID!, $afterId: ID) {
-    reorderMovie(id: $id, afterId: $afterId)
+export const REORDER_MY_MOVIE = gql`
+  mutation ReorderMyMovie($id: ID!, $afterId: ID) {
+    reorderMyMovie(id: $id, afterId: $afterId)
   }
 `;
 
@@ -235,20 +229,6 @@ export const GET_KOMETA_SCHEDULE = gql`
       dailyTime
       collectionName
       lastRunAt
-    }
-  }
-`;
-
-export const VOTE_MOVIE = gql`
-  mutation VoteMovie($movieId: ID!, $vote: Boolean) {
-    voteMovie(movieId: $movieId, vote: $vote) {
-      id
-      votes {
-        userId
-        username
-        displayName
-        vote
-      }
     }
   }
 `;

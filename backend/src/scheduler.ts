@@ -2,6 +2,64 @@ import fs from 'fs';
 import path from 'path';
 import pool from './db';
 
+// ── Borda rank recalculation ───────────────────────────────────────────────────
+
+async function recalculateBordaRanks(): Promise<void> {
+  try {
+    const moviesResult = await pool.query(
+      'SELECT id FROM movies WHERE watched_at IS NULL ORDER BY id'
+    );
+    const movieIds: number[] = moviesResult.rows.map((r: any) => r.id);
+    if (movieIds.length === 0) return;
+
+    const scores = new Map<number, number>(movieIds.map((id) => [id, 0]));
+
+    const rankingsResult = await pool.query(
+      `SELECT umr.user_id, umr.movie_id
+       FROM user_movie_rankings umr
+       JOIN movies m ON m.id = umr.movie_id
+       WHERE m.watched_at IS NULL
+       ORDER BY umr.user_id, umr.rank ASC`
+    );
+
+    // Group by user, apply Borda points (position 0 = top, earns most points)
+    const byUser = new Map<number, number[]>();
+    for (const row of rankingsResult.rows) {
+      if (!byUser.has(row.user_id)) byUser.set(row.user_id, []);
+      byUser.get(row.user_id)!.push(row.movie_id);
+    }
+    for (const [, userMovieIds] of byUser) {
+      const n = userMovieIds.length;
+      for (let i = 0; i < n; i++) {
+        const id = userMovieIds[i];
+        if (scores.has(id)) scores.set(id, scores.get(id)! + (n - i));
+      }
+    }
+
+    // Batch update movies.rank with Borda scores
+    for (const [movieId, score] of scores) {
+      await pool.query('UPDATE movies SET rank = $1 WHERE id = $2', [score, movieId]);
+    }
+
+    console.log(`[Borda] Recalculated rankings for ${movieIds.length} movie(s)`);
+  } catch (err) {
+    console.error('[Borda] Recalculation failed:', err);
+  }
+}
+
+let bordaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function scheduleBordaRecalculation(): void {
+  if (bordaDebounceTimer) clearTimeout(bordaDebounceTimer);
+  bordaDebounceTimer = setTimeout(async () => {
+    bordaDebounceTimer = null;
+    await recalculateBordaRanks();
+  }, 10000);
+  if (bordaDebounceTimer.unref) bordaDebounceTimer.unref();
+}
+
+// ── Kometa export scheduler ────────────────────────────────────────────────────
+
 let scheduledTimeout: ReturnType<typeof setTimeout> | null = null;
 
 async function runKometaExportScheduled(): Promise<void> {
@@ -17,7 +75,7 @@ async function runKometaExportScheduled(): Promise<void> {
     const settings = settingsResult.rows[0];
 
     const moviesResult = await pool.query(
-      'SELECT title, tmdb_id, rank FROM movies ORDER BY rank ASC'
+      'SELECT title, tmdb_id, rank FROM movies WHERE watched_at IS NULL ORDER BY rank DESC NULLS LAST, date_submitted ASC'
     );
     const movies = moviesResult.rows;
     const matched = movies.filter((m: any) => m.tmdb_id != null);
@@ -112,6 +170,12 @@ function scheduleNext(frequency: string, dailyTime: string): void {
 }
 
 export async function initScheduler(): Promise<void> {
+  // Borda recalculation runs in all environments
+  await recalculateBordaRanks();
+  const bordaInterval = setInterval(() => recalculateBordaRanks(), 5 * 60 * 1000);
+  if (bordaInterval.unref) bordaInterval.unref();
+  console.log('[Borda] Periodic recalculation started (every 5 minutes)');
+
   if (process.env.NODE_ENV !== 'production') {
     console.log('[Kometa Scheduler] Disabled (non-production environment)');
     return;

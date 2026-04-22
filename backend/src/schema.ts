@@ -1,11 +1,4 @@
 export const typeDefs = `#graphql
-  type MovieVote {
-    userId: ID!
-    username: String!
-    displayName: String
-    vote: Boolean
-  }
-
   type Movie {
     id: ID!
     title: String!
@@ -15,7 +8,6 @@ export const typeDefs = `#graphql
     rank: Float!
     tmdb_id: Int
     watched_at: String
-    votes: [MovieVote!]!
   }
 
   type TmdbMovie {
@@ -94,6 +86,7 @@ export const typeDefs = `#graphql
     loginHistory(userId: ID, limit: Int): [LoginHistory!]!
     searchTmdb(query: String!): [TmdbMovie!]!
     kometaSchedule: KometaSchedule!
+    combinedRankings(userIds: [ID!]!): [Movie!]!
   }
 
   type ImportResult {
@@ -114,11 +107,10 @@ export const typeDefs = `#graphql
     matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     markWatched(id: ID!): Movie!
     deleteMovie(id: ID!): Boolean!
-    reorderMovie(id: ID!, afterId: ID): Boolean!
+    reorderMyMovie(id: ID!, afterId: ID): Boolean!
     exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
-    voteMovie(movieId: ID!, vote: Boolean): Movie!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!

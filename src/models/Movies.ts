@@ -1,10 +1,3 @@
-export type MovieVote = {
-  userId: string;
-  username: string;
-  displayName?: string | null;
-  vote: boolean | null;
-};
-
 export type Movie = {
   id: string;
   title: string;
@@ -14,5 +7,4 @@ export type Movie = {
   rank: number;
   tmdb_id?: number | null;
   watched_at?: string | null;
-  votes: MovieVote[];
 };
