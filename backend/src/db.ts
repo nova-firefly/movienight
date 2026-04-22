@@ -78,10 +78,14 @@ export const initializeDatabase = async () => {
 
     console.log('Database migrations completed successfully');
 
-    // Seed admin user after migrations
+    // In development, wipe all users so credentials are always fresh
+    if (process.env.NODE_ENV !== 'production') {
+      await pool.query('DELETE FROM users');
+      console.log('Dev mode: users reset');
+    }
+
     await seedAdminUser();
 
-    // Seed test user in non-production environments
     if (process.env.NODE_ENV !== 'production') {
       await seedTestUser();
     }
