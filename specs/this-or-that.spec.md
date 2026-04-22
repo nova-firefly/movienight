@@ -4,7 +4,7 @@
 
 A dedicated screen presenting two randomly selected unwatched movies side-by-side. The user picks which they'd rather watch. Each pick is recorded as a pairwise comparison; an Elo rating system derives a per-user preference ranking and a global consensus ranking from the accumulated results.
 
-**This replaces drag-to-rank as the sole ranking mechanism.** The `user_movie_rankings` table, `reorderMyMovie` mutation, and the Borda count scheduler are removed. Elo is the single source of truth for movie ordering.
+**This replaces drag-to-rank as the sole ranking mechanism.** The `user_movie_rankings` table, `reorderMyMovie` mutation, `combinedRankings` query, and the Borda count scheduler are all removed. Elo is the single source of truth for movie ordering.
 
 ### Why one system, not two
 
@@ -17,14 +17,29 @@ Pairwise comparison wins here because:
 
 The only capability lost is explicit top-of-list placement. This is acceptable given the low user count.
 
+### What is removed
+
+| Removed | Location | Reason |
+|---|---|---|
+| `user_movie_rankings` table | Migration | Replaced by `user_movie_elo` |
+| `reorderMyMovie` mutation | `schema.ts`, `resolvers.ts` | Drag-to-rank is gone |
+| `combinedRankings` query | `schema.ts`, `resolvers.ts` | Borda-specific; not used in frontend; unauthenticated list now uses `movies.elo_rank` |
+| `recalculateBordaRanks()` | `scheduler.ts` | Borda removed |
+| `scheduleBordaRecalculation()` | `scheduler.ts` | Borda removed |
+| Borda periodic interval (5 min) | `scheduler.ts` `initScheduler()` | Borda removed |
+| `REORDER_MY_MOVIE` gql doc | `queries.ts` | Mutation removed |
+| `@dnd-kit` drag-and-drop | `Homepage.tsx` | No more drag-to-rank |
+| Drag handle column + `#` rank column | `Homepage.tsx` | No rank indicators on homepage |
+| `movies.rank` references in Kometa export | `resolvers.ts`, `scheduler.ts` | Must use `elo_rank` instead |
+
+`movies.rank` column itself is left in place (stale, unused) to allow safe rollback.
+
 ### Ranking signals after this change
 
-| Signal | Table | Global cache | Sort |
+| Signal | Table | Global cache | Homepage sort |
 |---|---|---|---|
-| Pairwise Elo | `user_movie_elo` | `movies.elo_rank` | Homepage: `elo_rank DESC NULLS LAST` |
+| Pairwise Elo | `user_movie_elo` | `movies.elo_rank` | Auth: personal `elo_rating`; Unauth: `elo_rank` |
 | ~~Drag-to-rank~~ | ~~`user_movie_rankings`~~ | ~~`movies.rank` (Borda)~~ | ~~removed~~ |
-
-`movies.rank` becomes an unused column (left in place to avoid a destructive migration; can be dropped in a future cleanup migration).
 
 ---
 
@@ -45,6 +60,11 @@ Loser update:    R_B' = R_B + 32 × (0 − (1 − E_A))
 **Homepage sort:**
 - Authenticated users: ordered by their own `user_movie_elo.elo_rating DESC NULLS LAST, date_submitted ASC`
 - Unauthenticated users: ordered by `movies.elo_rank DESC NULLS LAST, date_submitted ASC`
+
+**`Movie.elo_rank` field semantics:**
+- For authenticated queries: returns the user's personal Elo for that movie (from `user_movie_elo.elo_rating`), falling back to the global `movies.elo_rank` if the user has no personal data
+- For unauthenticated queries: returns the global `movies.elo_rank`
+- Null when no comparisons have been recorded for the movie
 
 ---
 
@@ -176,15 +196,40 @@ When the user resets a movie, the system shall:
 When fewer than 2 unwatched movies exist, the system shall return a `BAD_USER_INPUT` error and the frontend shall display "Add more movies to start comparing."
 
 ### FR-TOT-011: Homepage sort order
-The `movies` query resolver shall be updated to sort by Elo instead of Borda:
-- Authenticated: `ORDER BY ume.elo_rating DESC NULLS LAST, m.date_submitted ASC` (join user_movie_elo for current user)
+The `movies` query resolver shall sort by Elo instead of Borda:
+- Authenticated: `LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1`, `ORDER BY ume.elo_rating DESC NULLS LAST, m.date_submitted ASC`
 - Unauthenticated: `ORDER BY m.elo_rank DESC NULLS LAST, m.date_submitted ASC`
+
+The `Movie.elo_rank` field shall be populated from the joined elo data:
+- Auth: `SELECT COALESCE(ume.elo_rating, m.elo_rank) AS elo_rank`
+- Unauth: `SELECT m.elo_rank`
 
 ### FR-TOT-012: Auth guard
 All `thisOrThat`, `myRankings`, `recordComparison`, and `resetMovieComparisons` operations shall require authentication and return `UNAUTHENTICATED` otherwise.
 
-### FR-TOT-013: Remove drag-to-rank
-The `reorderMyMovie` mutation, `user_movie_rankings` table, and Borda count recalculation (`recalculateBordaRanks`, `scheduleBordaRecalculation`, periodic interval) shall be removed. The drag-and-drop UI in `Homepage.tsx` shall be removed.
+### FR-TOT-013: Remove old ranking system
+The following shall be removed:
+- `reorderMyMovie` mutation (schema + resolver)
+- `combinedRankings` query (schema + resolver) — not used in frontend; unauthenticated list uses `movies.elo_rank` directly
+- Borda recalculation code (`recalculateBordaRanks`, `scheduleBordaRecalculation`, `bordaDebounceTimer`, periodic interval) from `scheduler.ts`
+- `user_movie_rankings` table (dropped in migration)
+- All `@dnd-kit` drag-and-drop code from `Homepage.tsx`
+- `REORDER_MY_MOVIE` gql document from `queries.ts`
+- Drag handle column and `#` rank column from the movie table UI
+
+### FR-TOT-014: Homepage no-Elo-data experience
+When an authenticated user has zero personal Elo data (no rows in `user_movie_elo` for that user), the homepage shall:
+1. Show movies sorted by global `elo_rank DESC NULLS LAST, date_submitted ASC` (same as unauthenticated)
+2. Display a banner above the movie list: "Rate some movies to get your personal ranking" with a link to the This or That screen
+
+### FR-TOT-015: Kometa export ordering
+Both the `exportKometa` mutation and the Kometa scheduled export in `scheduler.ts` shall sort movies by `elo_rank DESC NULLS LAST, date_submitted ASC` instead of `rank DESC`. The `SELECT` shall include `elo_rank` instead of `rank`.
+
+### FR-TOT-016: Rename `Movie.rank` to `Movie.elo_rank`
+The `Movie` GraphQL type shall replace `rank: Float!` with `elo_rank: Float` (nullable). All frontend queries (`GET_MOVIES`, `GET_MOVIE`, `ADD_MOVIE`, `MATCH_MOVIE`) shall reference `elo_rank` instead of `rank`. The frontend `Movie` TypeScript type shall change from `rank: number` to `elo_rank: number | null`.
+
+### FR-TOT-017: Comparison loading transition
+When the user taps a card and a new pair is being fetched, the current cards shall fade out immediately and a skeleton/spinner shall be shown until the new pair arrives.
 
 ---
 
@@ -207,7 +252,7 @@ Given a logged-in user on the comparison screen with ≥ 2 unwatched movies
 When they tap a movie card
 Then that movie's Elo for the user increases and the other decreases
 And movies.elo_rank for both movies is updated
-And a new pair is immediately shown
+And a new pair is immediately shown (after fade/skeleton transition)
 And the session counter increments by 1
 ```
 
@@ -216,7 +261,8 @@ And the session counter increments by 1
 Given a movie was just added (0 comparisons for the current user)
 When the user starts a This or That session
 Then the new movie appears in one of the first 3 pairs presented
-And its opponent has at least K=5 comparisons (is established)
+And its opponent has at least K=5 comparisons (is established),
+  unless fewer than K established movies exist
 ```
 
 ### AC-003: Immediate-repeat pair avoided
@@ -230,12 +276,22 @@ Then the returned pair contains neither Movie A nor Movie B
 ### AC-004: Homepage sorted by Elo
 ```
 Given several movies have Elo data and others do not
-When a user views the homepage
-Then movies with elo_rank appear first, sorted by elo_rank DESC
-And movies with no Elo data appear below, sorted by date_submitted ASC
+When an authenticated user with personal Elo data views the homepage
+Then movies are sorted by their personal elo_rating DESC
+And movies with no personal Elo data appear below, sorted by date_submitted ASC
+And no rank numbers or drag handles are shown
 ```
 
-### AC-005: Reset
+### AC-005: Homepage for user with no Elo data
+```
+Given a user has never used This or That
+When they view the homepage
+Then movies are sorted by global elo_rank DESC (same as unauthenticated)
+And a banner "Rate some movies to get your personal ranking" is shown
+  with a link to the This or That screen
+```
+
+### AC-006: Reset
 ```
 Given a user has made 8 comparisons involving Movie X
 When they click Reset on Movie X and confirm
@@ -245,7 +301,7 @@ And movies.elo_rank for Movie X is recomputed (NULL if no other users have data)
 And Movie X disappears from their My Rankings tab
 ```
 
-### AC-006: Minimum pool guard
+### AC-007: Minimum pool guard
 ```
 Given only 1 unwatched movie exists
 When the user navigates to the comparison screen
@@ -253,11 +309,30 @@ Then "Add more movies to start comparing" is shown
 And no movie cards are rendered
 ```
 
-### AC-007: Drag-to-rank removed
+### AC-008: Drag-to-rank fully removed
 ```
 Given a user is on the homepage
 Then no drag handles are visible
-And the movies list is sorted by Elo (or date if no Elo data)
+And no rank number column is shown
+And the movie list is sorted by Elo (or date if no Elo data)
+```
+
+### AC-009: Movie.elo_rank field returns personal Elo for auth users
+```
+Given User A has Elo 1200 for Movie X and User B has Elo 900 for Movie X
+When User A queries GET_MOVIES
+Then Movie X has elo_rank = 1200
+When User B queries GET_MOVIES
+Then Movie X has elo_rank = 900
+When an unauthenticated user queries GET_MOVIES
+Then Movie X has elo_rank = 1050 (global average)
+```
+
+### AC-010: Kometa export uses Elo ordering
+```
+Given movies have elo_rank values
+When a Kometa export runs (manual or scheduled)
+Then movies are ordered by elo_rank DESC, not by stale movies.rank
 ```
 
 ---
@@ -346,6 +421,38 @@ exports.down = (pgm) => {
 
 ## GraphQL Changes
 
+### `Movie` type change
+
+```graphql
+# BEFORE
+type Movie {
+  id: ID!
+  title: String!
+  requester: String!
+  requested_by: ID
+  date_submitted: String!
+  rank: Float!              # ← removed
+  tmdb_id: Int
+  watched_at: String
+}
+
+# AFTER
+type Movie {
+  id: ID!
+  title: String!
+  requester: String!
+  requested_by: ID
+  date_submitted: String!
+  elo_rank: Float            # ← renamed, now nullable
+  tmdb_id: Int
+  watched_at: String
+}
+```
+
+`elo_rank` is nullable because newly added movies have no comparison data yet.
+
+For authenticated queries, `elo_rank` returns the user's personal Elo rating for that movie (from `user_movie_elo.elo_rating`), falling back to the global `movies.elo_rank`. For unauthenticated queries, it returns the global `movies.elo_rank`.
+
 ### New types
 
 ```graphql
@@ -393,11 +500,13 @@ recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!  # requires aut
 resetMovieComparisons(movieId: ID!): Boolean!                     # requires auth, own data only
 ```
 
-### Removed mutation
+### Removed
 
 ```graphql
-# REMOVED
+# REMOVED — drag-to-rank gone
 reorderMyMovie(id: ID!, afterId: ID): Boolean!
+# REMOVED — Borda-specific; not used in frontend
+combinedRankings(userIds: [ID!]!): [Movie!]!
 ```
 
 ---
@@ -558,31 +667,59 @@ WHERE m.watched_at IS NULL
 
 Fetch all candidates (not just 2) so `selectPair` can apply weights. Typically 20–100 rows — not a performance concern.
 
-### Updated `movies` resolver — sort order
+### Updated `movies` resolver — full SQL change
 
 **Authenticated (userId available):**
 ```sql
+SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+       COALESCE(ume.elo_rating, m.elo_rank) AS elo_rank,
+       u.username AS user_username, u.display_name AS user_display_name
+FROM movies m
+LEFT JOIN users u ON m.requested_by = u.id
+LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
+WHERE m.watched_at IS NULL
 ORDER BY ume.elo_rating DESC NULLS LAST, m.date_submitted ASC
 ```
-Where `ume` is a LEFT JOIN on `user_movie_elo` for `context.user.userId`.
+
+Note: `elo_rank` alias uses `COALESCE(ume.elo_rating, m.elo_rank)` so the field resolver returns personal Elo when available, global when not.
 
 **Unauthenticated:**
 ```sql
+SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+       m.elo_rank,
+       u.username AS user_username, u.display_name AS user_display_name
+FROM movies m
+LEFT JOIN users u ON m.requested_by = u.id
+WHERE m.watched_at IS NULL
 ORDER BY m.elo_rank DESC NULLS LAST, m.date_submitted ASC
 ```
 
-### `scheduler.ts` — remove Borda code
+### `scheduler.ts` — changes
 
-Remove:
+**Remove (Borda):**
 - `recalculateBordaRanks()` function
 - `scheduleBordaRecalculation()` export
 - `bordaDebounceTimer` variable
-- The `await recalculateBordaRanks()` call in `initScheduler()`
-- The `setInterval(recalculateBordaRanks, 5 * 60 * 1000)` call
+- `await recalculateBordaRanks()` call in `initScheduler()`
+- `setInterval(recalculateBordaRanks, 5 * 60 * 1000)` call
 
-Kometa export scheduler logic is unchanged.
+**Update (Kometa):**
+Change the Kometa export query in `runKometaExportScheduled()` from:
+```sql
+SELECT title, tmdb_id, rank FROM movies WHERE watched_at IS NULL ORDER BY rank DESC NULLS LAST, date_submitted ASC
+```
+To:
+```sql
+SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC
+```
 
-### TMDB enrichment cache — unchanged from previous spec revision
+Kometa scheduler logic is otherwise unchanged.
+
+### `exportKometa` resolver — update ordering
+
+Same change as scheduler: replace `rank` with `elo_rank` in the SELECT and ORDER BY.
+
+### TMDB enrichment cache
 
 In-memory `Map<number, { data, expiresAt }>` with 24-hour TTL. Three parallel TMDB fetches per uncached movie. Silent null-field fallback on error.
 
@@ -591,8 +728,10 @@ In-memory `Map<number, { data, expiresAt }>` with 24-hour TTL. Three parallel TM
 ## Frontend Changes
 
 ### Removed
-- Drag-and-drop logic in `Homepage.tsx` (`@dnd-kit` imports, `DndContext`, `SortableContext`, `useSortable`, drag event handlers)
-- `REORDER_MY_MOVIE` mutation from `queries.ts`
+- `@dnd-kit` imports, `DndContext`, `SortableContext`, `useSortable`, `SortableRow` component, drag handle icon, `handleDragEnd`, `localMovies` state, `sensors` from `Homepage.tsx`
+- `REORDER_MY_MOVIE` from `queries.ts`
+- Drag handle column and `#` rank number column from the movie table
+- `rank` field references in all gql documents and `Movie` TypeScript type
 
 ### New files
 - `src/components/home/MovieCompareCard.tsx` — poster, title, year, director, cast, tag chips; full-card click
@@ -602,30 +741,37 @@ In-memory `Map<number, { data, expiresAt }>` with 24-hour TTL. Three parallel TM
 
 | File | Change |
 |---|---|
-| `src/graphql/queries.ts` | Remove `REORDER_MY_MOVIE`; add `THIS_OR_THAT`, `MY_RANKINGS`, `RECORD_COMPARISON`, `RESET_MOVIE_COMPARISONS` |
+| `src/graphql/queries.ts` | Remove `REORDER_MY_MOVIE`; rename `rank` → `elo_rank` in `GET_MOVIES`, `GET_MOVIE`, `ADD_MOVIE`, `MATCH_MOVIE`; add `THIS_OR_THAT`, `MY_RANKINGS`, `RECORD_COMPARISON`, `RESET_MOVIE_COMPARISONS` |
+| `src/models/Movies.ts` | `rank: number` → `elo_rank: number \| null` |
 | `src/App.tsx` | `showUserManagement: boolean` → `currentView: 'movies' \| 'this-or-that' \| 'admin'`; render `<ThisOrThat />` for new view |
 | `src/components/common/Navbar.tsx` | Replace `showUserManagement: boolean` prop with `currentView`; add "This or That" nav button for all authenticated users |
-| `src/components/home/Homepage.tsx` | Remove all `@dnd-kit` code; render static sorted list |
+| `src/components/home/Homepage.tsx` | Remove all `@dnd-kit` code; remove drag column + rank column; render static sorted list; add Elo nudge banner for users with no Elo data |
 
 ### `ThisOrThat.tsx` key behaviour
 
 - `useLazyQuery(THIS_OR_THAT, { fetchPolicy: 'network-only' })` called on mount and after each pick
-- `seenIds: string[]` accumulates both movie IDs from every pair shown this session; passed as `excludeIds`
+- `seenIds: string[]` accumulates both movie IDs from every pair shown this session; passed as `excludeIds`; resets on component unmount (navigating away)
 - `recordComparison` refetches `GET_MOVIES` so the homepage list reflects new Elo ordering
 - Rankings tab: `useQuery(MY_RANKINGS, { skip: tab !== 'rankings' })` — not fetched until tab is opened
 - Empty state: rendered when error code is `BAD_USER_INPUT`
+- Loading transition: cards fade out immediately on pick; skeleton shown until new pair arrives
 - Cards in flex row on ≥ sm, stacked on xs
 
 ---
 
 ## Implementation TODO
 
-### Backend — remove Borda
+### Backend — remove old ranking system
 - [ ] Remove `recalculateBordaRanks`, `scheduleBordaRecalculation`, `bordaDebounceTimer` from `scheduler.ts`
 - [ ] Remove the `await recalculateBordaRanks()` call and `setInterval` from `initScheduler()` in `scheduler.ts`
 - [ ] Remove `reorderMyMovie` resolver from `resolvers.ts`
 - [ ] Remove `reorderMyMovie` mutation from `schema.ts`
-- [ ] Update `movies` resolver: replace `ORDER BY m.rank ASC` with Elo-based sort (auth vs unauth branches)
+- [ ] Remove `combinedRankings` resolver from `resolvers.ts`
+- [ ] Remove `combinedRankings` query from `schema.ts`
+- [ ] Rename `Movie.rank: Float!` to `Movie.elo_rank: Float` in `schema.ts`
+- [ ] Update `movies` resolver: replace `user_movie_rankings` JOIN and `ORDER BY` with `user_movie_elo` JOIN and Elo-based sort; add `elo_rank` alias with COALESCE
+- [ ] Update `exportKometa` resolver: change `rank` → `elo_rank` in SELECT and ORDER BY
+- [ ] Update `runKometaExportScheduled` in `scheduler.ts`: change `rank` → `elo_rank` in SELECT and ORDER BY
 
 ### Backend — add Elo system
 - [ ] Create migration `1745600000000_add-elo-ranking-drop-borda.js`
@@ -635,18 +781,21 @@ In-memory `Map<number, { data, expiresAt }>` with 24-hour TTL. Three parallel TM
 - [ ] Add `thisOrThat` / `myRankings` queries to `schema.ts`
 - [ ] Add `recordComparison` / `resetMovieComparisons` mutations to `schema.ts`
 - [ ] Add TMDB enrichment cache + `enrichWithTmdb` helper to `resolvers.ts`
-- [ ] Implement `thisOrThat` resolver (fetch candidates with SQL above → `selectPair` → enrich both)
+- [ ] Implement `thisOrThat` resolver (fetch candidates → `selectPair` → enrich both)
 - [ ] Implement `myRankings` resolver
 - [ ] Implement `recordComparison` resolver (auth → `applyComparison` → audit log `MOVIE_COMPARISON`)
 - [ ] Implement `resetMovieComparisons` resolver (auth → delete rows → recompute → audit log `MOVIE_COMPARISON_RESET`)
 
-### Frontend — remove drag-to-rank
-- [ ] Remove `@dnd-kit` code from `Homepage.tsx`
+### Frontend — remove old ranking
+- [ ] Remove all `@dnd-kit` code, `SortableRow`, `DragHandleIcon`, drag/rank columns from `Homepage.tsx`
 - [ ] Remove `REORDER_MY_MOVIE` from `queries.ts`
+- [ ] Rename `rank` → `elo_rank` in `GET_MOVIES`, `GET_MOVIE`, `ADD_MOVIE`, `MATCH_MOVIE` in `queries.ts`
+- [ ] Update `Movie` type in `src/models/Movies.ts`: `rank: number` → `elo_rank: number | null`
+- [ ] Add Elo nudge banner to `Homepage.tsx` for users with no personal Elo data
 
 ### Frontend — add This or That
 - [ ] Add `THIS_OR_THAT`, `MY_RANKINGS`, `RECORD_COMPARISON`, `RESET_MOVIE_COMPARISONS` to `queries.ts`
 - [ ] Create `MovieCompareCard.tsx`
-- [ ] Create `ThisOrThat.tsx`
+- [ ] Create `ThisOrThat.tsx` (with fade-out/skeleton transition on pick)
 - [ ] Update `App.tsx`: boolean state → `currentView` union
 - [ ] Update `Navbar.tsx`: add `currentView` prop + "This or That" button
