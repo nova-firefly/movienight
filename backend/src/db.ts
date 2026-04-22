@@ -50,9 +50,9 @@ const seedTestUser = async () => {
         [username, `${username}@movienight.local`, passwordHash, 'Test User', false]
       );
 
-      console.log(`✅ Test user created: ${username}`);
+      console.log('✅ Test user seeded');
     } else {
-      console.log(`Test user '${username}' already exists`);
+      console.log('Test user already exists');
     }
   } catch (error) {
     console.error('Error seeding test user:', error);
