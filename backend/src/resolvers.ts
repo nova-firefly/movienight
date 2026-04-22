@@ -47,7 +47,21 @@ const isProduction = () => process.env.NODE_ENV === 'production';
 
 export const resolvers = {
   Query: {
-    appInfo: () => ({ isProduction: isProduction() }),
+    appInfo: () => ({
+      isProduction: isProduction(),
+      quickLoginUsers: isProduction() ? [] : [
+        {
+          label: 'Admin',
+          username: 'admin',
+          password: process.env.ADMIN_PASSWORD || 'admin123',
+        },
+        {
+          label: 'Test User',
+          username: process.env.TEST_USER_USERNAME || 'testuser',
+          password: process.env.TEST_USER_PASSWORD || 'testpass',
+        },
+      ],
+    }),
     searchTmdb: async (_: any, { query }: { query: string }) => {
       const apiKey = process.env.TMDB_API_KEY;
       if (!apiKey) {
