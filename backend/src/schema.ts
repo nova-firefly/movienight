@@ -5,7 +5,7 @@ export const typeDefs = `#graphql
     requester: String!
     requested_by: ID
     date_submitted: String!
-    rank: Float!
+    elo_rank: Float
     tmdb_id: Int
     watched_at: String
   }
@@ -75,6 +75,35 @@ export const typeDefs = `#graphql
     quickLoginUsers: [QuickLoginUser!]!
   }
 
+  type ThisOrThatMovie {
+    id: ID!
+    title: String!
+    tmdb_id: Int
+    poster_url: String
+    release_year: String
+    director: String
+    cast: [String!]!
+    tags: [String!]!
+  }
+
+  type ThisOrThatPair {
+    movieA: ThisOrThatMovie!
+    movieB: ThisOrThatMovie!
+  }
+
+  type ComparisonResult {
+    winnerId: ID!
+    loserId: ID!
+    winnerElo: Float!
+    loserElo: Float!
+  }
+
+  type MovieRanking {
+    movie: Movie!
+    eloRating: Float!
+    comparisonCount: Int!
+  }
+
   type Query {
     appInfo: AppInfo!
     movies: [Movie!]!
@@ -86,7 +115,8 @@ export const typeDefs = `#graphql
     loginHistory(userId: ID, limit: Int): [LoginHistory!]!
     searchTmdb(query: String!): [TmdbMovie!]!
     kometaSchedule: KometaSchedule!
-    combinedRankings(userIds: [ID!]!): [Movie!]!
+    thisOrThat(excludeIds: [ID!]): ThisOrThatPair!
+    myRankings: [MovieRanking!]!
   }
 
   type ImportResult {
@@ -107,7 +137,8 @@ export const typeDefs = `#graphql
     matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     markWatched(id: ID!): Movie!
     deleteMovie(id: ID!): Boolean!
-    reorderMyMovie(id: ID!, afterId: ID): Boolean!
+    recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!
+    resetMovieComparisons(movieId: ID!): Boolean!
     exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!

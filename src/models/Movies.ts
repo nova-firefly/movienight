@@ -4,7 +4,7 @@ export type Movie = {
   requester: string;
   requested_by?: string | null;
   date_submitted: string;
-  rank: number;
+  elo_rank: number | null;
   tmdb_id?: number | null;
   watched_at?: string | null;
 };

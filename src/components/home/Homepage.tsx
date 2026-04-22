@@ -5,7 +5,6 @@ import {
   ADD_MOVIE,
   DELETE_MOVIE,
   MARK_WATCHED,
-  REORDER_MY_MOVIE,
   SEARCH_TMDB,
 } from "../../graphql/queries";
 import {
@@ -22,196 +21,6 @@ import {
 import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-// Six-dot grab handle icon
-const DragHandleIcon: React.FC = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 16 16"
-    fill="currentColor"
-    style={{ display: "block" }}
-  >
-    <circle cx="5" cy="4" r="1.5" />
-    <circle cx="11" cy="4" r="1.5" />
-    <circle cx="5" cy="8" r="1.5" />
-    <circle cx="11" cy="8" r="1.5" />
-    <circle cx="5" cy="12" r="1.5" />
-    <circle cx="11" cy="12" r="1.5" />
-  </svg>
-);
-
-// ── Sortable row ──────────────────────────────────────────────────────────────
-
-interface SortableRowProps {
-  movie: Movie;
-  rank: number;
-  isAdmin: boolean;
-  canMarkWatched: boolean;
-  onMarkWatched: (id: string, title: string) => void;
-  onDelete: (id: string, title: string) => void;
-  isAuthenticated: boolean;
-}
-
-const SortableRow: React.FC<SortableRowProps> = ({
-  movie,
-  rank,
-  isAdmin,
-  canMarkWatched,
-  onMarkWatched,
-  onDelete,
-  isAuthenticated,
-}) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: movie.id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    position: "relative",
-    zIndex: isDragging ? 1 : 0,
-  };
-
-  return (
-    <tr ref={setNodeRef} style={style}>
-      {/* Drag handle — available to all logged-in users for personal reordering */}
-      {isAuthenticated && (
-        <td style={{ width: 36, padding: "0 4px 0 12px", verticalAlign: "middle" }}>
-          <span
-            {...attributes}
-            {...listeners}
-            style={{
-              cursor: isDragging ? "grabbing" : "grab",
-              display: "inline-flex",
-              alignItems: "center",
-              touchAction: "none",
-              color: "var(--mn-text-muted)",
-              padding: "4px",
-            }}
-            title="Drag to reorder"
-          >
-            <DragHandleIcon />
-          </span>
-        </td>
-      )}
-
-      {/* Rank */}
-      <td style={{ width: 44, textAlign: "center", verticalAlign: "middle", padding: "0 8px" }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            fontWeight: 700,
-            color: rank <= 3 ? "primary.400" : "text.tertiary",
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {rank}
-        </Typography>
-      </td>
-
-      {/* Title */}
-      <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
-        <Typography level="body-sm" sx={{ fontWeight: 600, color: "text.primary" }}>
-          {movie.title}
-        </Typography>
-      </td>
-
-      {/* Suggested by */}
-      <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
-        <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
-          {movie.requester}
-        </Chip>
-      </td>
-
-      {/* Date */}
-      <td style={{ verticalAlign: "middle", padding: "12px 16px", whiteSpace: "nowrap" }}>
-        <Typography level="body-xs" sx={{ color: "text.secondary" }}>
-          {new Date(movie.date_submitted).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}
-        </Typography>
-      </td>
-
-      {/* TMDB */}
-      <td style={{ verticalAlign: "middle", padding: "12px 8px", textAlign: "center" }}>
-        {movie.tmdb_id ? (
-          <a
-            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "var(--joy-palette-primary-500)", fontSize: "0.75rem" }}
-          >
-            ↗
-          </a>
-        ) : null}
-      </td>
-
-      {/* Actions */}
-      {(canMarkWatched || isAdmin) && (
-        <td
-          style={{
-            verticalAlign: "middle",
-            padding: "0 12px",
-            textAlign: "right",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {canMarkWatched && (
-            <IconButton
-              size="sm"
-              color="success"
-              variant="plain"
-              onClick={() => onMarkWatched(movie.id, movie.title)}
-              title={`Mark "${movie.title}" as watched`}
-              sx={{
-                opacity: 0.5,
-                transition: "opacity 0.15s",
-                "&:hover": { opacity: 1 },
-                mr: isAdmin ? 0.5 : 0,
-              }}
-            >
-              ✓
-            </IconButton>
-          )}
-          {isAdmin && (
-            <IconButton
-              size="sm"
-              color="danger"
-              variant="plain"
-              onClick={() => onDelete(movie.id, movie.title)}
-              title={`Remove "${movie.title}"`}
-              sx={{
-                opacity: 0.5,
-                transition: "opacity 0.15s",
-                "&:hover": { opacity: 1 },
-              }}
-            >
-              ✕
-            </IconButton>
-          )}
-        </td>
-      )}
-    </tr>
-  );
-};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -231,27 +40,135 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// ── Movie row ─────────────────────────────────────────────────────────────────
+
+interface MovieRowProps {
+  movie: Movie;
+  isAdmin: boolean;
+  canMarkWatched: boolean;
+  onMarkWatched: (id: string, title: string) => void;
+  onDelete: (id: string, title: string) => void;
+  isAuthenticated: boolean;
+}
+
+const MovieRow: React.FC<MovieRowProps> = ({
+  movie,
+  isAdmin,
+  canMarkWatched,
+  onMarkWatched,
+  onDelete,
+  isAuthenticated,
+}) => (
+  <tr>
+    {/* Title */}
+    <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
+      <Typography level="body-sm" sx={{ fontWeight: 600, color: "text.primary" }}>
+        {movie.title}
+      </Typography>
+    </td>
+
+    {/* Suggested by */}
+    <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
+      <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
+        {movie.requester}
+      </Chip>
+    </td>
+
+    {/* Date */}
+    <td style={{ verticalAlign: "middle", padding: "12px 16px", whiteSpace: "nowrap" }}>
+      <Typography level="body-xs" sx={{ color: "text.secondary" }}>
+        {new Date(movie.date_submitted).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })}
+      </Typography>
+    </td>
+
+    {/* TMDB */}
+    <td style={{ verticalAlign: "middle", padding: "12px 8px", textAlign: "center" }}>
+      {movie.tmdb_id ? (
+        <a
+          href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--joy-palette-primary-500)", fontSize: "0.75rem" }}
+        >
+          ↗
+        </a>
+      ) : null}
+    </td>
+
+    {/* Actions */}
+    {(canMarkWatched || isAdmin) && (
+      <td
+        style={{
+          verticalAlign: "middle",
+          padding: "0 12px",
+          textAlign: "right",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {canMarkWatched && (
+          <IconButton
+            size="sm"
+            color="success"
+            variant="plain"
+            onClick={() => onMarkWatched(movie.id, movie.title)}
+            title={`Mark "${movie.title}" as watched`}
+            sx={{
+              opacity: 0.5,
+              transition: "opacity 0.15s",
+              "&:hover": { opacity: 1 },
+              mr: isAdmin ? 0.5 : 0,
+            }}
+          >
+            ✓
+          </IconButton>
+        )}
+        {isAdmin && (
+          <IconButton
+            size="sm"
+            color="danger"
+            variant="plain"
+            onClick={() => onDelete(movie.id, movie.title)}
+            title={`Remove "${movie.title}"`}
+            sx={{
+              opacity: 0.5,
+              transition: "opacity 0.15s",
+              "&:hover": { opacity: 1 },
+            }}
+          >
+            ✕
+          </IconButton>
+        )}
+      </td>
+    )}
+  </tr>
+);
+
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const HomePage: React.FC = () => {
+interface HomePageProps {
+  onShowThisOrThat?: () => void;
+}
+
+const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.is_admin ?? false;
-  const userId = user ? String(user.id) : undefined;
 
   const [title, setTitle] = useState("");
   const [tmdbId, setTmdbId] = useState<number | null>(null);
   const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [localMovies, setLocalMovies] = useState<Movie[] | null>(null);
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
 
   const debouncedTitle = useDebounce(title, 400);
 
   const { data } = useQuery(GET_MOVIES, {
     pollInterval: 5000,
-    onCompleted: () => setLocalMovies(null),
   });
 
   const [searchTmdb] = useLazyQuery(SEARCH_TMDB, {
@@ -276,36 +193,16 @@ const HomePage: React.FC = () => {
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
-  const [reorderMovie] = useMutation(REORDER_MY_MOVIE, {
-    refetchQueries: [{ query: GET_MOVIES }],
-  });
-  const movies: Movie[] = localMovies ?? data?.movies ?? [];
+  const movies: Movie[] = data?.movies ?? [];
+
+  // Check if the current user has any personal Elo data
+  const hasEloData = isAuthenticated && movies.some(m => m.elo_rank != null);
 
   const unmatchedMovies = movies.filter(
     (m) =>
       !m.tmdb_id &&
       (isAdmin || (user && String(m.requested_by) === String(user.id)))
   );
-
-  const sensors = useSensors(useSensor(PointerSensor));
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = movies.findIndex((m) => m.id === active.id);
-    const newIndex = movies.findIndex((m) => m.id === over.id);
-    const reordered = arrayMove(movies, oldIndex, newIndex);
-    setLocalMovies(reordered);
-
-    const afterId = newIndex === 0 ? null : reordered[newIndex - 1].id;
-    try {
-      await reorderMovie({ variables: { id: active.id, afterId } });
-    } catch (err: any) {
-      setLocalMovies(null);
-      setErrorMessage(`Error reordering: ${err.message}`);
-    }
-  };
 
   const handleMarkWatched = async (id: string, movieTitle: string) => {
     if (
@@ -350,29 +247,11 @@ const HomePage: React.FC = () => {
 
   // Column count for colSpan calculations
   const colCount =
-    (isAuthenticated ? 1 : 0) + // drag (all logged-in users can reorder their list)
-    1 + // rank
     1 + // title
     1 + // suggested by
     1 + // added
     1 + // tmdb
     (isAuthenticated ? 1 : 0); // actions
-
-  const renderRow = (movie: Movie, rank: number) => (
-    <SortableRow
-      key={movie.id}
-      movie={movie}
-      rank={rank}
-      isAdmin={isAdmin}
-      canMarkWatched={
-        isAdmin ||
-        (isAuthenticated && String(movie.requested_by) === String(user?.id))
-      }
-      onMarkWatched={handleMarkWatched}
-      onDelete={handleDelete}
-      isAuthenticated={isAuthenticated}
-    />
-  );
 
   return (
     <Box
@@ -391,7 +270,7 @@ const HomePage: React.FC = () => {
             level="h2"
             sx={{ fontWeight: 800, letterSpacing: "-0.02em", mb: 0.5 }}
           >
-            🍿 Movie List
+            Movie List
           </Typography>
           <Typography level="body-sm" sx={{ color: "text.secondary" }}>
             {movies.length === 0
@@ -399,6 +278,41 @@ const HomePage: React.FC = () => {
               : `${movies.length} movie${movies.length !== 1 ? "s" : ""} in the queue`}
           </Typography>
         </Box>
+
+        {/* Elo nudge banner — shown when user has no personal rankings */}
+        {isAuthenticated && !hasEloData && movies.length >= 2 && (
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 'md',
+              bgcolor: 'primary.softBg',
+              border: '1px solid',
+              borderColor: 'primary.outlinedBorder',
+              textAlign: 'center',
+            }}
+          >
+            <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
+              Rate some movies to get your personal ranking.{' '}
+              {onShowThisOrThat && (
+                <Typography
+                  component="span"
+                  level="body-sm"
+                  sx={{
+                    color: 'primary.400',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    textDecoration: 'underline',
+                    '&:hover': { color: 'primary.300' },
+                  }}
+                  onClick={onShowThisOrThat}
+                >
+                  Start comparing
+                </Typography>
+              )}
+            </Typography>
+          </Box>
+        )}
 
         {/* Add movie form */}
         {isAuthenticated && (
@@ -457,7 +371,7 @@ const HomePage: React.FC = () => {
                 level="body-sm"
                 sx={{ textAlign: "center", mt: 1.5, color: "success.400", fontWeight: 600 }}
               >
-                ✓ {successMessage}
+                {successMessage}
               </Typography>
             )}
             {errorMessage && (
@@ -527,20 +441,6 @@ const HomePage: React.FC = () => {
                     borderBottom: "1px solid var(--mn-border-vis)",
                   }}
                 >
-                  {isAuthenticated && <th style={{ width: 36 }} />}
-                  <th
-                    style={{
-                      padding: "10px 8px",
-                      textAlign: "center",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
-                    }}
-                  >
-                    #
-                  </th>
                   <th
                     style={{
                       padding: "10px 16px",
@@ -608,49 +508,41 @@ const HomePage: React.FC = () => {
                   )}
                 </tr>
               </thead>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={movies.map((m) => m.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <tbody>
-                    {movies.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={colCount}
-                          style={{
-                            padding: "48px 16px",
-                            textAlign: "center",
-                            color: "var(--mn-text-muted)",
-                            fontSize: "0.875rem",
-                          }}
-                        >
-                          No movies yet. Be the first to suggest one!
-                        </td>
-                      </tr>
-                    ) : (
-                      movies.map((movie, idx) => renderRow(movie, idx + 1))
-                    )}
-                  </tbody>
-                </SortableContext>
-              </DndContext>
+              <tbody>
+                {movies.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={colCount}
+                      style={{
+                        padding: "48px 16px",
+                        textAlign: "center",
+                        color: "var(--mn-text-muted)",
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      No movies yet. Be the first to suggest one!
+                    </td>
+                  </tr>
+                ) : (
+                  movies.map((movie) => (
+                    <MovieRow
+                      key={movie.id}
+                      movie={movie}
+                      isAdmin={isAdmin}
+                      canMarkWatched={
+                        isAdmin ||
+                        (isAuthenticated && String(movie.requested_by) === String(user?.id))
+                      }
+                      onMarkWatched={handleMarkWatched}
+                      onDelete={handleDelete}
+                      isAuthenticated={isAuthenticated}
+                    />
+                  ))
+                )}
+              </tbody>
             </table>
           </Box>
         </Sheet>
-
-        {/* Hints */}
-        {isAuthenticated && movies.length > 0 && (
-          <Typography
-            level="body-xs"
-            sx={{ mt: 1.5, textAlign: "center", color: "text.tertiary" }}
-          >
-            {movies.length > 1 && "Drag rows to set your personal ranking."}
-          </Typography>
-        )}
       </Box>
     </Box>
   );
