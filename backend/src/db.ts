@@ -36,6 +36,29 @@ const seedAdminUser = async () => {
   }
 };
 
+const seedTestUser = async () => {
+  try {
+    const username = process.env.TEST_USER_USERNAME || 'testuser';
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+
+    if (result.rows.length === 0) {
+      const password = process.env.TEST_USER_PASSWORD || 'testpass';
+      const passwordHash = await hashPassword(password);
+
+      await pool.query(
+        'INSERT INTO users (username, email, password_hash, display_name, is_admin) VALUES ($1, $2, $3, $4, $5)',
+        [username, `${username}@movienight.local`, passwordHash, 'Test User', false]
+      );
+
+      console.log('✅ Test user seeded');
+    } else {
+      console.log('Test user already exists');
+    }
+  } catch (error) {
+    console.error('Error seeding test user:', error);
+  }
+};
+
 export const initializeDatabase = async () => {
   try {
     // Run database migrations
@@ -55,8 +78,17 @@ export const initializeDatabase = async () => {
 
     console.log('Database migrations completed successfully');
 
-    // Seed admin user after migrations
+    // In development, wipe all users so credentials are always fresh
+    if (process.env.NODE_ENV !== 'production') {
+      await pool.query('DELETE FROM users');
+      console.log('Dev mode: users reset');
+    }
+
     await seedAdminUser();
+
+    if (process.env.NODE_ENV !== 'production') {
+      await seedTestUser();
+    }
   } catch (error) {
     console.error('Error running database migrations:', error);
     throw error;

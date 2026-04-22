@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import {
   Box,
   Button,
@@ -9,7 +9,7 @@ import {
   Typography,
   Alert,
 } from '@mui/joy';
-import { LOGIN } from '../../graphql/queries';
+import { LOGIN, GET_APP_INFO } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const Login: React.FC = () => {
@@ -17,6 +17,10 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
+
+  const { data: appInfoData } = useQuery(GET_APP_INFO);
+  const quickLoginUsers: { label: string; username: string; password: string }[] =
+    appInfoData?.appInfo?.quickLoginUsers ?? [];
 
   const [loginMutation, { loading }] = useMutation(LOGIN, {
     onCompleted: (data) => {
@@ -45,6 +49,15 @@ export const Login: React.FC = () => {
       }
     },
   });
+
+  const handleQuickLogin = async (u: string, p: string) => {
+    setError('');
+    try {
+      await loginMutation({ variables: { username: u, password: p } });
+    } catch {
+      // handled by onError
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,12 +210,31 @@ export const Login: React.FC = () => {
             </Button>
           </form>
 
-          <Typography
-            level="body-xs"
-            sx={{ mt: 3, textAlign: 'center', color: 'text.tertiary' }}
-          >
-            Default credentials: admin / admin123
-          </Typography>
+          {quickLoginUsers.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography
+                level="body-xs"
+                sx={{ textAlign: 'center', color: 'text.tertiary', mb: 1.5 }}
+              >
+                Quick login — test environment
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {quickLoginUsers.map((u) => (
+                  <Button
+                    key={u.username}
+                    variant="outlined"
+                    color="neutral"
+                    fullWidth
+                    loading={loading}
+                    onClick={() => handleQuickLogin(u.username, u.password)}
+                    sx={{ fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    {u.label}
+                  </Button>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
       </Box>
     </Box>

@@ -72,8 +72,15 @@ export const typeDefs = `#graphql
     lastRunAt: String
   }
 
+  type QuickLoginUser {
+    label: String!
+    username: String!
+    password: String!
+  }
+
   type AppInfo {
     isProduction: Boolean!
+    quickLoginUsers: [QuickLoginUser!]!
   }
 
   type Query {

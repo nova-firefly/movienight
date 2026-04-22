@@ -257,6 +257,11 @@ export const GET_APP_INFO = gql`
   query GetAppInfo {
     appInfo {
       isProduction
+      quickLoginUsers {
+        label
+        username
+        password
+      }
     }
   }
 `;
