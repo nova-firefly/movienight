@@ -2,170 +2,165 @@
 
 ## Overview
 
-A dedicated screen that presents two randomly selected unwatched movies side-by-side and asks the user to pick which one they'd rather watch. Each choice is recorded as a pairwise comparison; an Elo rating system derives a per-user ranking and an aggregate global ranking from accumulated results. The global Elo average replaces the existing manually-managed `rank` column as the canonical movie sort order.
+A dedicated screen presenting two randomly selected unwatched movies side-by-side. The user picks which they'd rather watch. Each pick is recorded as a pairwise comparison; an Elo rating system derives a per-user preference ranking from the accumulated results. A global Elo average is cached on `movies.elo_rank` and is available as a secondary sort signal.
+
+### Relationship to existing ranking system
+
+The app already has a ranking system:
+- **Drag-to-rank** → `user_movie_rankings` (per-user fractional index) → Borda count → `movies.rank` (global aggregate, recomputed on a debounced 10-second schedule and every 5 minutes)
+- **Unauthenticated** homepage: sorted by `movies.rank DESC` (Borda consensus)
+- **Authenticated** homepage: sorted by user's personal `user_movie_rankings.rank ASC NULLS LAST`
+
+"This or That" adds a **parallel signal**:
+- **Pairwise comparison** → `movie_comparisons` (log) + `user_movie_elo` (per-user Elo) → `movies.elo_rank` (global Elo average)
+
+Both signals coexist. The homepage sort is unchanged. The Elo ranking is surfaced on the This or That screen in a "My Rankings" tab.
 
 ---
 
 ## Ranking Algorithm: Elo
 
-Chosen over alternatives because:
-- Works optimally for small, fixed pools of items (a watchlist of 20–100 movies)
-- Symmetric and simple to implement — no special cases for ties
-- Familiar mental model (chess rating); easy to explain to users
-- Handles sparse comparisons gracefully (starting rating = 1000, K = 32)
+Chosen because it is optimal for pairwise comparison data: each head-to-head pick carries directional information about relative preference that Elo converts into a continuous score, whereas Borda requires an explicit full ordering first.
 
-**Formulas:**
+**Parameters:** starting rating = 1000, K-factor = 32
+
 ```
 Expected score:  E_A = 1 / (1 + 10 ^ ((R_B − R_A) / 400))
-New rating (winner):  R_A' = R_A + 32 * (1 − E_A)
-New rating (loser):   R_B' = R_B + 32 * (0 − E_B)   where E_B = 1 − E_A
+Winner update:   R_A' = R_A + 32 × (1 − E_A)
+Loser update:    R_B' = R_B + 32 × (0 − (1 − E_A))
 ```
 
-**Global rank** = arithmetic mean of all users' Elo ratings for a given movie. After each comparison, the affected movies' global Elo averages are recomputed and written to `movies.rank`, replacing the fractional-indexing value.
+**Global Elo (`movies.elo_rank`)** = arithmetic average of all users' Elo ratings for that movie, recomputed after every comparison and every reset. Null when no comparisons have been recorded.
 
 ---
 
 ## Functional Requirements
 
-### FR-TOT-001: Navigate to Screen
-While logged in, when the user clicks the "This or That" nav link, the system shall display the comparison screen with a randomly selected pair of unwatched movies.
+### FR-TOT-001: Navigation
+While logged in, when the user clicks "This or That" in the nav, the system shall display the comparison screen.
 
-### FR-TOT-002: Movie Pair Selection
-When a new comparison pair is needed, the system shall select two distinct unwatched movies at random from the full unwatched pool. The same pair may be presented again in future sessions.
+### FR-TOT-002: Pair selection
+When a pair is needed, the system shall select two distinct unwatched movies at random, attempting to exclude the IDs passed in `excludeIds`. If fewer than 2 movies remain after exclusion the exclusion filter shall be ignored. If fewer than 2 unwatched movies exist at all, the system shall return an error.
 
-### FR-TOT-003: Movie Card Display
-While a comparison pair is displayed, the system shall show for each movie:
-- Poster image from TMDB (if `tmdb_id` is set), otherwise a placeholder
+### FR-TOT-003: Movie card content
+For each movie in a pair, the system shall display:
+- Poster image (TMDB `w342` image URL if `tmdb_id` is set, else a placeholder)
 - Title
-- Release year (from TMDB)
-- Director (first director credit from TMDB)
-- Top 3 billed cast members (from TMDB credits)
-- Up to 5 genre/keyword tags (TMDB genre names first, then TMDB keywords to fill)
-- If the movie has no `tmdb_id`, show only the title with a "Not matched to TMDB" note
+- Release year (TMDB)
+- Director (first TMDB crew member with `job === 'Director'`)
+- Top 3 billed cast members (TMDB `cast` array)
+- Up to 5 tags: TMDB genre names first, padded with TMDB keyword names if fewer than 5 genres
+- For movies without a `tmdb_id`: title only with a "No TMDB match" indicator; no crash
 
-### FR-TOT-004: TMDB Metadata Fetch
-When a comparison pair is requested, the system shall fetch movie details, credits, and keywords from the TMDB API for each movie that has a `tmdb_id`, using three TMDB endpoints:
-- `GET /movie/{id}` — release year, poster_path, genres
-- `GET /movie/{id}/credits` — cast (top 3), crew (director)
-- `GET /movie/{id}/keywords` — keyword tags (used if fewer than 5 genre tags)
+### FR-TOT-004: TMDB fetch and cache
+When enriching a movie card, the system shall call three TMDB endpoints in parallel (`/movie/{id}`, `/movie/{id}/credits`, `/movie/{id}/keywords`) and cache the result in an in-memory Map keyed by `tmdb_id` with a 24-hour TTL. On cache hit the TMDB API shall not be called.
 
-### FR-TOT-005: Record Comparison
-When the user taps/clicks a movie card, the system shall:
-1. Record the comparison (winner_id, loser_id, user_id) in `movie_comparisons`
-2. Recalculate Elo ratings for both movies for the current user in `user_movie_elo`
-3. Recompute the global average Elo for both movies and write to `movies.rank`
-4. Immediately present a fresh random pair (excluding same pair just shown, if possible)
+### FR-TOT-005: Record comparison
+When the user picks a movie, the system shall:
+1. Insert a row into `movie_comparisons` (winner_id, loser_id, user_id)
+2. Upsert Elo ratings in `user_movie_elo` for both movies using the Elo formula
+3. Update `movies.elo_rank` for both movies to the current `AVG(elo_rating)` across all users
+4. Return the new Elo values in `ComparisonResult`
 
-### FR-TOT-006: Prevent Duplicate Pair in Immediate Succession
-When a comparison is recorded, the system shall not serve the same pair (in either order) as the very next comparison within the same screen session.
+### FR-TOT-006: Avoid immediate repeat pair
+The system shall accept an `excludeIds: [ID!]` argument on `thisOrThat` and exclude those movie IDs from selection where possible (see FR-TOT-002). The client sends the IDs of both movies from the previous pair.
 
-### FR-TOT-007: Session Counter
-While the comparison screen is active, the system shall display a running count of comparisons completed in the current session (e.g. "12 comparisons this session").
+### FR-TOT-007: Session counter
+While the comparison screen is active, the system shall display a running count of comparisons completed in the current session.
 
-### FR-TOT-008: Personal Rankings View
-When the user navigates to a "My Rankings" tab on the comparison screen, the system shall display all unwatched movies sorted by the user's personal Elo rating (descending), showing each movie's Elo score and number of comparisons involving that movie.
+### FR-TOT-008: Personal Elo rankings
+When the user views the "My Rankings" tab, the system shall return all unwatched movies where the user has at least one comparison, sorted by their personal Elo rating descending, including the Elo score and comparison count.
 
-### FR-TOT-009: Reset Movie Comparisons
-While viewing the comparison screen or personal rankings, when the user clicks "Reset" on a specific movie, the system shall:
-1. Delete all `movie_comparisons` rows where the current user is involved and either movie matches
-2. Reset the `user_movie_elo` row for that user+movie back to 1000 with comparison_count = 0
-3. Trigger a global rank recomputation for the affected movie
+### FR-TOT-009: Reset a movie
+When the user resets a movie, the system shall:
+1. Delete all `movie_comparisons` rows for that user involving that movie (as winner or loser)
+2. Delete the `user_movie_elo` row for that user + movie
+3. Recompute `movies.elo_rank` for the affected movie (becomes NULL if no other users have data)
 
-### FR-TOT-010: Minimum Pool Guard
-When the unwatched movie pool has fewer than 2 movies, the system shall display an empty state message ("Add more movies to start comparing") and not attempt to fetch a pair.
+### FR-TOT-010: Minimum pool guard
+When fewer than 2 unwatched movies exist, the system shall return a `BAD_USER_INPUT` error and the frontend shall display "Add more movies to start comparing."
 
-### FR-TOT-011: Global Rank Write-Back
-When any comparison is recorded, the system shall update `movies.rank` for both affected movies to their current global Elo average across all users.
-
-### FR-TOT-012: Auth Guard
-When an unauthenticated user attempts to access the comparison screen or call comparison mutations, the system shall return `UNAUTHENTICATED` and redirect to login.
+### FR-TOT-011: Auth guard
+All `thisOrThat`, `myRankings`, `recordComparison`, and `resetMovieComparisons` operations shall require authentication and return `UNAUTHENTICATED` otherwise.
 
 ---
 
 ## Non-Functional Requirements
 
-### Performance
-- Pair query (random selection + TMDB fetch for both movies): < 2 s p95 (TMDB is external; cache metadata for 24 h per `tmdb_id`)
-- Comparison record + Elo update + global rank write: < 200 ms p95 (all local DB ops)
-- Personal rankings query: < 100 ms p95
-
-### Security
-- Comparisons are always recorded against `context.user.userId` from JWT — client cannot submit a different `userId`
-- Reset mutation checks that the requesting user owns the records being deleted
-- TMDB API key remains server-side only; never exposed to client
-
-### Caching
-- TMDB metadata (details, credits, keywords) is cached in-memory or in a `tmdb_cache` table per `tmdb_id` with a 24-hour TTL to avoid redundant API calls during active comparison sessions
-
-### Mobile
-- Comparison cards must be usable on a narrow (375 px) screen — stack vertically with equal tap targets
+- **TMDB fetch latency**: pair query including parallel TMDB fetches < 2 s p95 (cache should reduce this to < 100 ms on repeat)
+- **Comparison write**: `recordComparison` mutation < 200 ms p95 (all local DB)
+- **Security**: `userId` is always read from `context.user.userId` (JWT); client cannot submit a different user's comparison
+- **Reset authorization**: `resetMovieComparisons` only deletes rows where `user_id = context.user.userId`
+- **TMDB API key**: never exposed to the client; all TMDB calls are server-side only
+- **Mobile**: cards stack vertically at < 600 px viewport width; equal tap target heights
 
 ---
 
 ## Acceptance Criteria
 
-### AC-001: Happy path — record a comparison
+### AC-001: Happy-path comparison
 ```
 Given a logged-in user on the comparison screen with ≥ 2 unwatched movies
-When they tap the left movie card
-Then that movie's Elo rating for the user increases
-And the other movie's Elo rating decreases
-And movies.rank for both movies is updated to the new global average
+When they tap a movie card
+Then that movie's Elo for the user increases and the other decreases
+And movies.elo_rank for both movies is updated to the new global average
 And a new pair is immediately shown
 And the session counter increments by 1
 ```
 
-### AC-002: TMDB-matched movie shows rich metadata
+### AC-002: Rich metadata displayed
 ```
 Given a movie with a valid tmdb_id
-When it appears in a comparison pair
-Then its poster, year, director, ≤3 cast names, and ≤5 genre/keyword tags are displayed
+When it appears in a pair
+Then its poster, year, director, ≤3 cast names, and ≤5 tags are shown
 ```
 
-### AC-003: Unmatched movie shows graceful fallback
+### AC-003: Unmatched movie fallback
 ```
 Given a movie with no tmdb_id
-When it appears in a comparison pair
-Then only the title and a "Not matched to TMDB" indicator are shown
-And no poster placeholder breaks the layout
+When it appears in a pair
+Then only the title and "No TMDB match" indicator are shown
+And no layout breaks occur
 ```
 
-### AC-004: Reset movie comparisons
+### AC-004: Immediate-repeat pair avoided
 ```
-Given a user has made 10 comparisons involving Movie A
-When they click "Reset" on Movie A and confirm
-Then all their comparison records for Movie A are deleted
-And Movie A's Elo for that user resets to 1000
-And the global rank for Movie A is recomputed without that user's data
+Given the user just compared Movie A vs Movie B
+When the next pair is requested (excludeIds = [A, B])
+Then the returned pair does not include Movie A or Movie B
+  (unless fewer than 2 other movies exist)
 ```
 
-### AC-005: Minimum pool guard
+### AC-005: Reset
+```
+Given a user has made 8 comparisons involving Movie X
+When they click Reset on Movie X and confirm
+Then all their movie_comparisons rows for Movie X are deleted
+And their user_movie_elo row for Movie X is deleted
+And movies.elo_rank for Movie X is recomputed (NULL if no other users had data)
+And Movie X disappears from their My Rankings tab
+```
+
+### AC-006: Minimum pool guard
 ```
 Given only 1 unwatched movie exists
-When the user navigates to the comparison screen
-Then "Add more movies to start comparing" is shown
+When the user is on the comparison screen
+Then "Add more movies to start comparing" is displayed
 And no movie cards are rendered
 ```
 
-### AC-006: Same pair not shown twice in a row
+### AC-007: My Rankings ordering
 ```
-Given the user just compared Movie A vs Movie B
-When the next pair is selected
-Then the pair is not Movie A vs Movie B (or Movie B vs Movie A)
-```
-
-### AC-007: Personal rankings reflect Elo
-```
-Given a user has completed comparisons
+Given a user has compared several movies
 When they view "My Rankings"
 Then movies are listed in descending Elo order
-And each row shows Elo score and comparison count
+And each row shows the Elo score and number of comparisons
 ```
 
-### AC-008: Unauthenticated access blocked
+### AC-008: Unauthenticated access
 ```
 Given an unauthenticated visitor
-When they navigate to /this-or-that
+When they navigate to the This or That screen
 Then they are redirected to the login page
 ```
 
@@ -173,97 +168,90 @@ Then they are redirected to the login page
 
 ## Error Handling
 
-| Condition | Response | User Message |
+| Condition | Server response | User-visible message |
 |---|---|---|
-| TMDB API key missing | Serve pair without metadata | "Movie details unavailable" |
-| TMDB API returns error / timeout | Log server-side, return movie without TMDB fields | "Movie details unavailable" |
-| Fewer than 2 unwatched movies | Empty state UI | "Add more movies to start comparing" |
-| Unauthenticated comparison mutation | `UNAUTHENTICATED` error | Redirect to login |
-| Movie not found during reset | `NOT_FOUND` error | "Movie not found" |
-
----
-
-## Open Question: Rank Column Conflict with Drag-and-Drop
-
-**Current behaviour**: Admin drag-and-drop writes fractional index values to `movies.rank`.
-**New behaviour**: Elo write-back also writes to `movies.rank`.
-
-These will overwrite each other. Options:
-
-| Option | Trade-off |
-|---|---|
-| **A** Add `elo_rank NUMERIC` column; homepage sorts by `elo_rank` when set, falls back to `rank` | Preserves admin override; most flexible |
-| **B** Elo always wins; disable admin drag-and-drop | Simplest; loses admin control |
-| **C** Elo writes to `rank`; admin drag-and-drop is a manual override that takes precedence until Elo recalculates | Confusing; ordering can flip unexpectedly |
-
-**Recommendation**: Option A. Spec below assumes this.
-**Decision needed from owner before implementation begins.**
+| TMDB_API_KEY missing | Return movie without TMDB fields | "Movie details unavailable" |
+| TMDB API error / timeout | Log server-side; return null fields | "Movie details unavailable" |
+| < 2 unwatched movies | `BAD_USER_INPUT` | "Add more movies to start comparing" |
+| Unauthenticated | `UNAUTHENTICATED` | Redirect to login |
+| Movie not found on reset | `NOT_FOUND` | "Movie not found" |
 
 ---
 
 ## Database Schema
 
-### New table: `movie_comparisons`
-```sql
-CREATE TABLE movie_comparisons (
-  id          SERIAL PRIMARY KEY,
-  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  winner_id   INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
-  loser_id    INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+Latest existing migration: `1745500001000_drop-movie-votes.js`
 
-CREATE INDEX idx_movie_comparisons_user    ON movie_comparisons(user_id);
-CREATE INDEX idx_movie_comparisons_winner  ON movie_comparisons(winner_id);
-CREATE INDEX idx_movie_comparisons_loser   ON movie_comparisons(loser_id);
+### New migration: `1745600000000_add-elo-ranking.js`
+
+```js
+exports.up = (pgm) => {
+  // Global Elo average cache on movies
+  pgm.addColumn('movies', {
+    elo_rank: { type: 'numeric(10,4)', notNull: false },
+  });
+
+  // Append-only log of every pairwise pick
+  pgm.createTable('movie_comparisons', {
+    id:         { type: 'serial', primaryKey: true },
+    user_id:    { type: 'integer', notNull: true, references: '"users"',  onDelete: 'CASCADE' },
+    winner_id:  { type: 'integer', notNull: true, references: '"movies"', onDelete: 'CASCADE' },
+    loser_id:   { type: 'integer', notNull: true, references: '"movies"', onDelete: 'CASCADE' },
+    created_at: { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
+  });
+  pgm.createIndex('movie_comparisons', 'user_id');
+  pgm.createIndex('movie_comparisons', 'winner_id');
+  pgm.createIndex('movie_comparisons', 'loser_id');
+
+  // Per-user, per-movie Elo rating
+  pgm.createTable('user_movie_elo', {
+    user_id:          { type: 'integer', notNull: true, references: '"users"',  onDelete: 'CASCADE' },
+    movie_id:         { type: 'integer', notNull: true, references: '"movies"', onDelete: 'CASCADE' },
+    elo_rating:       { type: 'numeric(10,4)', notNull: true, default: 1000 },
+    comparison_count: { type: 'integer', notNull: true, default: 0 },
+    updated_at:       { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
+  });
+  pgm.addConstraint('user_movie_elo', 'user_movie_elo_pkey', 'PRIMARY KEY (user_id, movie_id)');
+};
+
+exports.down = (pgm) => {
+  pgm.dropTable('user_movie_elo');
+  pgm.dropTable('movie_comparisons');
+  pgm.dropColumn('movies', 'elo_rank');
+};
 ```
 
-### New table: `user_movie_elo`
-```sql
-CREATE TABLE user_movie_elo (
-  user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  movie_id          INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
-  elo_rating        NUMERIC(10,4) NOT NULL DEFAULT 1000,
-  comparison_count  INTEGER NOT NULL DEFAULT 0,
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (user_id, movie_id)
-);
-```
+### Updated DB overview (ranking tables only)
 
-### New column: `movies.elo_rank`
-```sql
-ALTER TABLE movies ADD COLUMN elo_rank NUMERIC(10,4);
--- NULL means no comparisons recorded yet; sort: elo_rank DESC NULLS LAST, rank ASC
-```
-
-### Optional: `tmdb_cache`
-```sql
-CREATE TABLE tmdb_cache (
-  tmdb_id     INTEGER PRIMARY KEY,
-  payload     JSONB NOT NULL,  -- { poster_path, year, director, cast[3], tags[5] }
-  fetched_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
+| Table | Purpose |
+|---|---|
+| `user_movie_rankings` | Per-user drag-to-rank fractional index (feeds Borda) |
+| `movie_comparisons` | Append-only log of This-or-That picks |
+| `user_movie_elo` | Per-user Elo rating per movie (PK: user_id, movie_id) |
+| `movies.rank` | Borda count cache (written by `recalculateBordaRanks`) — **unchanged** |
+| `movies.elo_rank` | Global Elo average cache (written after each comparison/reset) — **new** |
 
 ---
 
-## GraphQL Schema Additions
+## GraphQL Additions
+
+### New types
 
 ```graphql
-type ThisOrThatPair {
-  movieA: ThisOrThatMovie!
-  movieB: ThisOrThatMovie!
-}
-
 type ThisOrThatMovie {
   id: ID!
   title: String!
   tmdb_id: Int
-  poster_url: String          # full URL or null
+  poster_url: String
   release_year: String
   director: String
-  cast: [String!]!            # up to 3 names
-  tags: [String!]!            # up to 5 genre/keyword strings
+  cast: [String!]!
+  tags: [String!]!
+}
+
+type ThisOrThatPair {
+  movieA: ThisOrThatMovie!
+  movieB: ThisOrThatMovie!
 }
 
 type ComparisonResult {
@@ -278,94 +266,244 @@ type MovieRanking {
   eloRating: Float!
   comparisonCount: Int!
 }
+```
 
-extend type Query {
-  thisOrThat: ThisOrThatPair!        # requires auth
-  myRankings: [MovieRanking!]!       # requires auth; sorted by elo_rating DESC
+### New queries
+
+```graphql
+thisOrThat(excludeIds: [ID!]): ThisOrThatPair!   # requires auth
+myRankings: [MovieRanking!]!                      # requires auth
+```
+
+### New mutations
+
+```graphql
+recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!  # requires auth
+resetMovieComparisons(movieId: ID!): Boolean!                     # requires auth, own data only
+```
+
+---
+
+## Backend Implementation Notes
+
+### `backend/src/elo.ts` (new file)
+
+```typescript
+import pool from './db';
+
+export function calculateElo(rA: number, rB: number, k = 32): { newA: number; newB: number } {
+  const eA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
+  return { newA: rA + k * (1 - eA), newB: rB + k * (0 - (1 - eA)) };
 }
 
-extend type Mutation {
-  recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!  # requires auth
-  resetMovieComparisons(movieId: ID!): Boolean!                      # requires auth; own data only
+// ON CONFLICT DO UPDATE SET user_id = EXCLUDED.user_id is a no-op that still
+// returns the existing row via RETURNING — avoids a two-query select + insert.
+export async function getOrCreateElo(userId: number, movieId: number): Promise<number> {
+  const res = await pool.query(
+    `INSERT INTO user_movie_elo (user_id, movie_id)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id, movie_id) DO UPDATE SET user_id = EXCLUDED.user_id
+     RETURNING elo_rating`,
+    [userId, movieId]
+  );
+  return Number(res.rows[0].elo_rating);
+}
+
+export async function applyComparison(
+  userId: number, winnerId: number, loserId: number
+): Promise<{ winnerElo: number; loserElo: number }> {
+  const [rWinner, rLoser] = await Promise.all([
+    getOrCreateElo(userId, winnerId),
+    getOrCreateElo(userId, loserId),
+  ]);
+  const { newA, newB } = calculateElo(rWinner, rLoser);
+
+  await pool.query(
+    `UPDATE user_movie_elo
+     SET elo_rating = $1, comparison_count = comparison_count + 1, updated_at = NOW()
+     WHERE user_id = $2 AND movie_id = $3`,
+    [newA, userId, winnerId]
+  );
+  await pool.query(
+    `UPDATE user_movie_elo
+     SET elo_rating = $1, comparison_count = comparison_count + 1, updated_at = NOW()
+     WHERE user_id = $2 AND movie_id = $3`,
+    [newB, userId, loserId]
+  );
+  await pool.query(
+    'INSERT INTO movie_comparisons (user_id, winner_id, loser_id) VALUES ($1, $2, $3)',
+    [userId, winnerId, loserId]
+  );
+
+  // Recompute global elo_rank for both movies.
+  // AVG returns NULL when no rows match — which correctly nullifies elo_rank after a reset.
+  for (const mid of [winnerId, loserId]) {
+    await pool.query(
+      `UPDATE movies SET elo_rank = (
+         SELECT AVG(elo_rating) FROM user_movie_elo WHERE movie_id = $1
+       ) WHERE id = $1`,
+      [mid]
+    );
+  }
+
+  return { winnerElo: newA, loserElo: newB };
 }
 ```
+
+### TMDB enrichment cache (top of `resolvers.ts`)
+
+```typescript
+const tmdbEnrichCache = new Map<number, { data: TmdbEnriched; expiresAt: number }>();
+const TMDB_TTL = 24 * 60 * 60 * 1000;
+
+interface TmdbEnriched {
+  poster_url: string | null;
+  release_year: string | null;
+  director: string | null;
+  cast: string[];
+  tags: string[];
+}
+
+async function enrichWithTmdb(movie: { id: number; title: string; tmdb_id: number | null }) {
+  if (!movie.tmdb_id) return { id: String(movie.id), title: movie.title, tmdb_id: null,
+    poster_url: null, release_year: null, director: null, cast: [], tags: [] };
+
+  const cached = tmdbEnrichCache.get(movie.tmdb_id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { id: String(movie.id), title: movie.title, tmdb_id: movie.tmdb_id, ...cached.data };
+  }
+
+  const apiKey = process.env.TMDB_API_KEY;
+  const empty = { id: String(movie.id), title: movie.title, tmdb_id: movie.tmdb_id,
+    poster_url: null, release_year: null, director: null, cast: [], tags: [] };
+  if (!apiKey) return empty;
+
+  try {
+    const base = `https://api.themoviedb.org/3/movie/${movie.tmdb_id}`;
+    const [det, cred, kw] = await Promise.all([
+      fetch(`${base}?api_key=${apiKey}&language=en-US`).then((r) => r.json()),
+      fetch(`${base}/credits?api_key=${apiKey}`).then((r) => r.json()),
+      fetch(`${base}/keywords?api_key=${apiKey}`).then((r) => r.json()),
+    ]);
+    const data: TmdbEnriched = {
+      poster_url: det.poster_path ? `https://image.tmdb.org/t/p/w342${det.poster_path}` : null,
+      release_year: det.release_date ? det.release_date.split('-')[0] : null,
+      director: (cred.crew ?? []).find((c: any) => c.job === 'Director')?.name ?? null,
+      cast: (cred.cast ?? []).slice(0, 3).map((c: any) => c.name),
+      tags: [...(det.genres ?? []).map((g: any) => g.name),
+             ...(kw.keywords ?? []).map((k: any) => k.name)].slice(0, 5),
+    };
+    tmdbEnrichCache.set(movie.tmdb_id, { data, expiresAt: Date.now() + TMDB_TTL });
+    return { id: String(movie.id), title: movie.title, tmdb_id: movie.tmdb_id, ...data };
+  } catch {
+    return empty;
+  }
+}
+```
+
+### `thisOrThat` resolver
+
+```typescript
+// Attempt to exclude seen IDs; fall back to full pool if < 2 remain
+async function pickPair(excludeIds: number[]) {
+  if (excludeIds.length > 0) {
+    const res = await pool.query(
+      `SELECT id, title, tmdb_id FROM movies
+       WHERE watched_at IS NULL AND id != ALL($1::int[])
+       ORDER BY RANDOM() LIMIT 2`,
+      [excludeIds]
+    );
+    if (res.rows.length >= 2) return res.rows;
+  }
+  const res = await pool.query(
+    `SELECT id, title, tmdb_id FROM movies
+     WHERE watched_at IS NULL ORDER BY RANDOM() LIMIT 2`
+  );
+  return res.rows;
+}
+```
+
+### `myRankings` resolver — note on Movie shape
+
+The `Movie` type no longer has a `votes` field (removed in the rebase). The query for `myRankings` can return a plain movie row without any stub fields:
+
+```sql
+SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+       u.username AS user_username, u.display_name AS user_display_name,
+       ume.elo_rating, ume.comparison_count
+FROM user_movie_elo ume
+JOIN movies m ON ume.movie_id = m.id
+LEFT JOIN users u ON m.requested_by = u.id
+WHERE ume.user_id = $1 AND m.watched_at IS NULL
+ORDER BY ume.elo_rating DESC
+```
+
+The existing `Movie.requester` and `Movie.date_submitted` field resolvers handle the `user_username` / `user_display_name` columns already.
+
+### Audit log action names to add
+
+`MOVIE_COMPARISON`, `MOVIE_COMPARISON_RESET`
+
+---
+
+## Frontend Implementation Notes
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `src/components/home/MovieCompareCard.tsx` | Single movie card: poster, title, year, director, cast, tags, full-card click |
+| `src/components/home/ThisOrThat.tsx` | Comparison screen (Compare tab + My Rankings tab) |
+
+### Changed files
+
+| File | Change |
+|---|---|
+| `src/graphql/queries.ts` | Add `THIS_OR_THAT`, `MY_RANKINGS`, `RECORD_COMPARISON`, `RESET_MOVIE_COMPARISONS` |
+| `src/App.tsx` | `showUserManagement: boolean` → `currentView: 'movies' \| 'this-or-that' \| 'admin'` |
+| `src/components/common/Navbar.tsx` | Replace `showUserManagement: boolean` prop with `currentView`; add "This or That" button |
+
+### `App.tsx` routing change
+
+```typescript
+type ViewName = 'movies' | 'this-or-that' | 'admin';
+const [currentView, setCurrentView] = React.useState<ViewName>('movies');
+```
+
+The existing `main` box wrapper (with `px`, `py`, `maxWidth`) is reused — `ThisOrThat` replaces `AdminPanel` in the conditional when `currentView === 'this-or-that'`.
+
+### `Navbar.tsx` change
+
+Replace `showUserManagement: boolean` prop with `currentView: ViewName` and `onShowThisOrThat: () => void`. Add "This or That" button visible to all authenticated users, placed between Movies and Admin. Active state: `currentView === 'this-or-that'`.
+
+### `ThisOrThat.tsx` key behaviour
+
+- `useLazyQuery(THIS_OR_THAT, { fetchPolicy: 'network-only' })` fetched on mount and after each pick
+- `seenIds: string[]` state collects all movie IDs shown this session; sent as `excludeIds` to avoid re-showing the same pair
+- `recordComparison` refetches `GET_MOVIES` so the Borda-sorted list updates if visible
+- Rankings tab uses `useQuery(MY_RANKINGS, { skip: tab !== 'rankings' })` to avoid a query on load
+- Empty state triggered when error has `extensions.code === 'BAD_USER_INPUT'`
+- Cards displayed side-by-side (flex row) on ≥ sm breakpoint, stacked on xs
 
 ---
 
 ## Implementation TODO
 
 ### Backend
-
-#### Migration
-- [ ] Create migration: add `movie_comparisons` table with indexes
-- [ ] Create migration: add `user_movie_elo` table
-- [ ] Create migration: add `movies.elo_rank NUMERIC(10,4)` column
-
-#### Elo Service (`backend/src/elo.ts`)
-- [ ] Implement `calculateElo(ratingA, ratingB, kFactor=32): { newA, newB }` (pure function)
-- [ ] Implement `getOrCreateElo(userId, movieId): Promise<number>` — returns current rating, inserts 1000 row if missing
-- [ ] Implement `applyComparison(userId, winnerId, loserId): Promise<ComparisonResult>`:
-  1. Get/create Elo rows for both movies
-  2. Calculate new ratings
-  3. Upsert `user_movie_elo` for both
-  4. Recompute `movies.elo_rank` as `AVG(elo_rating)` across all users for each movie
-  5. Write to `movies.elo_rank`
-  6. Insert into `movie_comparisons`
-  7. Return result
-
-#### TMDB Enrichment (`backend/src/tmdb.ts`)
-- [ ] Implement `fetchTmdbEnriched(tmdbId): Promise<TmdbEnriched>` — calls `/movie/{id}`, `/movie/{id}/credits`, `/movie/{id}/keywords`; constructs `poster_url`, `release_year`, `director`, `cast[3]`, `tags[5]` (genres first, then keywords)
-- [ ] Implement `getCachedOrFetch(tmdbId)` — check `tmdb_cache`; if stale (>24 h) or missing, call `fetchTmdbEnriched` and upsert cache
-
-#### Schema (`backend/src/schema.ts`)
-- [ ] Add `ThisOrThatPair`, `ThisOrThatMovie`, `ComparisonResult`, `MovieRanking` types
-- [ ] Add `thisOrThat`, `myRankings` queries
-- [ ] Add `recordComparison`, `resetMovieComparisons` mutations
-
-#### Resolvers (`backend/src/resolvers.ts`)
-- [ ] `thisOrThat`: query 2 random unwatched movies; call `getCachedOrFetch` for each; return pair
-- [ ] `myRankings`: join `user_movie_elo` → `movies` for current user; sort by `elo_rating DESC`
-- [ ] `recordComparison`: auth check; call `applyComparison`; log `MOVIE_COMPARISON` audit event
-- [ ] `resetMovieComparisons`: auth check; delete own `movie_comparisons` rows; reset `user_movie_elo` to 1000/0; recompute `elo_rank`
-
-#### Audit Log
-- [ ] Add `MOVIE_COMPARISON` and `MOVIE_COMPARISON_RESET` to audit log actions
+- [ ] Create migration `1745600000000_add-elo-ranking.js`
+- [ ] Create `backend/src/elo.ts` with `calculateElo`, `getOrCreateElo`, `applyComparison`
+- [ ] Add `ThisOrThatMovie`, `ThisOrThatPair`, `ComparisonResult`, `MovieRanking` types to `schema.ts`
+- [ ] Add `thisOrThat` / `myRankings` queries to `schema.ts`
+- [ ] Add `recordComparison` / `resetMovieComparisons` mutations to `schema.ts`
+- [ ] Add `tmdbEnrichCache` + `enrichWithTmdb` helper to `resolvers.ts`
+- [ ] Implement `thisOrThat` resolver (random pair selection + parallel TMDB enrichment)
+- [ ] Implement `myRankings` resolver (JOIN user_movie_elo → movies, order by elo_rating DESC)
+- [ ] Implement `recordComparison` resolver (auth check → `applyComparison` → audit log)
+- [ ] Implement `resetMovieComparisons` resolver (delete rows → recompute elo_rank → audit log)
 
 ### Frontend
-
-#### Route & Nav
-- [ ] Add `/this-or-that` route in `App.tsx`
-- [ ] Add "This or That" link to `Navbar.tsx` (visible to all logged-in users)
-
-#### GraphQL Queries (`src/graphql/queries.ts`)
-- [ ] Add `THIS_OR_THAT` query
-- [ ] Add `MY_RANKINGS` query
-- [ ] Add `RECORD_COMPARISON` mutation
-- [ ] Add `RESET_MOVIE_COMPARISONS` mutation
-
-#### Components
-- [ ] `src/components/home/ThisOrThat.tsx` — main screen with two tabs: "Compare" and "My Rankings"
-  - Compare tab: renders two `MovieCompareCard` components side-by-side; session counter; empty state
-  - My Rankings tab: renders ranked list with Elo scores
-- [ ] `src/components/home/MovieCompareCard.tsx` — poster, title, year, director, cast chips, tag chips; full-card click target; loading skeleton while fetching
-- [ ] `src/components/home/MyRankings.tsx` — sorted movie list with Elo badge and comparison count; "Reset" button per movie with confirmation
-
-#### State
-- [ ] Track `lastPairIds` in component state to avoid immediate repeat
-- [ ] Track `sessionCount` in component state (reset on unmount)
-
-### Testing
-- [ ] Unit test `calculateElo` — verify Elo delta for equal ratings, underdog win, heavy favourite win
-- [ ] Integration test `recordComparison` — verify DB rows and Elo values after a comparison
-- [ ] Integration test `resetMovieComparisons` — verify rows deleted and Elo reset to 1000
-
----
-
-## Out of Scope
-
-- Viewing other users' personal rankings (only own rankings visible)
-- Comparison history / timeline UI
-- Skip / "Haven't seen either" button (can be added later)
-- Weighted K-factor that decreases with more comparisons (can tune later)
-- Admin ability to manually set a movie's Elo (out of scope for now)
-- Push notifications or gamification (streaks, badges)
+- [ ] Add `THIS_OR_THAT`, `MY_RANKINGS`, `RECORD_COMPARISON`, `RESET_MOVIE_COMPARISONS` to `queries.ts`
+- [ ] Create `MovieCompareCard.tsx`
+- [ ] Create `ThisOrThat.tsx`
+- [ ] Update `App.tsx`: `showUserManagement: boolean` → `currentView: ViewName`
+- [ ] Update `Navbar.tsx`: add `currentView` prop + "This or That" button
