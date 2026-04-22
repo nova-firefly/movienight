@@ -44,7 +44,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
     <Box
       sx={{
         width: '100%',
-        aspectRatio: '2/3',
+        aspectRatio: { xs: '3/4', sm: '2/3' },
         bgcolor: 'background.level2',
         display: 'flex',
         alignItems: 'center',
@@ -66,11 +66,11 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
     </Box>
 
     {/* Info */}
-    <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Typography level="title-md" sx={{ fontWeight: 700 }}>
+    <Box sx={{ p: { xs: 1, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Typography level="title-sm" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '1rem' } }}>
         {movie.title}
         {movie.release_year && (
-          <Typography component="span" level="body-sm" sx={{ color: 'text.secondary', ml: 0.75 }}>
+          <Typography component="span" level="body-xs" sx={{ color: 'text.secondary', ml: 0.5 }}>
             ({movie.release_year})
           </Typography>
         )}

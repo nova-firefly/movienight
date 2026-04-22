@@ -1067,6 +1067,75 @@ export const resolvers = {
       }
       return (result.rowCount ?? 0) > 0;
     },
+    seedMovies: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      if (isProduction()) {
+        throw new GraphQLError('Seed is disabled in production', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const SEED_MOVIES: { title: string; tmdb_id: number }[] = [
+        { title: 'The Shawshank Redemption', tmdb_id: 278 },
+        { title: 'The Godfather', tmdb_id: 238 },
+        { title: 'The Dark Knight', tmdb_id: 155 },
+        { title: 'Pulp Fiction', tmdb_id: 680 },
+        { title: 'Forrest Gump', tmdb_id: 13 },
+        { title: 'Inception', tmdb_id: 27205 },
+        { title: 'The Matrix', tmdb_id: 603 },
+        { title: 'Interstellar', tmdb_id: 157336 },
+        { title: 'Parasite', tmdb_id: 496243 },
+        { title: 'Fight Club', tmdb_id: 550 },
+        { title: 'Goodfellas', tmdb_id: 769 },
+        { title: 'The Silence of the Lambs', tmdb_id: 274 },
+        { title: 'Whiplash', tmdb_id: 244786 },
+        { title: 'The Grand Budapest Hotel', tmdb_id: 120467 },
+        { title: 'Mad Max: Fury Road', tmdb_id: 76341 },
+        { title: 'Get Out', tmdb_id: 419430 },
+        { title: 'Spirited Away', tmdb_id: 129 },
+        { title: 'Blade Runner 2049', tmdb_id: 335984 },
+        { title: 'The Social Network', tmdb_id: 37799 },
+        { title: 'No Country for Old Men', tmdb_id: 6977 },
+        { title: 'Arrival', tmdb_id: 329865 },
+        { title: 'Everything Everywhere All at Once', tmdb_id: 545611 },
+        { title: 'The Truman Show', tmdb_id: 37165 },
+        { title: 'Moonlight', tmdb_id: 376867 },
+        { title: 'Jaws', tmdb_id: 578 },
+        { title: 'Alien', tmdb_id: 348 },
+        { title: 'Back to the Future', tmdb_id: 105 },
+        { title: 'The Thing', tmdb_id: 1091 },
+        { title: 'Dune', tmdb_id: 438631 },
+        { title: 'The Lighthouse', tmdb_id: 503919 },
+      ];
+
+      // Clear all existing movies and related data
+      await pool.query('DELETE FROM movie_comparisons');
+      await pool.query('DELETE FROM user_movie_elo');
+      await pool.query('DELETE FROM movies');
+
+      // Insert seed movies
+      for (const movie of SEED_MOVIES) {
+        await pool.query(
+          'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
+          [movie.title, context.user.userId, movie.tmdb_id]
+        );
+      }
+
+      await logAudit(
+        context.user.userId,
+        'MOVIE_SEED',
+        'movie',
+        null,
+        { count: SEED_MOVIES.length },
+        context.ipAddress ?? 'unknown'
+      );
+
+      return SEED_MOVIES.length;
+    },
   },
   Movie: {
     requester: (parent: any) => {

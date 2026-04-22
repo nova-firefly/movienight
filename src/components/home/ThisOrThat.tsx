@@ -165,8 +165,8 @@ const ThisOrThat: React.FC = () => {
               <Box
                 sx={{
                   display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  gap: 3,
+                  flexDirection: 'row',
+                  gap: { xs: 1.5, sm: 3 },
                   justifyContent: 'center',
                 }}
               >
@@ -183,8 +183,8 @@ const ThisOrThat: React.FC = () => {
                       borderColor: 'divider',
                     }}
                   >
-                    <Skeleton variant="rectangular" sx={{ width: '100%', aspectRatio: '2/3' }} />
-                    <Box sx={{ p: 2 }}>
+                    <Skeleton variant="rectangular" sx={{ width: '100%', aspectRatio: { xs: '3/4', sm: '2/3' } }} />
+                    <Box sx={{ p: { xs: 1, sm: 2 } }}>
                       <Skeleton variant="text" sx={{ width: '70%', mb: 1 }} />
                       <Skeleton variant="text" sx={{ width: '50%', mb: 1 }} />
                       <Skeleton variant="rectangular" sx={{ width: '100%', height: 36, borderRadius: 'sm' }} />
@@ -199,9 +199,10 @@ const ThisOrThat: React.FC = () => {
               <Box
                 sx={{
                   display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  gap: 3,
+                  flexDirection: 'row',
+                  gap: { xs: 1.5, sm: 3 },
                   justifyContent: 'center',
+                  alignItems: 'stretch',
                   opacity: fading ? 0 : 1,
                   transition: 'opacity 0.2s ease-out',
                 }}
@@ -214,7 +215,7 @@ const ThisOrThat: React.FC = () => {
                   />
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>
                   <Typography
                     level="h4"
                     sx={{ fontWeight: 800, color: 'text.tertiary', userSelect: 'none' }}

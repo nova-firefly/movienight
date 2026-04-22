@@ -320,3 +320,9 @@ export const RESET_MOVIE_COMPARISONS = gql`
     resetMovieComparisons(movieId: $movieId)
   }
 `;
+
+export const SEED_MOVIES = gql`
+  mutation SeedMovies {
+    seedMovies
+  }
+`;

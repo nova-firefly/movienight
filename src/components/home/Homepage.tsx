@@ -6,6 +6,8 @@ import {
   DELETE_MOVIE,
   MARK_WATCHED,
   SEARCH_TMDB,
+  SEED_MOVIES,
+  GET_APP_INFO,
 } from "../../graphql/queries";
 import {
   Autocomplete,
@@ -193,6 +195,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
+  const [seedMovies, { loading: seeding }] = useMutation(SEED_MOVIES, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+  const { data: appInfoData } = useQuery(GET_APP_INFO, { fetchPolicy: 'cache-first' });
+  const isProd = appInfoData?.appInfo?.isProduction ?? true;
+
   const movies: Movie[] = data?.movies ?? [];
 
   // Check if the current user has any personal Elo data
@@ -224,6 +232,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
       await deleteMovie({ variables: { id } });
     } catch (err: any) {
       setErrorMessage(`Error removing movie: ${err.message}`);
+    }
+  };
+
+  const handleSeed = async () => {
+    if (!window.confirm('This will DELETE all existing movies and seed 30 new ones. Continue?')) return;
+    try {
+      await seedMovies();
+      setSuccessMessage('Seeded 30 movies!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      setErrorMessage(`Seed failed: ${err.message}`);
     }
   };
 
@@ -279,38 +298,45 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
           </Typography>
         </Box>
 
-        {/* Elo nudge banner — shown when user has no personal rankings */}
-        {isAuthenticated && !hasEloData && movies.length >= 2 && (
+        {/* This or That indicator */}
+        {movies.length >= 2 && (
           <Box
             sx={{
               mb: 3,
-              p: 2,
+              p: 1.5,
               borderRadius: 'md',
               bgcolor: 'primary.softBg',
               border: '1px solid',
               borderColor: 'primary.outlinedBorder',
               textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
             }}
           >
-            <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-              Rate some movies to get your personal ranking.{' '}
-              {onShowThisOrThat && (
-                <Typography
-                  component="span"
-                  level="body-sm"
-                  sx={{
-                    color: 'primary.400',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    textDecoration: 'underline',
-                    '&:hover': { color: 'primary.300' },
-                  }}
-                  onClick={onShowThisOrThat}
-                >
-                  Start comparing
+            {isAuthenticated ? (
+              <>
+                <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
+                  {hasEloData ? 'Keep ranking movies!' : 'Rate movies to get your personal ranking.'}
                 </Typography>
-              )}
-            </Typography>
+                {onShowThisOrThat && (
+                  <Button
+                    variant="soft"
+                    color="primary"
+                    size="sm"
+                    onClick={onShowThisOrThat}
+                    sx={{ fontWeight: 700 }}
+                  >
+                    This or That
+                  </Button>
+                )}
+              </>
+            ) : (
+              <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
+                Sign in to rank movies with This or That
+              </Typography>
+            )}
           </Box>
         )}
 
@@ -543,6 +569,21 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
             </table>
           </Box>
         </Sheet>
+
+        {/* Seed button — admin only, test env only */}
+        {isAdmin && !isProd && (
+          <Box sx={{ textAlign: 'center', mt: 3 }}>
+            <Button
+              variant="outlined"
+              color="warning"
+              size="sm"
+              loading={seeding}
+              onClick={handleSeed}
+            >
+              Seed 30 Movies (Dev Only)
+            </Button>
+          </Box>
+        )}
       </Box>
     </Box>
   );

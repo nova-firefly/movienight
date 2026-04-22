@@ -146,5 +146,6 @@ export const typeDefs = `#graphql
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     deleteUser(id: ID!): Boolean!
+    seedMovies: Int!
   }
 `;
