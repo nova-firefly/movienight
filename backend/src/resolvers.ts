@@ -49,21 +49,52 @@ async function logLoginHistory(
 const isProduction = () => process.env.NODE_ENV === 'production';
 
 // ── Password-reset rate limiter ──────────────────────────────────────────────
-const resetRateLimiter = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const RATE_LIMIT_MAX = 5; // max 5 requests per window per IP
+interface RateLimitEntry { count: number; resetAt: number }
 
-function checkResetRateLimit(ip: string): boolean {
+const ipRateLimiter = new Map<string, RateLimitEntry>();
+const emailRateLimiter = new Map<string, RateLimitEntry>();
+
+const IP_RATE_LIMIT_WINDOW = 15 * 60 * 1000;   // 15 minutes
+const IP_RATE_LIMIT_MAX = 5;                     // max 5 requests per window per IP
+const EMAIL_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const EMAIL_RATE_LIMIT_MAX = 3;                  // max 3 emails per hour per address
+const GLOBAL_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const GLOBAL_RATE_LIMIT_MAX = 50;                // max 50 reset emails per hour total
+let globalResetCount = { count: 0, resetAt: Date.now() + GLOBAL_RATE_LIMIT_WINDOW };
+
+function checkRateLimit(limiter: Map<string, RateLimitEntry>, key: string, max: number, window: number): boolean {
   const now = Date.now();
-  const entry = resetRateLimiter.get(ip);
+  const entry = limiter.get(key);
   if (!entry || now > entry.resetAt) {
-    resetRateLimiter.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    limiter.set(key, { count: 1, resetAt: now + window });
     return true;
   }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
+  if (entry.count >= max) return false;
   entry.count++;
   return true;
 }
+
+function checkGlobalResetLimit(): boolean {
+  const now = Date.now();
+  if (now > globalResetCount.resetAt) {
+    globalResetCount = { count: 1, resetAt: now + GLOBAL_RATE_LIMIT_WINDOW };
+    return true;
+  }
+  if (globalResetCount.count >= GLOBAL_RATE_LIMIT_MAX) return false;
+  globalResetCount.count++;
+  return true;
+}
+
+// Evict stale entries periodically to prevent memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of ipRateLimiter) {
+    if (now > entry.resetAt) ipRateLimiter.delete(key);
+  }
+  for (const [key, entry] of emailRateLimiter) {
+    if (now > entry.resetAt) emailRateLimiter.delete(key);
+  }
+}, 15 * 60 * 1000).unref();
 
 // ── TMDB enrichment cache ────────────────────────────────────────────────────
 
@@ -921,19 +952,31 @@ export const resolvers = {
       const genericMessage = 'If an account exists with that email, a password reset link has been sent.';
 
       try {
-        if (!checkResetRateLimit(context.ipAddress)) {
-          // Still return generic message to avoid leaking info via rate-limit errors
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Check per-IP rate limit
+        if (!checkRateLimit(ipRateLimiter, context.ipAddress, IP_RATE_LIMIT_MAX, IP_RATE_LIMIT_WINDOW)) {
+          return { success: true, message: genericMessage };
+        }
+
+        // Check per-email rate limit (prevents targeting one user from many IPs)
+        if (!checkRateLimit(emailRateLimiter, normalizedEmail, EMAIL_RATE_LIMIT_MAX, EMAIL_RATE_LIMIT_WINDOW)) {
+          return { success: true, message: genericMessage };
+        }
+
+        // Check global rate limit (caps total SMTP volume)
+        if (!checkGlobalResetLimit()) {
           return { success: true, message: genericMessage };
         }
 
         const result = await pool.query(
           'SELECT id, email, is_active FROM users WHERE LOWER(email) = LOWER($1)',
-          [email.trim()]
+          [normalizedEmail]
         );
         const user = result.rows[0];
 
         if (!user || !user.is_active) {
-          await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', null, { email }, context.ipAddress);
+          await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', null, { email: normalizedEmail }, context.ipAddress);
           return { success: true, message: genericMessage };
         }
 
