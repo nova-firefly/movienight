@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import pool from './db';
-import { hashPassword, comparePassword, generateToken } from './auth';
+import { hashPassword, comparePassword, generateToken, generateResetToken, hashResetToken } from './auth';
+import { sendPasswordResetEmail } from './email';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
 import { rescheduleKometa } from './scheduler';
@@ -46,6 +47,23 @@ async function logLoginHistory(
 }
 
 const isProduction = () => process.env.NODE_ENV === 'production';
+
+// ── Password-reset rate limiter ──────────────────────────────────────────────
+const resetRateLimiter = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 5; // max 5 requests per window per IP
+
+function checkResetRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = resetRateLimiter.get(ip);
+  if (!entry || now > entry.resetAt) {
+    resetRateLimiter.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
 
 // ── TMDB enrichment cache ────────────────────────────────────────────────────
 
@@ -894,6 +912,114 @@ export const resolvers = {
       );
 
       return { imported, skipped, tmdb_matched, errors };
+    },
+    requestPasswordReset: async (
+      _: any,
+      { email }: { email: string },
+      context: any
+    ) => {
+      const genericMessage = 'If an account exists with that email, a password reset link has been sent.';
+
+      try {
+        if (!checkResetRateLimit(context.ipAddress)) {
+          // Still return generic message to avoid leaking info via rate-limit errors
+          return { success: true, message: genericMessage };
+        }
+
+        const result = await pool.query(
+          'SELECT id, email, is_active FROM users WHERE LOWER(email) = LOWER($1)',
+          [email.trim()]
+        );
+        const user = result.rows[0];
+
+        if (!user || !user.is_active) {
+          await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', null, { email }, context.ipAddress);
+          return { success: true, message: genericMessage };
+        }
+
+        // Invalidate any existing tokens for this user
+        await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+
+        const rawToken = generateResetToken();
+        const tokenHash = hashResetToken(rawToken);
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        await pool.query(
+          'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+          [user.id, tokenHash, expiresAt]
+        );
+
+        try {
+          await sendPasswordResetEmail(user.email, rawToken);
+        } catch (emailErr) {
+          console.error('Failed to send password reset email:', emailErr);
+        }
+
+        await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', String(user.id), null, context.ipAddress);
+      } catch (err) {
+        console.error('Password reset request error:', err);
+      }
+
+      return { success: true, message: genericMessage };
+    },
+    resetPassword: async (
+      _: any,
+      { token, newPassword }: { token: string; newPassword: string },
+      context: any
+    ) => {
+      if (!newPassword || newPassword.length < 6) {
+        throw new GraphQLError('Password must be at least 6 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const tokenHash = hashResetToken(token);
+
+      const result = await pool.query(
+        `SELECT prt.id, prt.user_id, u.is_active
+         FROM password_reset_tokens prt
+         JOIN users u ON u.id = prt.user_id
+         WHERE prt.token_hash = $1
+           AND prt.expires_at > NOW()
+           AND prt.used_at IS NULL`,
+        [tokenHash]
+      );
+
+      const resetRecord = result.rows[0];
+
+      if (!resetRecord) {
+        await logAudit(null, 'PASSWORD_RESET_FAILURE', null, null, { reason: 'invalid_or_expired_token' }, context.ipAddress);
+        throw new GraphQLError('Invalid or expired reset token', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      if (!resetRecord.is_active) {
+        throw new GraphQLError('Account is disabled', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const passwordHash = await hashPassword(newPassword);
+      await pool.query(
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+        [passwordHash, resetRecord.user_id]
+      );
+
+      // Mark token as used and delete others
+      await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [resetRecord.id]);
+      await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND id != $2', [resetRecord.user_id, resetRecord.id]);
+
+      await logAudit(
+        resetRecord.user_id,
+        'PASSWORD_RESET_SUCCESS',
+        'user',
+        String(resetRecord.user_id),
+        null,
+        context.ipAddress
+      );
+
+      return { success: true, message: 'Password has been reset successfully. You can now log in.' };
     },
     login: async (
       _: any,

@@ -3,6 +3,8 @@ import { Box, Typography, CircularProgress } from '@mui/joy';
 import HomePage from "./components/home/Homepage";
 import ThisOrThat from "./components/home/ThisOrThat";
 import { Login } from "./components/auth/Login";
+import { ForgotPassword } from "./components/auth/ForgotPassword";
+import { ResetPassword } from "./components/auth/ResetPassword";
 import { AdminPanel } from "./components/admin/AdminPanel";
 import { Navbar } from "./components/common/Navbar";
 import { Footer } from "./components/common/Footer";
@@ -17,6 +19,11 @@ const App = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [currentView, setCurrentView] = React.useState<ViewName>('movies');
   const [showLogin, setShowLogin] = React.useState(false);
+  const [showForgotPassword, setShowForgotPassword] = React.useState(false);
+  const [resetToken, setResetToken] = React.useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('resetToken');
+  });
 
   if (isLoading) {
     return (
@@ -39,8 +46,24 @@ const App = () => {
     );
   }
 
+  if (resetToken) {
+    return (
+      <ResetPassword
+        token={resetToken}
+        onComplete={() => {
+          setResetToken(null);
+          setShowLogin(true);
+          setShowForgotPassword(false);
+        }}
+      />
+    );
+  }
+
   if (showLogin && !isAuthenticated) {
-    return <Login />;
+    if (showForgotPassword) {
+      return <ForgotPassword onBackToLogin={() => setShowForgotPassword(false)} />;
+    }
+    return <Login onForgotPassword={() => setShowForgotPassword(true)} />;
   }
 
   const renderView = () => {
