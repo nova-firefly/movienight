@@ -64,6 +64,7 @@ export const initializeDatabase = async () => {
       dir: path.join(__dirname, '../migrations'),
       direction: 'up',
       migrationsTable: 'pgmigrations',
+      checkOrder: false,
       log: (msg: string) => console.log(msg),
     });
 
