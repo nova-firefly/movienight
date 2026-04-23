@@ -112,7 +112,7 @@ export const resolvers = {
   Query: {
     appInfo: () => ({
       isProduction: isProduction(),
-      quickLoginUsers: isProduction() && process.env.QUICK_LOGIN_ENABLED !== 'true' ? [] : [
+      quickLoginUsers: isProduction() ? [] : [
         {
           label: 'Admin',
           username: 'admin',
