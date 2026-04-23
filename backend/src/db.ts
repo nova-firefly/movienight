@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import path from 'path';
-import migrate from 'node-pg-migrate';
+// node-pg-migrate v8 is ESM-only; use dynamic import in CJS
+const loadMigrate = () => import('node-pg-migrate').then(m => m.runner);
 import { hashPassword } from './auth';
 
 const pool = new Pool({
@@ -51,6 +52,7 @@ const seedTestUser = async () => {
 export const initializeDatabase = async () => {
   try {
     // Run database migrations
+    const migrate = await loadMigrate();
     await migrate({
       databaseUrl: {
         host: process.env.DB_HOST || 'db',
