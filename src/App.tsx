@@ -19,7 +19,6 @@ type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
 const App = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [currentView, setCurrentView] = React.useState<ViewName>('movies');
-  const [selectedConnectionId, setSelectedConnectionId] = React.useState<string | null>(null);
   const [showLogin, setShowLogin] = React.useState(false);
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [resetToken, setResetToken] = React.useState<string | null>(() => {
@@ -92,15 +91,15 @@ const App = () => {
     }
 
     if (currentView === 'combined-list' && isAuthenticated) {
-      return (
-        <CombinedList
-          connectionId={selectedConnectionId}
-          onSelectConnection={(id) => setSelectedConnectionId(id)}
-        />
-      );
+      return <CombinedList />;
     }
 
-    return <HomePage onShowThisOrThat={() => setCurrentView('this-or-that')} />;
+    return (
+      <HomePage
+        onShowThisOrThat={() => setCurrentView('this-or-that')}
+        onShowConnections={() => setCurrentView('combined-list')}
+      />
+    );
   };
 
   return (
