@@ -34,6 +34,31 @@ describe('Mutation.addMovie', () => {
     ]);
   });
 
+  it('trims whitespace from title', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'Inception' }] })
+      .mockResolvedValueOnce({ rows: [{ username: 'alice' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    await addMovie(null, { title: '  Inception  ' }, authContext());
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO movies'), [
+      'Inception',
+      1,
+      null,
+    ]);
+  });
+
+  it('rejects empty title after trimming', async () => {
+    await expect(addMovie(null, { title: '   ' }, authContext())).rejects.toThrow(
+      'Title must be between 1 and 500 characters',
+    );
+  });
+
+  it('rejects title exceeding 500 characters', async () => {
+    await expect(addMovie(null, { title: 'A'.repeat(501) }, authContext())).rejects.toThrow(
+      'Title must be between 1 and 500 characters',
+    );
+  });
+
   it('unauthenticated throws UNAUTHENTICATED', async () => {
     await expect(addMovie(null, { title: 'X' }, anonContext())).rejects.toThrow(
       'Not authenticated',

@@ -180,7 +180,7 @@ describe('Query.searchTmdb', () => {
         results: [{ id: 1, title: 'Movie', release_date: '2024-01-01', overview: 'desc' }],
       }),
     });
-    const result = await Query.searchTmdb(null, { query: 'Movie' });
+    const result = await Query.searchTmdb(null, { query: 'Movie' }, authContext());
     expect(result).toHaveLength(1);
     expect(result[0].tmdb_id).toBe(1);
     expect(result[0].release_year).toBe('2024');
@@ -188,8 +188,15 @@ describe('Query.searchTmdb', () => {
 
   it('throws when no TMDB_API_KEY', async () => {
     delete process.env.TMDB_API_KEY;
-    await expect(Query.searchTmdb(null, { query: 'X' })).rejects.toThrow(
+    await expect(Query.searchTmdb(null, { query: 'X' }, authContext())).rejects.toThrow(
       'TMDB API key not configured',
+    );
+  });
+
+  it('unauthenticated throws UNAUTHENTICATED', async () => {
+    process.env.TMDB_API_KEY = 'test-key';
+    await expect(Query.searchTmdb(null, { query: 'Movie' }, anonContext())).rejects.toThrow(
+      'Not authenticated',
     );
   });
 });
@@ -214,6 +221,12 @@ describe('Query.searchUsers', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'bob' }] });
     const result = await Query.searchUsers(null, { query: 'bob' }, authContext());
     expect(result[0].username).toBe('bob');
+  });
+
+  it('escapes SQL wildcard characters in query', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    await Query.searchUsers(null, { query: 'test%_\\' }, authContext());
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [1, '%test\\%\\_\\\\%']);
   });
 
   it('unauthenticated throws UNAUTHENTICATED', async () => {

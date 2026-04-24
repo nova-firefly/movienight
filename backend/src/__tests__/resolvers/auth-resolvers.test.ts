@@ -75,6 +75,25 @@ describe('Mutation.login', () => {
       'Account is disabled',
     );
   });
+
+  it('throws TOO_MANY_REQUESTS after exceeding login rate limit', async () => {
+    const rateLimitCtx = { user: null, ipAddress: '10.99.99.99', userAgent: 'Mozilla/5.0' };
+    // Exhaust 10 login attempts (LOGIN_RATE_LIMIT_MAX = 10)
+    for (let i = 0; i < 10; i++) {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // no user found
+        .mockResolvedValueOnce({ rows: [] }); // logLoginHistory
+      try {
+        await login(null, { username: `user${i}`, password: 'pass' }, rateLimitCtx);
+      } catch {
+        // Expected: "Invalid credentials"
+      }
+    }
+    // 11th attempt should be rate limited
+    await expect(
+      login(null, { username: 'user11', password: 'pass' }, rateLimitCtx),
+    ).rejects.toThrow('Too many login attempts');
+  });
 });
 
 describe('Mutation.createUser', () => {
