@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User } from './models/User';
@@ -46,4 +47,12 @@ export function getTokenFromHeader(authHeader?: string): string | null {
     return parts[1];
   }
   return null;
+}
+
+export function generateResetToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }

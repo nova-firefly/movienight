@@ -37,6 +37,13 @@ services:
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       KOMETA_COLLECTIONS_PATH: ${KOMETA_COLLECTIONS_PATH:-}
       KOMETA_TRIGGER_URL: ${KOMETA_TRIGGER_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@movienight.local}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     ports:
       - "${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}"
     depends_on:

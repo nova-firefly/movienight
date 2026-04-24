@@ -5,6 +5,7 @@ import cors from 'cors';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { initializeDatabase } from './db';
+import pool from './db';
 import { verifyToken, getTokenFromHeader } from './auth';
 import { initScheduler } from './scheduler';
 
@@ -40,6 +41,15 @@ async function startServer() {
 
   await initializeDatabase();
   await initScheduler();
+
+  // Clean up expired password reset tokens every hour
+  setInterval(async () => {
+    try {
+      await pool.query('DELETE FROM password_reset_tokens WHERE expires_at < NOW()');
+    } catch (err) {
+      console.error('Failed to clean expired reset tokens:', err);
+    }
+  }, 60 * 60 * 1000).unref();
 
   app.listen(PORT, () => {
     console.log(`🚀 GraphQL server ready at http://localhost:${PORT}/graphql`);

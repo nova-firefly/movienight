@@ -132,7 +132,14 @@ export const typeDefs = `#graphql
     triggerError: String
   }
 
+  type PasswordResetResult {
+    success: Boolean!
+    message: String!
+  }
+
   type Mutation {
+    requestPasswordReset(email: String!): PasswordResetResult!
+    resetPassword(token: String!, newPassword: String!): PasswordResetResult!
     addMovie(title: String!, tmdb_id: Int): Movie!
     matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
     markWatched(id: ID!): Movie!

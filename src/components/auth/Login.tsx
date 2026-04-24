@@ -12,7 +12,11 @@ import {
 import { LOGIN, GET_APP_INFO } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onForgotPassword?: () => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -175,7 +179,7 @@ export const Login: React.FC = () => {
               />
             </FormControl>
 
-            <FormControl sx={{ mb: 3 }}>
+            <FormControl sx={{ mb: 1.5 }}>
               <FormLabel sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
                 Password
               </FormLabel>
@@ -191,6 +195,20 @@ export const Login: React.FC = () => {
                 }}
               />
             </FormControl>
+
+            {onForgotPassword && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                  variant="plain"
+                  color="neutral"
+                  size="sm"
+                  onClick={onForgotPassword}
+                  sx={{ fontSize: '0.75rem', p: 0, minHeight: 'auto' }}
+                >
+                  Forgot password?
+                </Button>
+              </Box>
+            )}
 
             {error && (
               <Alert color="danger" variant="soft" sx={{ mb: 3 }}>
