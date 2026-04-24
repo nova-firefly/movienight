@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, CircularProgress } from '@mui/joy';
 import HomePage from "./components/home/Homepage";
 import ThisOrThat from "./components/home/ThisOrThat";
+import CombinedList from "./components/home/CombinedList";
 import { Login } from "./components/auth/Login";
 import { ForgotPassword } from "./components/auth/ForgotPassword";
 import { ResetPassword } from "./components/auth/ResetPassword";
@@ -13,11 +14,12 @@ import { useAuth } from "./contexts/AuthContext";
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
 const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== "master";
 
-type ViewName = 'movies' | 'this-or-that' | 'admin';
+type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
 
 const App = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [currentView, setCurrentView] = React.useState<ViewName>('movies');
+  const [selectedConnectionId, setSelectedConnectionId] = React.useState<string | null>(null);
   const [showLogin, setShowLogin] = React.useState(false);
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [resetToken, setResetToken] = React.useState<string | null>(() => {
@@ -89,6 +91,15 @@ const App = () => {
       return <ThisOrThat />;
     }
 
+    if (currentView === 'combined-list' && isAuthenticated) {
+      return (
+        <CombinedList
+          connectionId={selectedConnectionId}
+          onSelectConnection={(id) => setSelectedConnectionId(id)}
+        />
+      );
+    }
+
     return <HomePage onShowThisOrThat={() => setCurrentView('this-or-that')} />;
   };
 
@@ -124,6 +135,7 @@ const App = () => {
         currentView={currentView}
         onShowMovies={() => setCurrentView('movies')}
         onShowThisOrThat={() => setCurrentView('this-or-that')}
+        onShowCombinedList={() => setCurrentView('combined-list')}
         onShowAdmin={() => setCurrentView('admin')}
         onShowLogin={() => setShowLogin(true)}
       />
