@@ -461,12 +461,14 @@ export const resolvers = {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
       }
+      // Escape ILIKE wildcards to prevent user enumeration via % or _
+      const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
       const result = await pool.query(
         `SELECT id, username, display_name FROM users
          WHERE is_active = true AND id <> $1
            AND (username ILIKE $2 OR display_name ILIKE $2)
          ORDER BY username ASC LIMIT 10`,
-        [context.user.userId, `%${query}%`]
+        [context.user.userId, `%${escapedQuery}%`]
       );
       return result.rows;
     },
@@ -839,7 +841,9 @@ export const resolvers = {
         });
       }
 
-      const name = collectionName || 'MovieNight Watchlist';
+      // Sanitize collection name: strip control chars, YAML-special chars, and limit length
+      const rawName = collectionName || 'MovieNight Watchlist';
+      const name = rawName.replace(/[:\n\r\t\\#%@`|>!&*?{}\[\]]/g, '').trim().slice(0, 100) || 'MovieNight Watchlist';
       const today = new Date().toISOString().split('T')[0];
       const idLines = matched.map((m: any) => `      - ${m.tmdb_id}`).join('\n');
       const yaml =
