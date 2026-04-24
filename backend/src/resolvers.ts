@@ -444,6 +444,130 @@ export const resolvers = {
         comparisonCount: Number(r.comparison_count),
       }));
     },
+
+    searchUsers: async (_: any, { query }: { query: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `SELECT id, username, display_name FROM users
+         WHERE is_active = true AND id <> $1
+           AND (username ILIKE $2 OR display_name ILIKE $2)
+         ORDER BY username ASC LIMIT 10`,
+        [context.user.userId, `%${query}%`]
+      );
+      return result.rows;
+    },
+
+    myConnections: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `SELECT uc.id, uc.status, uc.created_at,
+                CASE WHEN uc.requester_id = $1 THEN 'sent' ELSE 'received' END AS direction,
+                other.id AS user_id, other.username, other.display_name
+         FROM user_connections uc
+         JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
+         WHERE uc.status = 'accepted' AND (uc.requester_id = $1 OR uc.addressee_id = $1)
+         ORDER BY uc.updated_at DESC`,
+        [context.user.userId]
+      );
+      return result.rows.map((r: any) => ({
+        id: r.id,
+        user: { id: r.user_id, username: r.username, display_name: r.display_name },
+        status: r.status,
+        direction: r.direction,
+        created_at: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
+      }));
+    },
+
+    pendingConnectionRequests: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `SELECT uc.id, uc.status, uc.created_at,
+                CASE WHEN uc.requester_id = $1 THEN 'sent' ELSE 'received' END AS direction,
+                other.id AS user_id, other.username, other.display_name
+         FROM user_connections uc
+         JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
+         WHERE uc.status = 'pending' AND (uc.requester_id = $1 OR uc.addressee_id = $1)
+         ORDER BY uc.created_at DESC`,
+        [context.user.userId]
+      );
+      return result.rows.map((r: any) => ({
+        id: r.id,
+        user: { id: r.user_id, username: r.username, display_name: r.display_name },
+        status: r.status,
+        direction: r.direction,
+        created_at: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
+      }));
+    },
+
+    combinedList: async (_: any, { connectionId }: { connectionId: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const conn = await pool.query(
+        `SELECT uc.id, uc.requester_id, uc.addressee_id, uc.status, uc.created_at,
+                other.id AS other_user_id, other.username, other.display_name
+         FROM user_connections uc
+         JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
+         WHERE uc.id = $2 AND uc.status = 'accepted'
+           AND (uc.requester_id = $1 OR uc.addressee_id = $1)`,
+        [userId, connectionId]
+      );
+      if (conn.rows.length === 0) {
+        throw new GraphQLError('Connection not found or not accepted', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const otherUserId = conn.rows[0].other_user_id;
+      const c = conn.rows[0];
+
+      const result = await pool.query(
+        `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
+                m.elo_rank,
+                u.username AS user_username, u.display_name AS user_display_name,
+                ume_a.elo_rating AS user_a_elo,
+                ume_b.elo_rating AS user_b_elo,
+                CASE
+                  WHEN ume_a.elo_rating IS NOT NULL AND ume_b.elo_rating IS NOT NULL
+                  THEN (ume_a.elo_rating + ume_b.elo_rating) / 2
+                  ELSE COALESCE(ume_a.elo_rating, ume_b.elo_rating)
+                END AS combined_elo,
+                (ume_a.elo_rating IS NOT NULL AND ume_b.elo_rating IS NOT NULL) AS both_rated
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         LEFT JOIN user_movie_elo ume_a ON ume_a.movie_id = m.id AND ume_a.user_id = $1
+         LEFT JOIN user_movie_elo ume_b ON ume_b.movie_id = m.id AND ume_b.user_id = $2
+         WHERE m.watched_at IS NULL
+           AND (ume_a.elo_rating IS NOT NULL OR ume_b.elo_rating IS NOT NULL)
+         ORDER BY both_rated DESC, combined_elo DESC`,
+        [userId, otherUserId]
+      );
+
+      const connection = {
+        id: c.id,
+        user: { id: c.other_user_id, username: c.username, display_name: c.display_name },
+        status: c.status,
+        direction: c.requester_id === userId ? 'sent' : 'received',
+        created_at: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
+      };
+
+      return {
+        connection,
+        rankings: result.rows.map((r: any) => ({
+          movie: r,
+          userAElo: r.user_a_elo != null ? Number(r.user_a_elo) : null,
+          userBElo: r.user_b_elo != null ? Number(r.user_b_elo) : null,
+          combinedElo: Number(r.combined_elo),
+          bothRated: r.both_rated,
+        })),
+      };
+    },
   },
   Mutation: {
     addMovie: async (_: any, { title, tmdb_id }: { title: string; tmdb_id?: number }, context: any) => {
@@ -1304,6 +1428,140 @@ export const resolvers = {
       );
 
       return SEED_MOVIES.length;
+    },
+
+    sendConnectionRequest: async (_: any, { addresseeId }: { addresseeId: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const requesterId = context.user.userId;
+      const addrId = parseInt(addresseeId);
+
+      if (requesterId === addrId) {
+        throw new GraphQLError('Cannot connect with yourself', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+
+      const targetUser = await pool.query('SELECT id FROM users WHERE id = $1 AND is_active = true', [addrId]);
+      if (targetUser.rows.length === 0) {
+        throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      // Check if reverse pending request exists — auto-accept
+      const reverseRow = await pool.query(
+        `SELECT id, status FROM user_connections WHERE requester_id = $1 AND addressee_id = $2`,
+        [addrId, requesterId]
+      );
+      if (reverseRow.rows.length > 0) {
+        const rev = reverseRow.rows[0];
+        if (rev.status === 'accepted') {
+          throw new GraphQLError('Already connected', { extensions: { code: 'BAD_USER_INPUT' } });
+        }
+        if (rev.status === 'pending') {
+          await pool.query(
+            `UPDATE user_connections SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
+            [rev.id]
+          );
+          await logAudit(requesterId, 'CONNECTION_AUTO_ACCEPT', 'user_connection', String(rev.id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
+          const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+          return {
+            id: rev.id,
+            user: other.rows[0],
+            status: 'accepted',
+            direction: 'received',
+            created_at: new Date().toISOString(),
+          };
+        }
+      }
+
+      // Check if forward request already exists
+      const existingRow = await pool.query(
+        `SELECT id, status FROM user_connections WHERE requester_id = $1 AND addressee_id = $2`,
+        [requesterId, addrId]
+      );
+      if (existingRow.rows.length > 0) {
+        const ex = existingRow.rows[0];
+        if (ex.status === 'pending') {
+          throw new GraphQLError('Request already pending', { extensions: { code: 'BAD_USER_INPUT' } });
+        }
+        if (ex.status === 'accepted') {
+          throw new GraphQLError('Already connected', { extensions: { code: 'BAD_USER_INPUT' } });
+        }
+        // Previously rejected — re-send
+        await pool.query(
+          `UPDATE user_connections SET status = 'pending', updated_at = NOW() WHERE id = $1`,
+          [ex.id]
+        );
+        await logAudit(requesterId, 'CONNECTION_REQUEST', 'user_connection', String(ex.id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
+        const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+        return {
+          id: ex.id,
+          user: other.rows[0],
+          status: 'pending',
+          direction: 'sent',
+          created_at: new Date().toISOString(),
+        };
+      }
+
+      // Insert new request
+      const result = await pool.query(
+        `INSERT INTO user_connections (requester_id, addressee_id, status)
+         VALUES ($1, $2, 'pending') RETURNING id, created_at`,
+        [requesterId, addrId]
+      );
+      await logAudit(requesterId, 'CONNECTION_REQUEST', 'user_connection', String(result.rows[0].id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
+      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+      return {
+        id: result.rows[0].id,
+        user: other.rows[0],
+        status: 'pending',
+        direction: 'sent',
+        created_at: result.rows[0].created_at instanceof Date ? result.rows[0].created_at.toISOString() : result.rows[0].created_at,
+      };
+    },
+
+    respondToConnectionRequest: async (_: any, { connectionId, accept }: { connectionId: string; accept: boolean }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const conn = await pool.query(
+        `SELECT * FROM user_connections WHERE id = $1 AND addressee_id = $2 AND status = 'pending'`,
+        [connectionId, context.user.userId]
+      );
+      if (conn.rows.length === 0) {
+        throw new GraphQLError('Connection request not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const newStatus = accept ? 'accepted' : 'rejected';
+      await pool.query(
+        `UPDATE user_connections SET status = $1, updated_at = NOW() WHERE id = $2`,
+        [newStatus, connectionId]
+      );
+      const action = accept ? 'CONNECTION_ACCEPT' : 'CONNECTION_REJECT';
+      await logAudit(context.user.userId, action, 'user_connection', connectionId, { requesterId: conn.rows[0].requester_id }, context.ipAddress ?? 'unknown');
+
+      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [conn.rows[0].requester_id]);
+      return {
+        id: connectionId,
+        user: other.rows[0],
+        status: newStatus,
+        direction: 'received',
+        created_at: conn.rows[0].created_at instanceof Date ? conn.rows[0].created_at.toISOString() : conn.rows[0].created_at,
+      };
+    },
+
+    removeConnection: async (_: any, { connectionId }: { connectionId: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `DELETE FROM user_connections WHERE id = $1 AND (requester_id = $2 OR addressee_id = $2) RETURNING id`,
+        [connectionId, context.user.userId]
+      );
+      if (result.rows.length === 0) {
+        throw new GraphQLError('Connection not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      await logAudit(context.user.userId, 'CONNECTION_REMOVE', 'user_connection', connectionId, null, context.ipAddress ?? 'unknown');
+      return true;
     },
   },
   Movie: {

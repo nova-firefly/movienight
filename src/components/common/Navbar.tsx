@@ -3,12 +3,13 @@ import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGravatarUrl } from '../../utils/gravatar';
 
-type ViewName = 'movies' | 'this-or-that' | 'admin';
+type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
 
 interface NavbarProps {
   currentView: ViewName;
   onShowMovies: () => void;
   onShowThisOrThat: () => void;
+  onShowCombinedList: () => void;
   onShowAdmin: () => void;
   onShowLogin: () => void;
 }
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   onShowMovies,
   onShowThisOrThat,
+  onShowCombinedList,
   onShowAdmin,
   onShowLogin,
 }) => {
@@ -51,6 +53,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           }}
         >
           This or That
+        </Button>
+      )}
+      {isAuthenticated && (
+        <Button
+          variant={currentView === 'combined-list' ? 'soft' : 'plain'}
+          color="neutral"
+          size="sm"
+          onClick={() => { onShowCombinedList(); setMobileOpen(false); }}
+          sx={{
+            fontWeight: 600,
+            color: currentView === 'combined-list' ? 'primary.400' : 'text.secondary',
+            '&:hover': { color: 'primary.300' },
+          }}
+        >
+          Combined
         </Button>
       )}
       {isAuthenticated && user?.is_admin && (

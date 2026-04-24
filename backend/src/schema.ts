@@ -104,6 +104,33 @@ export const typeDefs = `#graphql
     comparisonCount: Int!
   }
 
+  type ConnectionUser {
+    id: ID!
+    username: String!
+    display_name: String
+  }
+
+  type UserConnection {
+    id: ID!
+    user: ConnectionUser!
+    status: String!
+    direction: String!
+    created_at: String!
+  }
+
+  type CombinedRanking {
+    movie: Movie!
+    userAElo: Float
+    userBElo: Float
+    combinedElo: Float!
+    bothRated: Boolean!
+  }
+
+  type CombinedListResult {
+    connection: UserConnection!
+    rankings: [CombinedRanking!]!
+  }
+
   type Query {
     appInfo: AppInfo!
     movies: [Movie!]!
@@ -117,6 +144,10 @@ export const typeDefs = `#graphql
     kometaSchedule: KometaSchedule!
     thisOrThat(excludeIds: [ID!]): ThisOrThatPair!
     myRankings: [MovieRanking!]!
+    searchUsers(query: String!): [ConnectionUser!]!
+    myConnections: [UserConnection!]!
+    pendingConnectionRequests: [UserConnection!]!
+    combinedList(connectionId: ID!): CombinedListResult!
   }
 
   type ImportResult {
@@ -154,5 +185,8 @@ export const typeDefs = `#graphql
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     deleteUser(id: ID!): Boolean!
     seedMovies: Int!
+    sendConnectionRequest(addresseeId: ID!): UserConnection!
+    respondToConnectionRequest(connectionId: ID!, accept: Boolean!): UserConnection!
+    removeConnection(connectionId: ID!): Boolean!
   }
 `;

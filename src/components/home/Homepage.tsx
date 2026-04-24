@@ -8,6 +8,9 @@ import {
   SEARCH_TMDB,
   SEED_MOVIES,
   GET_APP_INFO,
+  MY_CONNECTIONS,
+  PENDING_CONNECTION_REQUESTS,
+  COMBINED_LIST,
 } from "../../graphql/queries";
 import {
   Autocomplete,
@@ -19,6 +22,7 @@ import {
   Chip,
   IconButton,
   ListItemContent,
+  CircularProgress,
 } from "@mui/joy";
 import TmdbMatchFlow from "./TmdbMatchFlow";
 import { Movie } from "../../models/Movies";
@@ -154,9 +158,10 @@ const MovieRow: React.FC<MovieRowProps> = ({
 
 interface HomePageProps {
   onShowThisOrThat?: () => void;
+  onShowConnections?: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
+const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections }) => {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.is_admin ?? false;
 
@@ -166,6 +171,25 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+
+  // Connections data (only when authenticated)
+  const { data: connectionsData } = useQuery(MY_CONNECTIONS, { skip: !isAuthenticated });
+  const { data: pendingData } = useQuery(PENDING_CONNECTION_REQUESTS, {
+    skip: !isAuthenticated,
+    pollInterval: 10000,
+  });
+  const { data: combinedData, loading: combinedLoading } = useQuery(COMBINED_LIST, {
+    variables: { connectionId: selectedConnectionId },
+    skip: !selectedConnectionId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const connections = connectionsData?.myConnections || [];
+  const incomingPending = pendingData?.pendingConnectionRequests?.filter(
+    (r: any) => r.direction === 'received'
+  ) || [];
+  const isCombinedView = selectedConnectionId !== null;
 
   const debouncedTitle = useDebounce(title, 400);
 
@@ -284,7 +308,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
     >
       <Box sx={{ maxWidth: 900, mx: "auto" }}>
         {/* Page header */}
-        <Box sx={{ textAlign: "center", mb: { xs: 4, sm: 5 } }}>
+        <Box sx={{ textAlign: "center", mb: { xs: 3, sm: 4 } }}>
           <Typography
             level="h2"
             sx={{ fontWeight: 800, letterSpacing: "-0.02em", mb: 0.5 }}
@@ -298,8 +322,69 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
           </Typography>
         </Box>
 
+        {/* View selector — segmented control */}
+        {isAuthenticated && connections.length > 0 && (
+          <Box sx={{
+            display: 'flex', justifyContent: 'center', flexWrap: 'wrap',
+            gap: 0.5, mb: 3,
+          }}>
+            <Button
+              variant={!isCombinedView ? 'soft' : 'plain'}
+              color="neutral"
+              size="sm"
+              onClick={() => setSelectedConnectionId(null)}
+              sx={{
+                fontWeight: 600,
+                color: !isCombinedView ? 'primary.400' : 'text.secondary',
+                '&:hover': { color: 'primary.300' },
+              }}
+            >
+              My List
+            </Button>
+            {connections.map((conn: any) => (
+              <Button
+                key={conn.id}
+                variant={selectedConnectionId === conn.id ? 'soft' : 'plain'}
+                color="neutral"
+                size="sm"
+                onClick={() => setSelectedConnectionId(conn.id)}
+                sx={{
+                  fontWeight: 600,
+                  color: selectedConnectionId === conn.id ? 'primary.400' : 'text.secondary',
+                  '&:hover': { color: 'primary.300' },
+                }}
+              >
+                {conn.user.display_name || conn.user.username} + Me
+              </Button>
+            ))}
+          </Box>
+        )}
+
+        {/* Pending connection request banner */}
+        {isAuthenticated && incomingPending.length > 0 && (
+          <Box
+            sx={{
+              mb: 3, p: 1.5, borderRadius: 'md',
+              bgcolor: 'warning.softBg', border: '1px solid', borderColor: 'warning.outlinedBorder',
+              textAlign: 'center', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 1,
+            }}
+          >
+            <Typography level="body-sm" sx={{ color: 'warning.softColor' }}>
+              {incomingPending.length === 1
+                ? `${incomingPending[0].user.display_name || incomingPending[0].user.username} wants to connect`
+                : `${incomingPending.length} pending connection requests`}
+            </Typography>
+            {onShowConnections && (
+              <Button variant="soft" color="warning" size="sm" onClick={onShowConnections} sx={{ fontWeight: 700 }}>
+                View
+              </Button>
+            )}
+          </Box>
+        )}
+
         {/* This or That indicator */}
-        {movies.length >= 2 && (
+        {!isCombinedView && movies.length >= 2 && (
           <Box
             sx={{
               mb: 3,
@@ -442,7 +527,96 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
           </Typography>
         )}
 
-        {/* Movie table */}
+        {/* Combined view */}
+        {isCombinedView && (
+          <>
+            {combinedLoading && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size="sm" />
+              </Box>
+            )}
+            {!combinedLoading && combinedData?.combinedList && (
+              <>
+                {combinedData.combinedList.rankings.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+                      No rankings to combine yet. Both users need to do some "This or That" comparisons first!
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Sheet
+                    variant="outlined"
+                    sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
+                  >
+                    <Box sx={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', tableLayout: 'auto' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--mn-bg-elevated)', borderBottom: '1px solid var(--mn-border-vis)' }}>
+                            <th style={combinedThStyle}>#</th>
+                            <th style={{ ...combinedThStyle, textAlign: 'left' }}>Title</th>
+                            <th style={combinedThStyle}>You</th>
+                            <th style={combinedThStyle}>
+                              {combinedData.combinedList.connection.user.display_name ||
+                               combinedData.combinedList.connection.user.username}
+                            </th>
+                            <th style={combinedThStyle}>Combined</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {combinedData.combinedList.rankings.map((r: any, idx: number) => (
+                            <tr key={r.movie.id}>
+                              <td style={{ ...combinedTdStyle, textAlign: 'center', width: 48 }}>
+                                <Typography level="body-xs" sx={{ fontWeight: 700, color: idx < 3 ? 'primary.400' : 'text.tertiary' }}>
+                                  {idx + 1}
+                                </Typography>
+                              </td>
+                              <td style={combinedTdStyle}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                                    {r.movie.title}
+                                  </Typography>
+                                  {!r.bothRated && (
+                                    <Chip size="sm" variant="soft" color="neutral">partial</Chip>
+                                  )}
+                                </Box>
+                              </td>
+                              <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                {r.userAElo != null ? (
+                                  <Chip size="sm" variant="soft" color={r.userAElo >= 1000 ? 'success' : 'warning'}>
+                                    {Math.round(r.userAElo)}
+                                  </Chip>
+                                ) : (
+                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>--</Typography>
+                                )}
+                              </td>
+                              <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                {r.userBElo != null ? (
+                                  <Chip size="sm" variant="soft" color={r.userBElo >= 1000 ? 'success' : 'warning'}>
+                                    {Math.round(r.userBElo)}
+                                  </Chip>
+                                ) : (
+                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>--</Typography>
+                                )}
+                              </td>
+                              <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                <Chip size="sm" variant="solid" color="primary">
+                                  {Math.round(r.combinedElo)}
+                                </Chip>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Box>
+                  </Sheet>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Movie table (personal view) */}
+        {!isCombinedView && (
         <Sheet
           variant="outlined"
           sx={{
@@ -569,6 +743,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
             </table>
           </Box>
         </Sheet>
+        )}
 
         {/* Seed button — admin only, test env only */}
         {isAdmin && !isProd && (
@@ -587,6 +762,21 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat }) => {
       </Box>
     </Box>
   );
+};
+
+const combinedThStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  textAlign: 'center',
+  fontSize: '0.7rem',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'var(--mn-text-muted)',
+};
+
+const combinedTdStyle: React.CSSProperties = {
+  padding: '12px',
+  verticalAlign: 'middle',
 };
 
 export default HomePage;

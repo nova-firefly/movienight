@@ -344,3 +344,102 @@ export const RESET_PASSWORD = gql`
     }
   }
 `;
+
+export const SEARCH_USERS = gql`
+  query SearchUsers($query: String!) {
+    searchUsers(query: $query) {
+      id
+      username
+      display_name
+    }
+  }
+`;
+
+export const MY_CONNECTIONS = gql`
+  query MyConnections {
+    myConnections {
+      id
+      user {
+        id
+        username
+        display_name
+      }
+      status
+      direction
+      created_at
+    }
+  }
+`;
+
+export const PENDING_CONNECTION_REQUESTS = gql`
+  query PendingConnectionRequests {
+    pendingConnectionRequests {
+      id
+      user {
+        id
+        username
+        display_name
+      }
+      status
+      direction
+      created_at
+    }
+  }
+`;
+
+export const COMBINED_LIST = gql`
+  query CombinedList($connectionId: ID!) {
+    combinedList(connectionId: $connectionId) {
+      connection {
+        id
+        user {
+          id
+          username
+          display_name
+        }
+      }
+      rankings {
+        movie {
+          id
+          title
+          tmdb_id
+          elo_rank
+        }
+        userAElo
+        userBElo
+        combinedElo
+        bothRated
+      }
+    }
+  }
+`;
+
+export const SEND_CONNECTION_REQUEST = gql`
+  mutation SendConnectionRequest($addresseeId: ID!) {
+    sendConnectionRequest(addresseeId: $addresseeId) {
+      id
+      user {
+        id
+        username
+        display_name
+      }
+      status
+      direction
+    }
+  }
+`;
+
+export const RESPOND_TO_CONNECTION_REQUEST = gql`
+  mutation RespondToConnectionRequest($connectionId: ID!, $accept: Boolean!) {
+    respondToConnectionRequest(connectionId: $connectionId, accept: $accept) {
+      id
+      status
+    }
+  }
+`;
+
+export const REMOVE_CONNECTION = gql`
+  mutation RemoveConnection($connectionId: ID!) {
+    removeConnection(connectionId: $connectionId)
+  }
+`;
