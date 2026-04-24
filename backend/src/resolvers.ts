@@ -48,11 +48,12 @@ async function logLoginHistory(
 
 const isProduction = () => process.env.NODE_ENV === 'production';
 
-// ── Password-reset rate limiter ──────────────────────────────────────────────
+// ── Rate limiter ─────────────────────────────────────────────────────────────
 interface RateLimitEntry { count: number; resetAt: number }
 
 const ipRateLimiter = new Map<string, RateLimitEntry>();
 const emailRateLimiter = new Map<string, RateLimitEntry>();
+const loginRateLimiter = new Map<string, RateLimitEntry>();
 
 const IP_RATE_LIMIT_WINDOW = 15 * 60 * 1000;   // 15 minutes
 const IP_RATE_LIMIT_MAX = 5;                     // max 5 requests per window per IP
@@ -61,6 +62,9 @@ const EMAIL_RATE_LIMIT_MAX = 3;                  // max 3 emails per hour per ad
 const GLOBAL_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 const GLOBAL_RATE_LIMIT_MAX = 50;                // max 50 reset emails per hour total
 let globalResetCount = { count: 0, resetAt: Date.now() + GLOBAL_RATE_LIMIT_WINDOW };
+
+const LOGIN_RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const LOGIN_RATE_LIMIT_MAX = 10;                 // max 10 login attempts per IP per window
 
 function checkRateLimit(limiter: Map<string, RateLimitEntry>, key: string, max: number, window: number): boolean {
   const now = Date.now();
@@ -93,6 +97,9 @@ setInterval(() => {
   }
   for (const [key, entry] of emailRateLimiter) {
     if (now > entry.resetAt) emailRateLimiter.delete(key);
+  }
+  for (const [key, entry] of loginRateLimiter) {
+    if (now > entry.resetAt) loginRateLimiter.delete(key);
   }
 }, 15 * 60 * 1000).unref();
 
@@ -174,7 +181,12 @@ export const resolvers = {
         },
       ],
     }),
-    searchTmdb: async (_: any, { query }: { query: string }) => {
+    searchTmdb: async (_: any, { query }: { query: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
       const apiKey = process.env.TMDB_API_KEY;
       if (!apiKey) {
         throw new GraphQLError('TMDB API key not configured', {
@@ -576,9 +588,15 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle || trimmedTitle.length > 500) {
+        throw new GraphQLError('Title must be between 1 and 500 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
       const insertResult = await pool.query(
         'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3) RETURNING *',
-        [title, context.user.userId, tmdb_id ?? null]
+        [trimmedTitle, context.user.userId, tmdb_id ?? null]
       );
       const userRow = await pool.query(
         'SELECT username, display_name FROM users WHERE id = $1',
@@ -1193,6 +1211,13 @@ export const resolvers = {
       { username, password }: { username: string; password: string },
       context: any
     ) => {
+      if (!checkRateLimit(loginRateLimiter, context.ipAddress, LOGIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_WINDOW)) {
+        await logLoginHistory(null, context.ipAddress, context.userAgent, false);
+        throw new GraphQLError('Too many login attempts. Please try again later.', {
+          extensions: { code: 'TOO_MANY_REQUESTS' },
+        });
+      }
+
       const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
       const user = result.rows[0];
 
@@ -1242,6 +1267,15 @@ export const resolvers = {
         throw new GraphQLError('Not authorized', {
           extensions: { code: 'FORBIDDEN' },
         });
+      }
+      if (!args.username || args.username.length > 100) {
+        throw new GraphQLError('Username must be between 1 and 100 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      if (!args.email || args.email.length > 255) {
+        throw new GraphQLError('Email must be between 1 and 255 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      if (!args.password || args.password.length < 6 || args.password.length > 128) {
+        throw new GraphQLError('Password must be between 6 and 128 characters', { extensions: { code: 'BAD_USER_INPUT' } });
       }
       const passwordHash = await hashPassword(args.password);
       const isActive = args.is_active !== false;

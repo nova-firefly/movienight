@@ -23,12 +23,33 @@ async function startServer() {
 
   app.use(
     '/graphql',
-    cors<cors.CorsRequest>(),
+    cors<cors.CorsRequest>({
+      origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+      credentials: true,
+    }),
     express.json(),
     expressMiddleware(server, {
       context: async ({ req }) => {
         const token = getTokenFromHeader(req.headers.authorization);
-        const user = token ? verifyToken(token) : null;
+        let user = token ? verifyToken(token) : null;
+
+        // Revalidate JWT claims against DB to catch demoted/deactivated users
+        if (user) {
+          try {
+            const dbUser = await pool.query(
+              'SELECT is_admin, is_active FROM users WHERE id = $1',
+              [user.userId]
+            );
+            if (dbUser.rows.length === 0 || !dbUser.rows[0].is_active) {
+              user = null; // User deleted or deactivated
+            } else {
+              user = { ...user, isAdmin: dbUser.rows[0].is_admin };
+            }
+          } catch {
+            // On DB error, fall back to JWT claims rather than blocking all requests
+          }
+        }
+
         const ipAddress =
           (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
           req.ip ||
