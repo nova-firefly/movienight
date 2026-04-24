@@ -124,6 +124,62 @@ describe('Mutation.createUser', () => {
       createUser(null, { username: 'u', email: 'e@e.com', password: 'p' } as any, anonContext()),
     ).rejects.toThrow('Not authorized');
   });
+
+  it('rejects empty username', async () => {
+    await expect(
+      createUser(
+        null,
+        { username: '', email: 'e@e.com', password: 'pass123' } as any,
+        adminContext(),
+      ),
+    ).rejects.toThrow('Username must be between 1 and 100 characters');
+  });
+
+  it('rejects username exceeding 100 characters', async () => {
+    await expect(
+      createUser(
+        null,
+        { username: 'A'.repeat(101), email: 'e@e.com', password: 'pass123' } as any,
+        adminContext(),
+      ),
+    ).rejects.toThrow('Username must be between 1 and 100 characters');
+  });
+
+  it('rejects empty email', async () => {
+    await expect(
+      createUser(null, { username: 'user', email: '', password: 'pass123' } as any, adminContext()),
+    ).rejects.toThrow('Email must be between 1 and 255 characters');
+  });
+
+  it('rejects email exceeding 255 characters', async () => {
+    await expect(
+      createUser(
+        null,
+        { username: 'user', email: 'a'.repeat(256), password: 'pass123' } as any,
+        adminContext(),
+      ),
+    ).rejects.toThrow('Email must be between 1 and 255 characters');
+  });
+
+  it('rejects password shorter than 6 characters', async () => {
+    await expect(
+      createUser(
+        null,
+        { username: 'user', email: 'e@e.com', password: '12345' } as any,
+        adminContext(),
+      ),
+    ).rejects.toThrow('Password must be between 6 and 128 characters');
+  });
+
+  it('rejects password exceeding 128 characters', async () => {
+    await expect(
+      createUser(
+        null,
+        { username: 'user', email: 'e@e.com', password: 'A'.repeat(129) } as any,
+        adminContext(),
+      ),
+    ).rejects.toThrow('Password must be between 6 and 128 characters');
+  });
 });
 
 describe('Mutation.updateUser', () => {

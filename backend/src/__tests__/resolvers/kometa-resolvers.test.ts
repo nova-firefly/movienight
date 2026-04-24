@@ -71,6 +71,57 @@ describe('Mutation.exportKometa', () => {
     );
   });
 
+  it('sanitizes collection name to prevent YAML injection', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
+    delete process.env.KOMETA_TRIGGER_URL;
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    await exportKometa(null, { collectionName: 'Evil: {inject}\nmalicious: true' }, adminContext());
+    const writtenYaml = mockWriteFile.mock.calls[0][1];
+    // YAML-special chars (: { } \n) should be stripped
+    expect(writtenYaml).not.toContain('{inject}');
+    expect(writtenYaml).not.toContain('malicious: true');
+    expect(writtenYaml).toContain('Evil inject');
+  });
+
+  it('uses default name when sanitized collectionName is empty', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
+    delete process.env.KOMETA_TRIGGER_URL;
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    await exportKometa(null, { collectionName: ':::' }, adminContext());
+    const writtenYaml = mockWriteFile.mock.calls[0][1];
+    expect(writtenYaml).toContain('MovieNight Watchlist');
+  });
+
+  it('truncates collection name exceeding 100 characters', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
+    delete process.env.KOMETA_TRIGGER_URL;
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    const longName = 'A'.repeat(150);
+    await exportKometa(null, { collectionName: longName }, adminContext());
+    const writtenYaml = mockWriteFile.mock.calls[0][1];
+    // Name should be truncated to 100 chars
+    expect(writtenYaml).toContain('A'.repeat(100));
+    expect(writtenYaml).not.toContain('A'.repeat(101));
+  });
+
   it('triggers webhook when KOMETA_TRIGGER_URL is set', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
