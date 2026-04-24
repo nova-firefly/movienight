@@ -84,13 +84,19 @@ export const AuditLog: React.FC = () => {
               {data?.auditLogs.map((log: AuditLogEntry) => (
                 <tr key={log.id}>
                   <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                    <Typography
+                      level="body-xs"
+                      sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                    >
                       {new Date(log.created_at).toLocaleString()}
                     </Typography>
                   </td>
                   <td>
-                    <Typography level="body-sm" fontWeight={log.actor_username ? 600 : 400}
-                      sx={{ color: log.actor_username ? 'text.primary' : 'text.tertiary' }}>
+                    <Typography
+                      level="body-sm"
+                      fontWeight={log.actor_username ? 600 : 400}
+                      sx={{ color: log.actor_username ? 'text.primary' : 'text.tertiary' }}
+                    >
                       {log.actor_username || '—'}
                     </Typography>
                   </td>
@@ -105,7 +111,9 @@ export const AuditLog: React.FC = () => {
                         {log.target_type}:{log.target_id}
                       </Typography>
                     ) : (
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>—</Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        —
+                      </Typography>
                     )}
                   </td>
                   <td>
@@ -124,7 +132,10 @@ export const AuditLog: React.FC = () => {
                     </Typography>
                   </td>
                   <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                    <Typography
+                      level="body-xs"
+                      sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+                    >
                       {log.ip_address || '—'}
                     </Typography>
                   </td>

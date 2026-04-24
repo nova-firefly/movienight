@@ -19,6 +19,7 @@ A full-stack movie suggestion application built with React, GraphQL, Apollo Serv
 ### Quick Start with Docker
 
 1. **Start all services:**
+
    ```bash
    docker-compose up -d
    ```
@@ -36,11 +37,13 @@ A full-stack movie suggestion application built with React, GraphQL, Apollo Serv
 ### Local Development (without Docker)
 
 1. **Install frontend dependencies:**
+
    ```bash
    npm install
    ```
 
 2. **Install backend dependencies:**
+
    ```bash
    cd backend
    npm install
@@ -48,6 +51,7 @@ A full-stack movie suggestion application built with React, GraphQL, Apollo Serv
    ```
 
 3. **Set up environment variables:**
+
    ```bash
    cp .env.example .env
    cp backend/.env.example backend/.env
@@ -56,6 +60,7 @@ A full-stack movie suggestion application built with React, GraphQL, Apollo Serv
 4. **Start PostgreSQL** (you'll need a running PostgreSQL instance)
 
 5. **Start the backend:**
+
    ```bash
    cd backend
    npm run dev
@@ -81,6 +86,7 @@ A full-stack movie suggestion application built with React, GraphQL, Apollo Serv
 ### Example Queries
 
 **Get all movies:**
+
 ```graphql
 query {
   movies {
@@ -93,6 +99,7 @@ query {
 ```
 
 **Add a movie:**
+
 ```graphql
 mutation {
   addMovie(title: "Inception", requester: "John") {
@@ -129,9 +136,11 @@ movienight/
 ## Environment Variables
 
 ### Frontend (.env)
+
 - `REACT_APP_GRAPHQL_URL`: GraphQL server URL (default: http://localhost:4000/graphql)
 
 ### Backend (backend/.env)
+
 - `DB_HOST`: PostgreSQL host (default: db)
 - `DB_PORT`: PostgreSQL port (default: 5432)
 - `DB_NAME`: Database name (default: movienight)
@@ -152,17 +161,21 @@ The application uses hot-reloading for both frontend and backend during developm
 ## Available Scripts (Create React App)
 
 ### `npm start`
+
 Runs the app in development mode at http://localhost:3000
 
 ### `npm test`
+
 Launches the test runner in interactive watch mode
 
 ### `npm run build`
+
 Builds the app for production to the `build` folder
 
 ## Migration from Firebase
 
 This application was migrated from Firebase Realtime Database to a self-hosted GraphQL + PostgreSQL stack, providing:
+
 - Full control over data and infrastructure
 - Better type safety with GraphQL
 - Relational data capabilities

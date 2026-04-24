@@ -17,13 +17,15 @@ export async function getOrCreateElo(userId: number, movieId: number): Promise<n
      VALUES ($1, $2, $3, 0)
      ON CONFLICT (user_id, movie_id) DO UPDATE SET user_id = EXCLUDED.user_id
      RETURNING elo_rating`,
-    [userId, movieId, BASE_RATING]
+    [userId, movieId, BASE_RATING],
   );
   return Number(res.rows[0].elo_rating);
 }
 
 export async function applyComparison(
-  userId: number, winnerId: number, loserId: number
+  userId: number,
+  winnerId: number,
+  loserId: number,
 ): Promise<{ winnerElo: number; loserElo: number }> {
   const [rW, rL] = await Promise.all([
     getOrCreateElo(userId, winnerId),
@@ -37,27 +39,24 @@ export async function applyComparison(
       `UPDATE user_movie_elo
        SET elo_rating = $1, comparison_count = comparison_count + 1, updated_at = NOW()
        WHERE user_id = $2 AND movie_id = $3`,
-      [newA, userId, winnerId]
+      [newA, userId, winnerId],
     ),
     pool.query(
       `UPDATE user_movie_elo
        SET elo_rating = $1, comparison_count = comparison_count + 1, updated_at = NOW()
        WHERE user_id = $2 AND movie_id = $3`,
-      [newB, userId, loserId]
+      [newB, userId, loserId],
     ),
   ]);
 
   // Record comparison log
   await pool.query(
     'INSERT INTO movie_comparisons (user_id, winner_id, loser_id) VALUES ($1, $2, $3)',
-    [userId, winnerId, loserId]
+    [userId, winnerId, loserId],
   );
 
   // Recompute global elo_rank for both movies
-  await Promise.all([
-    updateGlobalEloRank(winnerId),
-    updateGlobalEloRank(loserId),
-  ]);
+  await Promise.all([updateGlobalEloRank(winnerId), updateGlobalEloRank(loserId)]);
 
   return { winnerElo: newA, loserElo: newB };
 }
@@ -67,6 +66,6 @@ export async function updateGlobalEloRank(movieId: number): Promise<void> {
     `UPDATE movies SET elo_rank = (
        SELECT AVG(elo_rating) FROM user_movie_elo WHERE movie_id = $1
      ) WHERE id = $1`,
-    [movieId]
+    [movieId],
   );
 }

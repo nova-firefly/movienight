@@ -19,7 +19,7 @@ async function runKometaExportScheduled(): Promise<void> {
     const settings = settingsResult.rows[0];
 
     const moviesResult = await pool.query(
-      'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC'
+      'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC',
     );
     const movies = moviesResult.rows;
     const matched = movies.filter((m: any) => m.tmdb_id != null);
@@ -57,9 +57,13 @@ async function runKometaExportScheduled(): Promise<void> {
           'KOMETA_SCHEDULE_EXPORT',
           'kometa',
           filePath,
-          JSON.stringify({ count: matched.length, skipped: movies.length - matched.length, scheduled: true }),
+          JSON.stringify({
+            count: matched.length,
+            skipped: movies.length - matched.length,
+            scheduled: true,
+          }),
           'scheduler',
-        ]
+        ],
       );
 
       console.log(`[Kometa Scheduler] Exported ${matched.length} movies to ${filePath}`);

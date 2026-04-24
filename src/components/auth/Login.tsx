@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import {
-  Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  Typography,
-  Alert,
-} from '@mui/joy';
+import { Box, Button, FormControl, FormLabel, Input, Typography, Alert } from '@mui/joy';
 import { LOGIN, GET_APP_INFO } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -144,10 +136,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
         {/* Mobile logo */}
         <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 4, textAlign: 'center' }}>
           <Typography sx={{ fontSize: '3rem', lineHeight: 1 }}>🎬</Typography>
-          <Typography
-            level="h3"
-            sx={{ fontWeight: 800, color: 'primary.400', mt: 1 }}
-          >
+          <Typography level="h3" sx={{ fontWeight: 800, color: 'primary.400', mt: 1 }}>
             MovieNight
           </Typography>
         </Box>

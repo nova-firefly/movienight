@@ -5,6 +5,7 @@ Apollo Server 4 + Express + PostgreSQL. TypeScript, no ORM, raw `pg` queries.
 ## Entry point & startup sequence
 
 `src/index.ts`:
+
 1. Create Express app + ApolloServer
 2. Mount `/graphql` with CORS, JSON body parser, `expressMiddleware` (JWT context)
 3. Call `initializeDatabase()` (runs migrations, seeds admin user)
@@ -14,14 +15,14 @@ Apollo Server 4 + Express + PostgreSQL. TypeScript, no ORM, raw `pg` queries.
 
 ## Source files
 
-| File | Purpose |
-|---|---|
-| `src/index.ts` | Server bootstrap, Express setup, JWT context injection |
-| `src/schema.ts` | GraphQL SDL (`typeDefs`). **Bug**: duplicate `type Query` block at lines 30–33 — remove it. |
-| `src/resolvers.ts` | All Query/Mutation resolvers + field resolvers for timestamp conversion |
-| `src/db.ts` | `pg.Pool` setup + `initializeDatabase()` (runs migrations, creates admin user) |
-| `src/auth.ts` | `hashPassword`, `comparePassword` (bcrypt), `generateToken`, `verifyToken` (JWT), `getTokenFromHeader` |
-| `src/models/User.ts` | TypeScript interfaces: `User`, `CreateUserInput`, `UpdateUserInput` |
+| File                 | Purpose                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/index.ts`       | Server bootstrap, Express setup, JWT context injection                                                 |
+| `src/schema.ts`      | GraphQL SDL (`typeDefs`). **Bug**: duplicate `type Query` block at lines 30–33 — remove it.            |
+| `src/resolvers.ts`   | All Query/Mutation resolvers + field resolvers for timestamp conversion                                |
+| `src/db.ts`          | `pg.Pool` setup + `initializeDatabase()` (runs migrations, creates admin user)                         |
+| `src/auth.ts`        | `hashPassword`, `comparePassword` (bcrypt), `generateToken`, `verifyToken` (JWT), `getTokenFromHeader` |
+| `src/models/User.ts` | TypeScript interfaces: `User`, `CreateUserInput`, `UpdateUserInput`                                    |
 
 ## Database
 
@@ -35,10 +36,12 @@ Apollo Server 4 + Express + PostgreSQL. TypeScript, no ORM, raw `pg` queries.
 
 ```ts
 // Authenticated only
-if (!context.user) throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+if (!context.user)
+  throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
 
 // Admin only
-if (!context.user?.isAdmin) throw new GraphQLError('Not authorized', { extensions: { code: 'FORBIDDEN' } });
+if (!context.user?.isAdmin)
+  throw new GraphQLError('Not authorized', { extensions: { code: 'FORBIDDEN' } });
 ```
 
 `context.user` shape (from `verifyToken`): `{ userId: number, isAdmin: boolean }`.

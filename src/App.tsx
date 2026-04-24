@@ -1,18 +1,18 @@
-import React from "react";
+import React from 'react';
 import { Box, Typography, CircularProgress } from '@mui/joy';
-import HomePage from "./components/home/Homepage";
-import ThisOrThat from "./components/home/ThisOrThat";
-import CombinedList from "./components/home/CombinedList";
-import { Login } from "./components/auth/Login";
-import { ForgotPassword } from "./components/auth/ForgotPassword";
-import { ResetPassword } from "./components/auth/ResetPassword";
-import { AdminPanel } from "./components/admin/AdminPanel";
-import { Navbar } from "./components/common/Navbar";
-import { Footer } from "./components/common/Footer";
-import { useAuth } from "./contexts/AuthContext";
+import HomePage from './components/home/Homepage';
+import ThisOrThat from './components/home/ThisOrThat';
+import CombinedList from './components/home/CombinedList';
+import { Login } from './components/auth/Login';
+import { ForgotPassword } from './components/auth/ForgotPassword';
+import { ResetPassword } from './components/auth/ResetPassword';
+import { AdminPanel } from './components/admin/AdminPanel';
+import { Navbar } from './components/common/Navbar';
+import { Footer } from './components/common/Footer';
+import { useAuth } from './contexts/AuthContext';
 
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
-const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== "master";
+const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== 'master';
 
 type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
 

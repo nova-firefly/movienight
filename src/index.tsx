@@ -9,9 +9,7 @@ import client from './graphql/client';
 import { AuthProvider } from './contexts/AuthContext';
 import theme from './theme';
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   <React.StrictMode>
     <CssVarsProvider theme={theme} defaultMode="dark">
@@ -22,5 +20,5 @@ root.render(
         </AuthProvider>
       </ApolloProvider>
     </CssVarsProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

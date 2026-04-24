@@ -15,6 +15,7 @@ npm run migrate:create <migration-name>
 ```
 
 Example:
+
 ```bash
 npm run migrate:create add-watched-column
 ```
@@ -24,11 +25,13 @@ This creates a new migration file in `migrations/` with a timestamp prefix.
 ## Manual Migration Commands
 
 Run all pending migrations:
+
 ```bash
 npm run migrate:up
 ```
 
 Rollback the last migration:
+
 ```bash
 npm run migrate:down
 ```
@@ -61,6 +64,7 @@ exports.down = (pgm) => {
 ## Environment Variables
 
 Migrations use the same database connection settings as the application:
+
 - `DB_HOST`
 - `DB_PORT`
 - `DB_NAME`

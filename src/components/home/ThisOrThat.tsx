@@ -20,17 +20,18 @@ const ThisOrThat: React.FC = () => {
 
   const [fetchPair, { data: pairData, loading: pairLoading, error: pairError }] = useLazyQuery(
     THIS_OR_THAT,
-    { fetchPolicy: 'network-only' }
+    { fetchPolicy: 'network-only' },
   );
 
   const [recordComparison, { loading: recording }] = useMutation(RECORD_COMPARISON, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
 
-  const { data: rankingsData, loading: rankingsLoading, refetch: refetchRankings } = useQuery(
-    MY_RANKINGS,
-    { skip: tab !== 'rankings' }
-  );
+  const {
+    data: rankingsData,
+    loading: rankingsLoading,
+    refetch: refetchRankings,
+  } = useQuery(MY_RANKINGS, { skip: tab !== 'rankings' });
 
   const [resetComparisons] = useMutation(RESET_MOVIE_COMPARISONS, {
     refetchQueries: [{ query: MY_RANKINGS }, { query: GET_MOVIES }],
@@ -40,7 +41,7 @@ const ThisOrThat: React.FC = () => {
     (excludeIds: string[] = []) => {
       fetchPair({ variables: { excludeIds } });
     },
-    [fetchPair]
+    [fetchPair],
   );
 
   // Load first pair on mount
@@ -90,7 +91,7 @@ const ThisOrThat: React.FC = () => {
   };
 
   const isNotEnoughMovies = pairError?.graphQLErrors?.some(
-    (e) => e.extensions?.code === 'BAD_USER_INPUT'
+    (e) => e.extensions?.code === 'BAD_USER_INPUT',
   );
 
   const pair = pairData?.thisOrThat;
@@ -146,7 +147,10 @@ const ThisOrThat: React.FC = () => {
           <>
             {/* Session counter */}
             {sessionCount > 0 && (
-              <Typography level="body-xs" sx={{ textAlign: 'center', mb: 2, color: 'text.tertiary' }}>
+              <Typography
+                level="body-xs"
+                sx={{ textAlign: 'center', mb: 2, color: 'text.tertiary' }}
+              >
                 {sessionCount} comparison{sessionCount !== 1 ? 's' : ''} this session
               </Typography>
             )}
@@ -183,11 +187,17 @@ const ThisOrThat: React.FC = () => {
                       borderColor: 'divider',
                     }}
                   >
-                    <Skeleton variant="rectangular" sx={{ width: '100%', aspectRatio: { xs: '3/4', sm: '2/3' } }} />
+                    <Skeleton
+                      variant="rectangular"
+                      sx={{ width: '100%', aspectRatio: { xs: '3/4', sm: '2/3' } }}
+                    />
                     <Box sx={{ p: { xs: 1, sm: 2 } }}>
                       <Skeleton variant="text" sx={{ width: '70%', mb: 1 }} />
                       <Skeleton variant="text" sx={{ width: '50%', mb: 1 }} />
-                      <Skeleton variant="rectangular" sx={{ width: '100%', height: 36, borderRadius: 'sm' }} />
+                      <Skeleton
+                        variant="rectangular"
+                        sx={{ width: '100%', height: 36, borderRadius: 'sm' }}
+                      />
                     </Box>
                   </Box>
                 ))}
@@ -215,7 +225,13 @@ const ThisOrThat: React.FC = () => {
                   />
                 </Box>
 
-                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    display: { xs: 'none', sm: 'flex' },
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
                   <Typography
                     level="h4"
                     sx={{ fontWeight: 800, color: 'text.tertiary', userSelect: 'none' }}
@@ -240,17 +256,20 @@ const ThisOrThat: React.FC = () => {
           <>
             {rankingsLoading && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>Loading rankings...</Typography>
-              </Box>
-            )}
-
-            {!rankingsLoading && (!rankingsData?.myRankings || rankingsData.myRankings.length === 0) && (
-              <Box sx={{ textAlign: 'center', py: 6 }}>
-                <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-                  No rankings yet. Compare some movies to see your preferences!
+                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                  Loading rankings...
                 </Typography>
               </Box>
             )}
+
+            {!rankingsLoading &&
+              (!rankingsData?.myRankings || rankingsData.myRankings.length === 0) && (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+                    No rankings yet. Compare some movies to see your preferences!
+                  </Typography>
+                </Box>
+              )}
 
             {!rankingsLoading && rankingsData?.myRankings?.length > 0 && (
               <Sheet
@@ -260,7 +279,12 @@ const ThisOrThat: React.FC = () => {
                 <Box sx={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                     <thead>
-                      <tr style={{ background: 'var(--mn-bg-elevated)', borderBottom: '1px solid var(--mn-border-vis)' }}>
+                      <tr
+                        style={{
+                          background: 'var(--mn-bg-elevated)',
+                          borderBottom: '1px solid var(--mn-border-vis)',
+                        }}
+                      >
                         <th style={thStyle}>#</th>
                         <th style={{ ...thStyle, textAlign: 'left' }}>Title</th>
                         <th style={thStyle}>Elo</th>
@@ -272,7 +296,13 @@ const ThisOrThat: React.FC = () => {
                       {rankingsData.myRankings.map((r: any, idx: number) => (
                         <tr key={r.movie.id}>
                           <td style={{ ...tdStyle, textAlign: 'center', width: 48 }}>
-                            <Typography level="body-xs" sx={{ fontWeight: 700, color: idx < 3 ? 'primary.400' : 'text.tertiary' }}>
+                            <Typography
+                              level="body-xs"
+                              sx={{
+                                fontWeight: 700,
+                                color: idx < 3 ? 'primary.400' : 'text.tertiary',
+                              }}
+                            >
                               {idx + 1}
                             </Typography>
                           </td>
@@ -282,7 +312,11 @@ const ThisOrThat: React.FC = () => {
                             </Typography>
                           </td>
                           <td style={{ ...tdStyle, textAlign: 'center' }}>
-                            <Chip size="sm" variant="soft" color={r.eloRating >= 1000 ? 'success' : 'warning'}>
+                            <Chip
+                              size="sm"
+                              variant="soft"
+                              color={r.eloRating >= 1000 ? 'success' : 'warning'}
+                            >
                               {Math.round(r.eloRating)}
                             </Chip>
                           </td>

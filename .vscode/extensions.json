@@ -1,6 +1,3 @@
 {
-  "recommendations": [
-    "anthropic.claude-code",
-    "ms-azuretools.vscode-containers"
-  ]
+  "recommendations": ["anthropic.claude-code", "ms-azuretools.vscode-containers"]
 }

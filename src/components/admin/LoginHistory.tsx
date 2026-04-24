@@ -73,28 +73,32 @@ export const LoginHistory: React.FC = () => {
               {data?.loginHistory.map((entry: LoginHistoryEntry) => (
                 <tr key={entry.id}>
                   <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                    <Typography
+                      level="body-xs"
+                      sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                    >
                       {new Date(entry.created_at).toLocaleString()}
                     </Typography>
                   </td>
                   <td>
-                    <Typography level="body-sm"
+                    <Typography
+                      level="body-sm"
                       fontWeight={entry.username ? 600 : 400}
-                      sx={{ color: entry.username ? 'text.primary' : 'text.tertiary' }}>
+                      sx={{ color: entry.username ? 'text.primary' : 'text.tertiary' }}
+                    >
                       {entry.username || 'unknown'}
                     </Typography>
                   </td>
                   <td>
-                    <Chip
-                      size="sm"
-                      color={entry.succeeded ? 'success' : 'danger'}
-                      variant="soft"
-                    >
+                    <Chip size="sm" color={entry.succeeded ? 'success' : 'danger'} variant="soft">
                       {entry.succeeded ? 'Success' : 'Failed'}
                     </Chip>
                   </td>
                   <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                    <Typography
+                      level="body-xs"
+                      sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+                    >
                       {entry.ip_address || '—'}
                     </Typography>
                   </td>

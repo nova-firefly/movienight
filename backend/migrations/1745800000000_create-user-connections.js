@@ -30,12 +30,21 @@ exports.up = (pgm) => {
     },
   });
 
-  pgm.addConstraint('user_connections', 'user_connections_status_check',
-    "CHECK (status IN ('pending', 'accepted', 'rejected'))");
-  pgm.addConstraint('user_connections', 'user_connections_no_self',
-    'CHECK (requester_id <> addressee_id)');
-  pgm.addConstraint('user_connections', 'user_connections_unique_pair',
-    'UNIQUE (requester_id, addressee_id)');
+  pgm.addConstraint(
+    'user_connections',
+    'user_connections_status_check',
+    "CHECK (status IN ('pending', 'accepted', 'rejected'))",
+  );
+  pgm.addConstraint(
+    'user_connections',
+    'user_connections_no_self',
+    'CHECK (requester_id <> addressee_id)',
+  );
+  pgm.addConstraint(
+    'user_connections',
+    'user_connections_unique_pair',
+    'UNIQUE (requester_id, addressee_id)',
+  );
 
   pgm.createIndex('user_connections', 'requester_id');
   pgm.createIndex('user_connections', 'addressee_id');

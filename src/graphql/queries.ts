@@ -127,8 +127,22 @@ export const GET_USERS = gql`
 `;
 
 export const CREATE_USER = gql`
-  mutation CreateUser($username: String!, $email: String!, $password: String!, $display_name: String, $is_admin: Boolean, $is_active: Boolean) {
-    createUser(username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin, is_active: $is_active) {
+  mutation CreateUser(
+    $username: String!
+    $email: String!
+    $password: String!
+    $display_name: String
+    $is_admin: Boolean
+    $is_active: Boolean
+  ) {
+    createUser(
+      username: $username
+      email: $email
+      password: $password
+      display_name: $display_name
+      is_admin: $is_admin
+      is_active: $is_active
+    ) {
       id
       username
       email
@@ -143,8 +157,24 @@ export const CREATE_USER = gql`
 `;
 
 export const UPDATE_USER = gql`
-  mutation UpdateUser($id: ID!, $username: String, $email: String, $password: String, $display_name: String, $is_admin: Boolean, $is_active: Boolean) {
-    updateUser(id: $id, username: $username, email: $email, password: $password, display_name: $display_name, is_admin: $is_admin, is_active: $is_active) {
+  mutation UpdateUser(
+    $id: ID!
+    $username: String
+    $email: String
+    $password: String
+    $display_name: String
+    $is_admin: Boolean
+    $is_active: Boolean
+  ) {
+    updateUser(
+      id: $id
+      username: $username
+      email: $email
+      password: $password
+      display_name: $display_name
+      is_admin: $is_admin
+      is_active: $is_active
+    ) {
       id
       username
       email
