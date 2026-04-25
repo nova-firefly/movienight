@@ -1302,7 +1302,7 @@ export const resolvers = {
         'database',
         filename,
         null,
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
       return filename;
     },

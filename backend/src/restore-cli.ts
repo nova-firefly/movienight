@@ -32,7 +32,9 @@ async function main() {
   }
 
   console.log(`Restoring backup from ${data.exported_at}`);
-  console.log(`  ${data.movies.length} movies, ${data.users.length} users, ${data.kometa_schedule.length} kometa_schedule rows`);
+  console.log(
+    `  ${data.movies.length} movies, ${data.users.length} users, ${data.kometa_schedule.length} kometa_schedule rows`,
+  );
 
   const pool = new Pool({
     host: process.env.DB_HOST || 'db',
@@ -52,31 +54,25 @@ async function main() {
     // Insert users first (movies.requested_by FK → users)
     for (const row of data.users) {
       const cols = Object.keys(row);
-      const vals = cols.map(c => row[c]);
+      const vals = cols.map((c) => row[c]);
       const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
-      await client.query(
-        `INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders})`,
-        vals
-      );
+      await client.query(`INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders})`, vals);
     }
 
     for (const row of data.movies) {
       const cols = Object.keys(row);
-      const vals = cols.map(c => row[c]);
+      const vals = cols.map((c) => row[c]);
       const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
-      await client.query(
-        `INSERT INTO movies (${cols.join(', ')}) VALUES (${placeholders})`,
-        vals
-      );
+      await client.query(`INSERT INTO movies (${cols.join(', ')}) VALUES (${placeholders})`, vals);
     }
 
     for (const row of data.kometa_schedule) {
       const cols = Object.keys(row);
-      const vals = cols.map(c => row[c]);
+      const vals = cols.map((c) => row[c]);
       const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
       await client.query(
         `INSERT INTO kometa_schedule (${cols.join(', ')}) VALUES (${placeholders})`,
-        vals
+        vals,
       );
     }
 
