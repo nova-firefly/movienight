@@ -33,7 +33,9 @@ exports.up = (pgm) => {
   });
 
   // Insert the single config row
-  pgm.sql(`INSERT INTO kometa_schedule (enabled, frequency, daily_time) VALUES (false, 'daily', '03:00')`);
+  pgm.sql(
+    `INSERT INTO kometa_schedule (enabled, frequency, daily_time) VALUES (false, 'daily', '03:00')`,
+  );
 };
 
 exports.down = (pgm) => {

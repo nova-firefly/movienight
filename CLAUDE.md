@@ -4,13 +4,13 @@ A full-stack movie suggestion app: React + TypeScript frontend, Apollo GraphQL b
 
 ## Quick orientation
 
-| Layer | Location | Key files |
-|---|---|---|
-| Frontend | `src/` | `App.tsx`, `src/components/`, `src/graphql/queries.ts`, `src/contexts/AuthContext.tsx` |
-| Backend | `backend/src/` | `index.ts`, `schema.ts`, `resolvers.ts`, `db.ts`, `auth.ts`, `scheduler.ts` |
-| DB migrations | `backend/migrations/` | numbered JS files run by node-pg-migrate |
-| Docker | root | `docker-compose.yml`, `Dockerfile`, `nginx.conf` |
-| Backend Docker | `backend/` | `backend/Dockerfile` |
+| Layer          | Location              | Key files                                                                              |
+| -------------- | --------------------- | -------------------------------------------------------------------------------------- |
+| Frontend       | `src/`                | `App.tsx`, `src/components/`, `src/graphql/queries.ts`, `src/contexts/AuthContext.tsx` |
+| Backend        | `backend/src/`        | `index.ts`, `schema.ts`, `resolvers.ts`, `db.ts`, `auth.ts`, `scheduler.ts`            |
+| DB migrations  | `backend/migrations/` | numbered JS files run by node-pg-migrate                                               |
+| Docker         | root                  | `docker-compose.yml`, `Dockerfile`, `nginx.conf`                                       |
+| Backend Docker | `backend/`            | `backend/Dockerfile`                                                                   |
 
 ## Running the project
 
@@ -107,13 +107,13 @@ src/components/
 
 ## Database schema (current)
 
-| Table | Notable columns |
-|---|---|
-| `movies` | id, title, requester (text), requested_by (FK→users), date_submitted, rank (NUMERIC 20,10), tmdb_id (nullable int), watched_at (nullable timestamptz) |
-| `users` | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at |
-| `audit_logs` | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at |
-| `login_history` | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at |
-| `kometa_schedule` | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at |
+| Table             | Notable columns                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `movies`          | id, title, requester (text), requested_by (FK→users), date_submitted, rank (NUMERIC 20,10), tmdb_id (nullable int), watched_at (nullable timestamptz) |
+| `users`           | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                          |
+| `audit_logs`      | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at                                                     |
+| `login_history`   | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at                                                                                 |
+| `kometa_schedule` | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at                                                                          |
 
 ## Audit log actions
 
@@ -122,27 +122,34 @@ src/components/
 ## Key features
 
 ### Watched tracking
+
 `markWatched(id)` sets `watched_at = NOW()`. `movies` query returns only `WHERE watched_at IS NULL`.
 
 ### Drag-and-drop reordering
+
 `reorderMovie(id, afterId?)` uses fractional indexing (midpoint between neighbors). `afterId=null` moves movie to top (`rank / 2`). Frontend uses `@dnd-kit/core` + `@dnd-kit/sortable`.
 
 ### TMDB integration
+
 `searchTmdb(query)` hits TMDB API (requires `TMDB_API_KEY`). `matchMovie(id, tmdb_id, title)` links a movie to its TMDB entry. `addMovie` accepts optional `tmdb_id`.
 
 ### Kometa/Plex integration (production-only)
+
 `exportKometa` writes a YAML collection file to `KOMETA_COLLECTIONS_PATH` and optionally POSTs to `KOMETA_TRIGGER_URL`. `scheduler.ts` runs automated exports (hourly or daily); `initScheduler()` called on startup only when `NODE_ENV === 'production'`.
 
 ### Letterboxd import
+
 `importFromLetterboxd(url)` fetches the public Letterboxd list, parses film titles from HTML (data-item-name), skips duplicates (case-insensitive), optionally matches to TMDB. Returns `{ imported, skipped, tmdb_matched, errors }`.
 
 ## Environment variables
 
 **Frontend** (`.env`):
+
 - `REACT_APP_GRAPHQL_URL` — defaults to `/graphql`
 - `REACT_APP_GIT_BRANCH`, `REACT_APP_GIT_HASH`, `REACT_APP_DEPLOY_TIME` — baked in at Docker build time
 
 **Backend** (`backend/.env`):
+
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
 - `PORT` (default 4000)
 - `JWT_SECRET` — **change in production** (default: `'your-secret-key-change-in-production'`)
@@ -154,17 +161,80 @@ src/components/
 
 ## Docker profiles
 
-| Profile | Services |
-|---|---|
-| `development` | db (postgres:15-alpine), backend, frontend (hot-reload) |
-| `production` | Single `movienight` container (ghcr.io image, port 8080→80, 1 CPU / 512 MB limit) |
+| Profile       | Services                                                                          |
+| ------------- | --------------------------------------------------------------------------------- |
+| `development` | db (postgres:15-alpine), backend, frontend (hot-reload)                           |
+| `production`  | Single `movienight` container (ghcr.io image, port 8080→80, 1 CPU / 512 MB limit) |
 
 **Production image**: Multi-stage Dockerfile — node:20-alpine builds React, nginx:alpine serves static files + proxies `/graphql` to `movienight-backend:4000`.
 
 ## CI/CD
 
-- `dev` branch push → `.github/workflows/test-build.yml` — build only (no push), with dorny/paths-filter to skip unchanged layers
+- All branches + all PRs (including draft) → `.github/workflows/ci.yml` — lint, format check, backend tests, frontend tests
+- `dev` branch push → `.github/workflows/test-build.yml` — tests must pass before Docker build (no push), with dorny/paths-filter to skip unchanged layers
 - `master` branch push → `.github/workflows/deploy.yml` — build + push to GHCR, SSH deploy to remote host
+
+## Testing
+
+### Running tests
+
+```bash
+# Backend
+cd backend && npm test                    # run all backend tests
+cd backend && npm test -- --coverage      # with coverage report
+cd backend && npm run test:watch          # watch mode
+
+# Frontend
+npm test -- --watchAll=false              # run all frontend tests
+npm test -- --coverage --watchAll=false   # with coverage report
+```
+
+### Test structure
+
+```
+backend/src/__tests__/
+  auth.test.ts              # bcrypt, JWT, token parsing
+  elo.test.ts               # Elo algorithm + DB mocks
+  pairSelection.test.ts     # pair selection algorithm
+  scheduler.test.ts         # Kometa scheduler
+  email.test.ts             # nodemailer mocking
+  resolvers/
+    __helpers.ts            # shared mocks + context factories
+    field-resolvers.test.ts
+    auth-resolvers.test.ts
+    movie-resolvers.test.ts
+    query-resolvers.test.ts
+    connection-resolvers.test.ts
+    letterboxd-resolvers.test.ts
+    kometa-resolvers.test.ts
+
+src/utils/__tests__/
+  textUtils.test.ts
+  gravatar.test.ts
+src/contexts/__tests__/
+  AuthContext.test.tsx
+```
+
+### Coverage thresholds (enforced in CI)
+
+- **Backend**: 80% statements/lines/functions, 65% branches
+- **Frontend**: no enforced threshold yet (utility + context tests only)
+
+### Requirements for new code
+
+- All new backend functions **must** have companion tests
+- All new resolvers must test: happy path, auth/authz check, at least 2 error/edge cases
+- `pool.query` calls must always use parameterized queries (`$1, $2, ...`) — never interpolate user input
+- Run `cd backend && npm test` after writing backend code
+- Run `npm test -- --watchAll=false` after writing frontend code
+
+### Code consistency
+
+- **Prettier** enforced via pre-commit hook (Husky + lint-staged) and CI format check
+- **ESLint** enforced for backend TypeScript (`backend/eslint.config.mjs`)
+- CRA ESLint enforced for frontend
+- Run `npx prettier --write <changed-files>` before committing
+- Never skip pre-commit hooks (`--no-verify`) unless explicitly approved
 
 ## Existing docs
 

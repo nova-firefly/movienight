@@ -31,11 +31,13 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
       borderColor: 'divider',
       transition: 'border-color 0.2s, transform 0.15s, box-shadow 0.2s',
       opacity: disabled ? 0.5 : 1,
-      '&:hover': disabled ? {} : {
-        borderColor: 'primary.400',
-        transform: 'translateY(-2px)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-      },
+      '&:hover': disabled
+        ? {}
+        : {
+            borderColor: 'primary.400',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          },
       display: 'flex',
       flexDirection: 'column',
     }}
@@ -114,7 +116,10 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
           color="primary"
           fullWidth
           disabled={disabled}
-          onClick={(e) => { e.stopPropagation(); onPick(movie.id); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPick(movie.id);
+          }}
           sx={{ fontWeight: 700, color: '#0d0f1a' }}
         >
           Pick This One

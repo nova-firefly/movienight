@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useLazyQuery, useMutation } from "@apollo/client";
-import { SEARCH_TMDB, MATCH_MOVIE, GET_MOVIES } from "../../graphql/queries";
+import React, { useState, useEffect } from 'react';
+import { useLazyQuery, useMutation } from '@apollo/client';
+import { SEARCH_TMDB, MATCH_MOVIE, GET_MOVIES } from '../../graphql/queries';
 import {
   Modal,
   ModalDialog,
@@ -10,8 +10,8 @@ import {
   Box,
   CircularProgress,
   Divider,
-} from "@mui/joy";
-import { Movie } from "../../models/Movies";
+} from '@mui/joy';
+import { Movie } from '../../models/Movies';
 
 type TmdbResult = {
   tmdb_id: number;
@@ -34,9 +34,12 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [searchTmdb, { loading: searching }] = useLazyQuery(SEARCH_TMDB, {
-    onCompleted: (d) => { setResults(d.searchTmdb || []); setSearchError(null); },
+    onCompleted: (d) => {
+      setResults(d.searchTmdb || []);
+      setSearchError(null);
+    },
     onError: (e) => setSearchError(e.message),
-    fetchPolicy: "network-only",
+    fetchPolicy: 'network-only',
   });
 
   const [matchMovie, { loading: matching }] = useMutation(MATCH_MOVIE, {
@@ -66,13 +69,13 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
 
   return (
     <Modal open onClose={onClose}>
-      <ModalDialog sx={{ maxWidth: 460, width: "100%", p: 3 }}>
+      <ModalDialog sx={{ maxWidth: 460, width: '100%', p: 3 }}>
         <ModalClose />
 
         {!current ? (
           <>
             <Typography level="title-md">All done!</Typography>
-            <Typography level="body-sm" sx={{ color: "text.secondary", mt: 0.5 }}>
+            <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.5 }}>
               No more unmatched movies.
             </Typography>
             <Button onClick={onClose} sx={{ mt: 2 }}>
@@ -83,34 +86,42 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
           <>
             <Box sx={{ mb: 2 }}>
               <Typography level="title-md">Match with TMDB</Typography>
-              <Typography level="body-xs" sx={{ color: "text.tertiary", mt: 0.25 }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                 {index + 1} of {movies.length}
               </Typography>
             </Box>
 
-            <Typography
-              level="body-sm"
-              sx={{ fontWeight: 600, mb: 1.5 }}
-            >
+            <Typography level="body-sm" sx={{ fontWeight: 600, mb: 1.5 }}>
               "{current.title}"
             </Typography>
 
             <Divider sx={{ mb: 1.5 }} />
 
             {searching ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                 <CircularProgress size="sm" />
               </Box>
             ) : searchError ? (
-              <Typography level="body-sm" sx={{ color: "danger.400", py: 2, textAlign: "center" }}>
+              <Typography level="body-sm" sx={{ color: 'danger.400', py: 2, textAlign: 'center' }}>
                 Search failed: {searchError}
               </Typography>
             ) : results.length === 0 ? (
-              <Typography level="body-sm" sx={{ color: "text.tertiary", py: 2, textAlign: "center" }}>
+              <Typography
+                level="body-sm"
+                sx={{ color: 'text.tertiary', py: 2, textAlign: 'center' }}
+              >
                 No results found.
               </Typography>
             ) : (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, maxHeight: 320, overflowY: "auto" }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.75,
+                  maxHeight: 320,
+                  overflowY: 'auto',
+                }}
+              >
                 {results.map((r) => (
                   <Button
                     key={r.tmdb_id}
@@ -119,8 +130,8 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
                     disabled={matching}
                     onClick={() => handlePick(r.tmdb_id, r.title)}
                     sx={{
-                      justifyContent: "flex-start",
-                      textAlign: "left",
+                      justifyContent: 'flex-start',
+                      textAlign: 'left',
                       fontWeight: 500,
                       px: 1.5,
                     }}
@@ -130,7 +141,7 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
                       <Typography
                         component="span"
                         level="body-xs"
-                        sx={{ ml: 1, color: "text.tertiary" }}
+                        sx={{ ml: 1, color: 'text.tertiary' }}
                       >
                         {r.release_year}
                       </Typography>
@@ -145,7 +156,7 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
               color="neutral"
               onClick={advance}
               disabled={matching}
-              sx={{ mt: 2, alignSelf: "flex-end" }}
+              sx={{ mt: 2, alignSelf: 'flex-end' }}
             >
               Skip
             </Button>

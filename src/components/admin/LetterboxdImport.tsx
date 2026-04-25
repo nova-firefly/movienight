@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import {
-  Box,
-  Button,
-  Input,
-  Typography,
-  Alert,
-  CircularProgress,
-  List,
-  ListItem,
-} from '@mui/joy';
+import { Box, Button, Input, Typography, Alert, CircularProgress, List, ListItem } from '@mui/joy';
 import { IMPORT_FROM_LETTERBOXD, GET_MOVIES } from '../../graphql/queries';
 
 interface ImportResult {
@@ -52,11 +43,7 @@ export const LetterboxdImport: React.FC = () => {
         skipped.
       </Typography>
 
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{ display: 'flex', gap: 1, mb: 3 }}
-      >
+      <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', gap: 1, mb: 3 }}>
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}

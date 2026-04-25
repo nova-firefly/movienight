@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import {
   GET_MOVIES,
   ADD_MOVIE,
@@ -11,7 +11,7 @@ import {
   MY_CONNECTIONS,
   PENDING_CONNECTION_REQUESTS,
   COMBINED_LIST,
-} from "../../graphql/queries";
+} from '../../graphql/queries';
 import {
   Autocomplete,
   AutocompleteOption,
@@ -23,10 +23,10 @@ import {
   IconButton,
   ListItemContent,
   CircularProgress,
-} from "@mui/joy";
-import TmdbMatchFlow from "./TmdbMatchFlow";
-import { Movie } from "../../models/Movies";
-import { useAuth } from "../../contexts/AuthContext";
+} from '@mui/joy';
+import TmdbMatchFlow from './TmdbMatchFlow';
+import { Movie } from '../../models/Movies';
+import { useAuth } from '../../contexts/AuthContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,38 +67,38 @@ const MovieRow: React.FC<MovieRowProps> = ({
 }) => (
   <tr>
     {/* Title */}
-    <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
-      <Typography level="body-sm" sx={{ fontWeight: 600, color: "text.primary" }}>
+    <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
+      <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
         {movie.title}
       </Typography>
     </td>
 
     {/* Suggested by */}
-    <td style={{ verticalAlign: "middle", padding: "12px 16px" }}>
+    <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
       <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
         {movie.requester}
       </Chip>
     </td>
 
     {/* Date */}
-    <td style={{ verticalAlign: "middle", padding: "12px 16px", whiteSpace: "nowrap" }}>
-      <Typography level="body-xs" sx={{ color: "text.secondary" }}>
+    <td style={{ verticalAlign: 'middle', padding: '12px 16px', whiteSpace: 'nowrap' }}>
+      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
         {new Date(movie.date_submitted).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
         })}
       </Typography>
     </td>
 
     {/* TMDB */}
-    <td style={{ verticalAlign: "middle", padding: "12px 8px", textAlign: "center" }}>
+    <td style={{ verticalAlign: 'middle', padding: '12px 8px', textAlign: 'center' }}>
       {movie.tmdb_id ? (
         <a
           href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "var(--joy-palette-primary-500)", fontSize: "0.75rem" }}
+          style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
         >
           ↗
         </a>
@@ -109,10 +109,10 @@ const MovieRow: React.FC<MovieRowProps> = ({
     {(canMarkWatched || isAdmin) && (
       <td
         style={{
-          verticalAlign: "middle",
-          padding: "0 12px",
-          textAlign: "right",
-          whiteSpace: "nowrap",
+          verticalAlign: 'middle',
+          padding: '0 12px',
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
         }}
       >
         {canMarkWatched && (
@@ -124,8 +124,8 @@ const MovieRow: React.FC<MovieRowProps> = ({
             title={`Mark "${movie.title}" as watched`}
             sx={{
               opacity: 0.5,
-              transition: "opacity 0.15s",
-              "&:hover": { opacity: 1 },
+              transition: 'opacity 0.15s',
+              '&:hover': { opacity: 1 },
               mr: isAdmin ? 0.5 : 0,
             }}
           >
@@ -141,8 +141,8 @@ const MovieRow: React.FC<MovieRowProps> = ({
             title={`Remove "${movie.title}"`}
             sx={{
               opacity: 0.5,
-              transition: "opacity 0.15s",
-              "&:hover": { opacity: 1 },
+              transition: 'opacity 0.15s',
+              '&:hover': { opacity: 1 },
             }}
           >
             ✕
@@ -152,7 +152,6 @@ const MovieRow: React.FC<MovieRowProps> = ({
     )}
   </tr>
 );
-
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -165,11 +164,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.is_admin ?? false;
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState('');
   const [tmdbId, setTmdbId] = useState<number | null>(null);
   const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
 
@@ -186,9 +185,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   });
 
   const connections = connectionsData?.myConnections || [];
-  const incomingPending = pendingData?.pendingConnectionRequests?.filter(
-    (r: any) => r.direction === 'received'
-  ) || [];
+  const incomingPending =
+    pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
   const isCombinedView = selectedConnectionId !== null;
 
   const debouncedTitle = useDebounce(title, 400);
@@ -228,20 +226,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const movies: Movie[] = data?.movies ?? [];
 
   // Check if the current user has any personal Elo data
-  const hasEloData = isAuthenticated && movies.some(m => m.elo_rank != null);
+  const hasEloData = isAuthenticated && movies.some((m) => m.elo_rank != null);
 
   const unmatchedMovies = movies.filter(
-    (m) =>
-      !m.tmdb_id &&
-      (isAdmin || (user && String(m.requested_by) === String(user.id)))
+    (m) => !m.tmdb_id && (isAdmin || (user && String(m.requested_by) === String(user.id))),
   );
 
   const handleMarkWatched = async (id: string, movieTitle: string) => {
-    if (
-      !window.confirm(
-        `Mark "${movieTitle}" as watched? It will be removed from the watchlist.`
-      )
-    )
+    if (!window.confirm(`Mark "${movieTitle}" as watched? It will be removed from the watchlist.`))
       return;
     try {
       await markWatched({ variables: { id } });
@@ -260,7 +252,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   };
 
   const handleSeed = async () => {
-    if (!window.confirm('This will DELETE all existing movies and seed 30 new ones. Continue?')) return;
+    if (!window.confirm('This will DELETE all existing movies and seed 30 new ones. Continue?'))
+      return;
     try {
       await seedMovies();
       setSuccessMessage('Seeded 30 movies!');
@@ -273,16 +266,16 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim()) {
-      setErrorMessage("Please enter a movie title.");
+      setErrorMessage('Please enter a movie title.');
       return;
     }
     try {
       await addMovie({ variables: { title: title.trim(), tmdb_id: tmdbId } });
-      setSuccessMessage("Added to the list!");
-      setTitle("");
+      setSuccessMessage('Added to the list!');
+      setTitle('');
       setTmdbId(null);
       setTmdbOptions([]);
-      setTimeout(() => setSuccessMessage(""), 3000);
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       setErrorMessage(`Error: ${error.message}`);
     }
@@ -301,33 +294,35 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
       component="main"
       sx={{
         flex: 1,
-        bgcolor: "background.body",
+        bgcolor: 'background.body',
         px: { xs: 2, sm: 3, md: 4 },
         py: { xs: 3, sm: 5 },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: "auto" }}>
+      <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         {/* Page header */}
-        <Box sx={{ textAlign: "center", mb: { xs: 3, sm: 4 } }}>
-          <Typography
-            level="h2"
-            sx={{ fontWeight: 800, letterSpacing: "-0.02em", mb: 0.5 }}
-          >
+        <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
+          <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
             Movie List
           </Typography>
-          <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
             {movies.length === 0
-              ? "No movies yet — suggest one!"
-              : `${movies.length} movie${movies.length !== 1 ? "s" : ""} in the queue`}
+              ? 'No movies yet — suggest one!'
+              : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
           </Typography>
         </Box>
 
         {/* View selector — segmented control */}
         {isAuthenticated && connections.length > 0 && (
-          <Box sx={{
-            display: 'flex', justifyContent: 'center', flexWrap: 'wrap',
-            gap: 0.5, mb: 3,
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: 0.5,
+              mb: 3,
+            }}
+          >
             <Button
               variant={!isCombinedView ? 'soft' : 'plain'}
               color="neutral"
@@ -364,10 +359,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {isAuthenticated && incomingPending.length > 0 && (
           <Box
             sx={{
-              mb: 3, p: 1.5, borderRadius: 'md',
-              bgcolor: 'warning.softBg', border: '1px solid', borderColor: 'warning.outlinedBorder',
-              textAlign: 'center', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', gap: 1,
+              mb: 3,
+              p: 1.5,
+              borderRadius: 'md',
+              bgcolor: 'warning.softBg',
+              border: '1px solid',
+              borderColor: 'warning.outlinedBorder',
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
             }}
           >
             <Typography level="body-sm" sx={{ color: 'warning.softColor' }}>
@@ -376,7 +378,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 : `${incomingPending.length} pending connection requests`}
             </Typography>
             {onShowConnections && (
-              <Button variant="soft" color="warning" size="sm" onClick={onShowConnections} sx={{ fontWeight: 700 }}>
+              <Button
+                variant="soft"
+                color="warning"
+                size="sm"
+                onClick={onShowConnections}
+                sx={{ fontWeight: 700 }}
+              >
                 View
               </Button>
             )}
@@ -403,7 +411,9 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {isAuthenticated ? (
               <>
                 <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-                  {hasEloData ? 'Keep ranking movies!' : 'Rate movies to get your personal ranking.'}
+                  {hasEloData
+                    ? 'Keep ranking movies!'
+                    : 'Rate movies to get your personal ranking.'}
                 </Typography>
                 {onShowThisOrThat && (
                   <Button
@@ -429,16 +439,16 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {isAuthenticated && (
           <Box sx={{ mb: 4 }}>
             <form onSubmit={handleSubmit}>
-              <Box sx={{ display: "flex", gap: 1, maxWidth: 520, mx: "auto" }}>
+              <Box sx={{ display: 'flex', gap: 1, maxWidth: 520, mx: 'auto' }}>
                 <Autocomplete
                   freeSolo
                   options={tmdbOptions}
                   getOptionLabel={(option) =>
-                    typeof option === "string"
+                    typeof option === 'string'
                       ? option
                       : option.release_year
-                      ? `${option.title} (${option.release_year})`
-                      : option.title
+                        ? `${option.title} (${option.release_year})`
+                        : option.title
                   }
                   inputValue={title}
                   onInputChange={(_, value) => {
@@ -446,7 +456,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     if (!value) setTmdbId(null);
                   }}
                   onChange={(_, value) => {
-                    if (value && typeof value !== "string") {
+                    if (value && typeof value !== 'string') {
                       setTitle(value.title);
                       setTmdbId(value.tmdb_id);
                     }
@@ -462,15 +472,15 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   placeholder="Suggest a movie title..."
                   sx={{
                     flex: 1,
-                    bgcolor: "background.surface",
-                    "--Input-focusedHighlight": "var(--joy-palette-primary-500)",
+                    bgcolor: 'background.surface',
+                    '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
                   }}
                 />
                 <Button
                   type="submit"
                   color="primary"
                   variant="solid"
-                  sx={{ fontWeight: 700, color: "#0d0f1a", px: 3 }}
+                  sx={{ fontWeight: 700, color: '#0d0f1a', px: 3 }}
                 >
                   Add
                 </Button>
@@ -480,7 +490,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {successMessage && (
               <Typography
                 level="body-sm"
-                sx={{ textAlign: "center", mt: 1.5, color: "success.400", fontWeight: 600 }}
+                sx={{ textAlign: 'center', mt: 1.5, color: 'success.400', fontWeight: 600 }}
               >
                 {successMessage}
               </Typography>
@@ -488,7 +498,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {errorMessage && (
               <Typography
                 level="body-sm"
-                sx={{ textAlign: "center", mt: 1.5, color: "danger.400", fontWeight: 600 }}
+                sx={{ textAlign: 'center', mt: 1.5, color: 'danger.400', fontWeight: 600 }}
               >
                 {errorMessage}
               </Typography>
@@ -498,7 +508,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* TMDB match flow */}
         {isAuthenticated && unmatchedMovies.length > 0 && (
-          <Box sx={{ textAlign: "center", mb: 3 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Button
               variant="outlined"
               color="neutral"
@@ -506,23 +516,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               onClick={() => setMatchFlowOpen(true)}
             >
               Match {unmatchedMovies.length} unmatched movie
-              {unmatchedMovies.length !== 1 ? "s" : ""} with TMDB
+              {unmatchedMovies.length !== 1 ? 's' : ''} with TMDB
             </Button>
           </Box>
         )}
         {matchFlowOpen && (
-          <TmdbMatchFlow
-            movies={unmatchedMovies}
-            onClose={() => setMatchFlowOpen(false)}
-          />
+          <TmdbMatchFlow movies={unmatchedMovies} onClose={() => setMatchFlowOpen(false)} />
         )}
 
         {/* Unauthenticated prompt */}
         {!isAuthenticated && movies.length === 0 && (
-          <Typography
-            level="body-sm"
-            sx={{ textAlign: "center", color: "text.tertiary", mb: 4 }}
-          >
+          <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 4 }}>
             Sign in to suggest movies.
           </Typography>
         )}
@@ -540,24 +544,41 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 {combinedData.combinedList.rankings.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 6 }}>
                     <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-                      No rankings to combine yet. Both users need to do some "This or That" comparisons first!
+                      No rankings to combine yet. Both users need to do some "This or That"
+                      comparisons first!
                     </Typography>
                   </Box>
                 ) : (
                   <Sheet
                     variant="outlined"
-                    sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
+                    sx={{
+                      borderRadius: 'md',
+                      overflow: 'clip',
+                      borderColor: 'var(--mn-border-vis)',
+                    }}
                   >
                     <Box sx={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', tableLayout: 'auto' }}>
+                      <table
+                        style={{
+                          width: '100%',
+                          minWidth: 480,
+                          borderCollapse: 'collapse',
+                          tableLayout: 'auto',
+                        }}
+                      >
                         <thead>
-                          <tr style={{ background: 'var(--mn-bg-elevated)', borderBottom: '1px solid var(--mn-border-vis)' }}>
+                          <tr
+                            style={{
+                              background: 'var(--mn-bg-elevated)',
+                              borderBottom: '1px solid var(--mn-border-vis)',
+                            }}
+                          >
                             <th style={combinedThStyle}>#</th>
                             <th style={{ ...combinedThStyle, textAlign: 'left' }}>Title</th>
                             <th style={combinedThStyle}>You</th>
                             <th style={combinedThStyle}>
                               {combinedData.combinedList.connection.user.display_name ||
-                               combinedData.combinedList.connection.user.username}
+                                combinedData.combinedList.connection.user.username}
                             </th>
                             <th style={combinedThStyle}>Combined</th>
                           </tr>
@@ -566,7 +587,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                           {combinedData.combinedList.rankings.map((r: any, idx: number) => (
                             <tr key={r.movie.id}>
                               <td style={{ ...combinedTdStyle, textAlign: 'center', width: 48 }}>
-                                <Typography level="body-xs" sx={{ fontWeight: 700, color: idx < 3 ? 'primary.400' : 'text.tertiary' }}>
+                                <Typography
+                                  level="body-xs"
+                                  sx={{
+                                    fontWeight: 700,
+                                    color: idx < 3 ? 'primary.400' : 'text.tertiary',
+                                  }}
+                                >
                                   {idx + 1}
                                 </Typography>
                               </td>
@@ -576,26 +603,40 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                     {r.movie.title}
                                   </Typography>
                                   {!r.bothRated && (
-                                    <Chip size="sm" variant="soft" color="neutral">partial</Chip>
+                                    <Chip size="sm" variant="soft" color="neutral">
+                                      partial
+                                    </Chip>
                                   )}
                                 </Box>
                               </td>
                               <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
                                 {r.userAElo != null ? (
-                                  <Chip size="sm" variant="soft" color={r.userAElo >= 1000 ? 'success' : 'warning'}>
+                                  <Chip
+                                    size="sm"
+                                    variant="soft"
+                                    color={r.userAElo >= 1000 ? 'success' : 'warning'}
+                                  >
                                     {Math.round(r.userAElo)}
                                   </Chip>
                                 ) : (
-                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>--</Typography>
+                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                    --
+                                  </Typography>
                                 )}
                               </td>
                               <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
                                 {r.userBElo != null ? (
-                                  <Chip size="sm" variant="soft" color={r.userBElo >= 1000 ? 'success' : 'warning'}>
+                                  <Chip
+                                    size="sm"
+                                    variant="soft"
+                                    color={r.userBElo >= 1000 ? 'success' : 'warning'}
+                                  >
                                     {Math.round(r.userBElo)}
                                   </Chip>
                                 ) : (
-                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>--</Typography>
+                                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                    --
+                                  </Typography>
                                 )}
                               </td>
                               <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
@@ -617,132 +658,132 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* Movie table (personal view) */}
         {!isCombinedView && (
-        <Sheet
-          variant="outlined"
-          sx={{
-            borderRadius: "md",
-            overflow: "clip",
-            borderColor: "var(--mn-border-vis)",
-          }}
-        >
-          <Box sx={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                minWidth: 540,
-                borderCollapse: "collapse",
-                tableLayout: "auto",
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    background: "var(--mn-bg-elevated)",
-                    borderBottom: "1px solid var(--mn-border-vis)",
-                  }}
-                >
-                  <th
+          <Sheet
+            variant="outlined"
+            sx={{
+              borderRadius: 'md',
+              overflow: 'clip',
+              borderColor: 'var(--mn-border-vis)',
+            }}
+          >
+            <Box sx={{ overflowX: 'auto' }}>
+              <table
+                style={{
+                  width: '100%',
+                  minWidth: 540,
+                  borderCollapse: 'collapse',
+                  tableLayout: 'auto',
+                }}
+              >
+                <thead>
+                  <tr
                     style={{
-                      padding: "10px 16px",
-                      textAlign: "left",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
+                      background: 'var(--mn-bg-elevated)',
+                      borderBottom: '1px solid var(--mn-border-vis)',
                     }}
                   >
-                    Title
-                  </th>
-                  <th
-                    style={{
-                      padding: "10px 16px",
-                      textAlign: "left",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
-                    }}
-                  >
-                    Suggested by
-                  </th>
-                  <th
-                    style={{
-                      padding: "10px 16px",
-                      textAlign: "left",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
-                    }}
-                  >
-                    Added
-                  </th>
-                  <th
-                    style={{
-                      padding: "10px 8px",
-                      textAlign: "center",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--mn-text-muted)",
-                    }}
-                  >
-                    TMDB
-                  </th>
-                  {isAuthenticated && (
                     <th
                       style={{
-                        padding: "10px 12px",
-                        textAlign: "right",
-                        fontSize: "0.7rem",
+                        padding: '10px 16px',
+                        textAlign: 'left',
+                        fontSize: '0.7rem',
                         fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: "var(--mn-text-muted)",
-                      }}
-                    />
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {movies.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={colCount}
-                      style={{
-                        padding: "48px 16px",
-                        textAlign: "center",
-                        color: "var(--mn-text-muted)",
-                        fontSize: "0.875rem",
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: 'var(--mn-text-muted)',
                       }}
                     >
-                      No movies yet. Be the first to suggest one!
-                    </td>
+                      Title
+                    </th>
+                    <th
+                      style={{
+                        padding: '10px 16px',
+                        textAlign: 'left',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: 'var(--mn-text-muted)',
+                      }}
+                    >
+                      Suggested by
+                    </th>
+                    <th
+                      style={{
+                        padding: '10px 16px',
+                        textAlign: 'left',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: 'var(--mn-text-muted)',
+                      }}
+                    >
+                      Added
+                    </th>
+                    <th
+                      style={{
+                        padding: '10px 8px',
+                        textAlign: 'center',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: 'var(--mn-text-muted)',
+                      }}
+                    >
+                      TMDB
+                    </th>
+                    {isAuthenticated && (
+                      <th
+                        style={{
+                          padding: '10px 12px',
+                          textAlign: 'right',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          color: 'var(--mn-text-muted)',
+                        }}
+                      />
+                    )}
                   </tr>
-                ) : (
-                  movies.map((movie) => (
-                    <MovieRow
-                      key={movie.id}
-                      movie={movie}
-                      isAdmin={isAdmin}
-                      canMarkWatched={
-                        isAdmin ||
-                        (isAuthenticated && String(movie.requested_by) === String(user?.id))
-                      }
-                      onMarkWatched={handleMarkWatched}
-                      onDelete={handleDelete}
-                      isAuthenticated={isAuthenticated}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </Box>
-        </Sheet>
+                </thead>
+                <tbody>
+                  {movies.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={colCount}
+                        style={{
+                          padding: '48px 16px',
+                          textAlign: 'center',
+                          color: 'var(--mn-text-muted)',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        No movies yet. Be the first to suggest one!
+                      </td>
+                    </tr>
+                  ) : (
+                    movies.map((movie) => (
+                      <MovieRow
+                        key={movie.id}
+                        movie={movie}
+                        isAdmin={isAdmin}
+                        canMarkWatched={
+                          isAdmin ||
+                          (isAuthenticated && String(movie.requested_by) === String(user?.id))
+                        }
+                        onMarkWatched={handleMarkWatched}
+                        onDelete={handleDelete}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </Box>
+          </Sheet>
         )}
 
         {/* Seed button — admin only, test env only */}

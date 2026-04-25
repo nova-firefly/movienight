@@ -70,11 +70,15 @@ export const KometaExport: React.FC = () => {
   const [updateSchedule, { loading: savingSchedule }] = useMutation(UPDATE_KOMETA_SCHEDULE);
 
   const [copied, setCopied] = useState(false);
-  const [exportResult, setExportResult] = useState<{
-    path: string;
-    triggered: boolean;
-    triggerError?: string;
-  } | { error: string } | null>(null);
+  const [exportResult, setExportResult] = useState<
+    | {
+        path: string;
+        triggered: boolean;
+        triggerError?: string;
+      }
+    | { error: string }
+    | null
+  >(null);
 
   // Local form state for schedule
   const [schedEnabled, setSchedEnabled] = useState(false);
@@ -94,9 +98,7 @@ export const KometaExport: React.FC = () => {
 
   const collectionName = 'MovieNight Watchlist';
 
-  const movies: Movie[] = [...(data?.movies ?? [])].sort(
-    (a: Movie, b: Movie) => a.rank - b.rank
-  );
+  const movies: Movie[] = [...(data?.movies ?? [])].sort((a: Movie, b: Movie) => a.rank - b.rank);
   const matched = movies.filter((m) => m.tmdb_id != null);
   const unmatched = movies.filter((m) => m.tmdb_id == null);
   const yaml = movies.length > 0 ? generateKometaYaml(movies, collectionName) : '';
@@ -164,9 +166,8 @@ export const KometaExport: React.FC = () => {
       </Typography>
 
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
-        Generates a Kometa collection file using{' '}
-        <code>tmdb_movie</code> + <code>collection_order: release</code> sorted
-        by release date.{' '}
+        Generates a Kometa collection file using <code>tmdb_movie</code> +{' '}
+        <code>collection_order: release</code> sorted by release date.{' '}
         <strong>Write to Kometa</strong> writes directly to the configured{' '}
         <code>KOMETA_COLLECTIONS_PATH</code> on the server.
       </Typography>
@@ -185,10 +186,7 @@ export const KometaExport: React.FC = () => {
       )}
 
       {exportResult && (
-        <Alert
-          color={'error' in exportResult ? 'danger' : 'success'}
-          sx={{ mb: 2 }}
-        >
+        <Alert color={'error' in exportResult ? 'danger' : 'success'} sx={{ mb: 2 }}>
           {'error' in exportResult ? (
             exportResult.error
           ) : (
@@ -220,8 +218,8 @@ export const KometaExport: React.FC = () => {
 
       {matched.length === 0 ? (
         <Alert color="danger" sx={{ mb: 2 }}>
-          No movies have TMDB IDs. Use the TMDB match feature on the homepage to
-          link movies before exporting.
+          No movies have TMDB IDs. Use the TMDB match feature on the homepage to link movies before
+          exporting.
         </Alert>
       ) : (
         <>
@@ -236,12 +234,7 @@ export const KometaExport: React.FC = () => {
             >
               Write to Kometa
             </Button>
-            <Button
-              size="sm"
-              variant="outlined"
-              color="neutral"
-              onClick={handleDownload}
-            >
+            <Button size="sm" variant="outlined" color="neutral" onClick={handleDownload}>
               Download .yml
             </Button>
             <Button
@@ -336,10 +329,7 @@ export const KometaExport: React.FC = () => {
           )}
 
           {schedSaveResult && (
-            <Alert
-              color={schedSaveResult === 'saved' ? 'success' : 'danger'}
-              size="sm"
-            >
+            <Alert color={schedSaveResult === 'saved' ? 'success' : 'danger'} size="sm">
               {schedSaveResult === 'saved'
                 ? 'Schedule saved'
                 : (schedSaveResult as { error: string }).error}

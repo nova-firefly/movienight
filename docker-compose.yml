@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +45,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-noreply@movienight.local}
       APP_URL: ${APP_URL:-http://localhost:3000}
     ports:
-      - "${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}"
+      - '${BACKEND_EXTERNAL_PORT}:${BACKEND_PORT}'
     depends_on:
       db:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
     environment:
       REACT_APP_GRAPHQL_URL: ${REACT_APP_GRAPHQL_URL:-}
     ports:
-      - "${FRONTEND_EXTERNAL_PORT}:3000"
+      - '${FRONTEND_EXTERNAL_PORT}:3000'
     depends_on:
       - backend
     volumes:
@@ -84,7 +84,7 @@ services:
     container_name: movienight
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - '8080:80'
     environment:
       - TZ=America/New_York
       - NODE_ENV=production
@@ -93,10 +93,10 @@ services:
     networks:
       - frontend
     labels:
-      - "com.movienight.app=true"
-      - "com.movienight.version=1.0"
+      - 'com.movienight.app=true'
+      - 'com.movienight.version=1.0'
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost/']
       interval: 30s
       timeout: 10s
       retries: 3

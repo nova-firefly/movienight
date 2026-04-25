@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 exports.shorthands = undefined;
 
-exports.up = pgm => {
+exports.up = (pgm) => {
   pgm.addColumn('movies', {
     tmdb_id: {
       type: 'integer',
@@ -10,6 +10,6 @@ exports.up = pgm => {
   });
 };
 
-exports.down = pgm => {
+exports.down = (pgm) => {
   pgm.dropColumn('movies', 'tmdb_id');
 };

@@ -16,10 +16,7 @@ const transporter = nodemailer.createTransport({
 
 const FROM_ADDRESS = process.env.SMTP_FROM || 'noreply@movienight.local';
 
-export async function sendPasswordResetEmail(
-  to: string,
-  resetToken: string
-): Promise<void> {
+export async function sendPasswordResetEmail(to: string, resetToken: string): Promise<void> {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const resetLink = `${appUrl}?resetToken=${resetToken}`;
 

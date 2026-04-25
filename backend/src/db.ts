@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import path from 'path';
 // node-pg-migrate v8 is ESM-only; use dynamic import in CJS
-const loadMigrate = () => import('node-pg-migrate').then(m => m.runner);
+const loadMigrate = () => import('node-pg-migrate').then((m) => m.runner);
 import { hashPassword } from './auth';
 
 const pool = new Pool({
@@ -21,7 +21,7 @@ const seedAdminUser = async () => {
       `INSERT INTO users (username, email, password_hash, is_admin)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_admin = EXCLUDED.is_admin`,
-      ['admin', 'admin@movienight.local', passwordHash, true]
+      ['admin', 'admin@movienight.local', passwordHash, true],
     );
 
     console.log('✅ Admin user ensured (username: admin)');
@@ -40,7 +40,7 @@ const seedTestUser = async () => {
       `INSERT INTO users (username, email, password_hash, display_name, is_admin)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
-      [username, `${username}@movienight.local`, passwordHash, 'Test User', false]
+      [username, `${username}@movienight.local`, passwordHash, 'Test User', false],
     );
 
     console.log(`✅ Test user ensured (username: ${username})`);

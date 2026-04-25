@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import pool from './db';
-import { hashPassword, comparePassword, generateToken, generateResetToken, hashResetToken } from './auth';
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  generateResetToken,
+  hashResetToken,
+} from './auth';
 import { sendPasswordResetEmail } from './email';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
@@ -18,12 +24,12 @@ async function logAudit(
   targetType: string | null,
   targetId: string | null,
   metadata: object | null,
-  ipAddress: string
+  ipAddress: string,
 ): Promise<void> {
   try {
     await pool.query(
       'INSERT INTO audit_logs (actor_id, action, target_type, target_id, metadata, ip_address) VALUES ($1, $2, $3, $4, $5, $6)',
-      [actorId, action, targetType, targetId, metadata, ipAddress]
+      [actorId, action, targetType, targetId, metadata, ipAddress],
     );
   } catch (err) {
     console.error('Failed to write audit log:', err);
@@ -34,12 +40,12 @@ async function logLoginHistory(
   userId: number | null,
   ipAddress: string,
   userAgent: string,
-  succeeded: boolean
+  succeeded: boolean,
 ): Promise<void> {
   try {
     await pool.query(
       'INSERT INTO login_history (user_id, ip_address, user_agent, succeeded) VALUES ($1, $2, $3, $4)',
-      [userId, ipAddress, userAgent, succeeded]
+      [userId, ipAddress, userAgent, succeeded],
     );
   } catch (err) {
     console.error('Failed to write login history:', err);
@@ -49,24 +55,32 @@ async function logLoginHistory(
 const isProduction = () => process.env.NODE_ENV === 'production';
 
 // ── Rate limiter ─────────────────────────────────────────────────────────────
-interface RateLimitEntry { count: number; resetAt: number }
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
 
 const ipRateLimiter = new Map<string, RateLimitEntry>();
 const emailRateLimiter = new Map<string, RateLimitEntry>();
 const loginRateLimiter = new Map<string, RateLimitEntry>();
 
-const IP_RATE_LIMIT_WINDOW = 15 * 60 * 1000;   // 15 minutes
-const IP_RATE_LIMIT_MAX = 5;                     // max 5 requests per window per IP
+const IP_RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const IP_RATE_LIMIT_MAX = 5; // max 5 requests per window per IP
 const EMAIL_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
-const EMAIL_RATE_LIMIT_MAX = 3;                  // max 3 emails per hour per address
+const EMAIL_RATE_LIMIT_MAX = 3; // max 3 emails per hour per address
 const GLOBAL_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
-const GLOBAL_RATE_LIMIT_MAX = 50;                // max 50 reset emails per hour total
+const GLOBAL_RATE_LIMIT_MAX = 50; // max 50 reset emails per hour total
 let globalResetCount = { count: 0, resetAt: Date.now() + GLOBAL_RATE_LIMIT_WINDOW };
 
 const LOGIN_RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const LOGIN_RATE_LIMIT_MAX = 10;                 // max 10 login attempts per IP per window
+const LOGIN_RATE_LIMIT_MAX = 10; // max 10 login attempts per IP per window
 
-function checkRateLimit(limiter: Map<string, RateLimitEntry>, key: string, max: number, window: number): boolean {
+function checkRateLimit(
+  limiter: Map<string, RateLimitEntry>,
+  key: string,
+  max: number,
+  window: number,
+): boolean {
   const now = Date.now();
   const entry = limiter.get(key);
   if (!entry || now > entry.resetAt) {
@@ -90,18 +104,21 @@ function checkGlobalResetLimit(): boolean {
 }
 
 // Evict stale entries periodically to prevent memory growth
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of ipRateLimiter) {
-    if (now > entry.resetAt) ipRateLimiter.delete(key);
-  }
-  for (const [key, entry] of emailRateLimiter) {
-    if (now > entry.resetAt) emailRateLimiter.delete(key);
-  }
-  for (const [key, entry] of loginRateLimiter) {
-    if (now > entry.resetAt) loginRateLimiter.delete(key);
-  }
-}, 15 * 60 * 1000).unref();
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of ipRateLimiter) {
+      if (now > entry.resetAt) ipRateLimiter.delete(key);
+    }
+    for (const [key, entry] of emailRateLimiter) {
+      if (now > entry.resetAt) emailRateLimiter.delete(key);
+    }
+    for (const [key, entry] of loginRateLimiter) {
+      if (now > entry.resetAt) loginRateLimiter.delete(key);
+    }
+  },
+  15 * 60 * 1000,
+).unref();
 
 // ── TMDB enrichment cache ────────────────────────────────────────────────────
 
@@ -133,23 +150,23 @@ async function enrichWithTmdb(tmdbId: number): Promise<TmdbEnrichment> {
   try {
     const [movieRes, creditsRes, keywordsRes] = await Promise.all([
       fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}&language=en-US`),
-      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/credits?api_key=${apiKey}&language=en-US`),
+      fetch(
+        `https://api.themoviedb.org/3/movie/${tmdbId}/credits?api_key=${apiKey}&language=en-US`,
+      ),
       fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${apiKey}`),
     ]);
 
-    const movie = movieRes.ok ? await movieRes.json() as any : null;
-    const credits = creditsRes.ok ? await creditsRes.json() as any : null;
-    const keywords = keywordsRes.ok ? await keywordsRes.json() as any : null;
+    const movie = movieRes.ok ? ((await movieRes.json()) as any) : null;
+    const credits = creditsRes.ok ? ((await creditsRes.json()) as any) : null;
+    const keywords = keywordsRes.ok ? ((await keywordsRes.json()) as any) : null;
 
     const genres: string[] = movie?.genres?.map((g: any) => g.name) ?? [];
     const keywordNames: string[] = keywords?.keywords?.map((k: any) => k.name) ?? [];
     // Fill tags: genres first, then keywords, up to 5
-    const tags = [...genres, ...keywordNames.filter(k => !genres.includes(k))].slice(0, 5);
+    const tags = [...genres, ...keywordNames.filter((k) => !genres.includes(k))].slice(0, 5);
 
     const data: TmdbEnrichment = {
-      poster_url: movie?.poster_path
-        ? `https://image.tmdb.org/t/p/w342${movie.poster_path}`
-        : null,
+      poster_url: movie?.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null,
       release_year: movie?.release_date ? movie.release_date.split('-')[0] : null,
       director: credits?.crew?.find((c: any) => c.job === 'Director')?.name ?? null,
       cast: (credits?.cast ?? []).slice(0, 3).map((c: any) => c.name),
@@ -168,18 +185,20 @@ export const resolvers = {
   Query: {
     appInfo: () => ({
       isProduction: isProduction(),
-      quickLoginUsers: isProduction() ? [] : [
-        {
-          label: 'Admin',
-          username: 'admin',
-          password: process.env.ADMIN_PASSWORD || 'admin123',
-        },
-        {
-          label: 'Test User',
-          username: process.env.TEST_USER_USERNAME || 'testuser',
-          password: process.env.TEST_USER_PASSWORD || 'testpass',
-        },
-      ],
+      quickLoginUsers: isProduction()
+        ? []
+        : [
+            {
+              label: 'Admin',
+              username: 'admin',
+              password: process.env.ADMIN_PASSWORD || 'admin123',
+            },
+            {
+              label: 'Test User',
+              username: process.env.TEST_USER_USERNAME || 'testuser',
+              password: process.env.TEST_USER_PASSWORD || 'testpass',
+            },
+          ],
     }),
     searchTmdb: async (_: any, { query }: { query: string }, context: any) => {
       if (!context.user) {
@@ -200,7 +219,7 @@ export const resolvers = {
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
         });
       }
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       return (data.results as any[]).slice(0, 10).map((movie: any) => ({
         tmdb_id: movie.id,
         title: movie.title,
@@ -220,7 +239,7 @@ export const resolvers = {
            LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
            WHERE m.watched_at IS NULL
            ORDER BY ume.elo_rating DESC NULLS LAST, m.date_submitted ASC`,
-          [context.user.userId]
+          [context.user.userId],
         );
         return result.rows;
       }
@@ -232,7 +251,7 @@ export const resolvers = {
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
          WHERE m.watched_at IS NULL
-         ORDER BY m.elo_rank DESC NULLS LAST, m.date_submitted ASC`
+         ORDER BY m.elo_rank DESC NULLS LAST, m.date_submitted ASC`,
       );
       return result.rows;
     },
@@ -244,7 +263,7 @@ export const resolvers = {
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
          WHERE m.id = $1`,
-        [id]
+        [id],
       );
       return result.rows[0];
     },
@@ -254,10 +273,9 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      const result = await pool.query(
-        `SELECT ${USER_COLS} FROM users WHERE id = $1`,
-        [context.user.userId]
-      );
+      const result = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [
+        context.user.userId,
+      ]);
       return result.rows[0];
     },
     users: async (_: any, __: any, context: any) => {
@@ -266,9 +284,7 @@ export const resolvers = {
           extensions: { code: 'FORBIDDEN' },
         });
       }
-      const result = await pool.query(
-        `SELECT ${USER_COLS} FROM users ORDER BY created_at DESC`
-      );
+      const result = await pool.query(`SELECT ${USER_COLS} FROM users ORDER BY created_at DESC`);
       return result.rows;
     },
     user: async (_: any, { id }: { id: string }, context: any) => {
@@ -277,16 +293,13 @@ export const resolvers = {
           extensions: { code: 'FORBIDDEN' },
         });
       }
-      const result = await pool.query(
-        `SELECT ${USER_COLS} FROM users WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
       return result.rows[0];
     },
     auditLogs: async (
       _: any,
       { limit = 100, offset = 0 }: { limit?: number; offset?: number },
-      context: any
+      context: any,
     ) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
@@ -300,14 +313,14 @@ export const resolvers = {
          LEFT JOIN users u ON al.actor_id = u.id
          ORDER BY al.created_at DESC
          LIMIT $1 OFFSET $2`,
-        [Math.min(limit, 500), offset]
+        [Math.min(limit, 500), offset],
       );
       return result.rows;
     },
     loginHistory: async (
       _: any,
       { userId, limit = 100 }: { userId?: string; limit?: number },
-      context: any
+      context: any,
     ) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
@@ -324,7 +337,7 @@ export const resolvers = {
            WHERE lh.user_id = $1
            ORDER BY lh.created_at DESC
            LIMIT $2`,
-          [userId, cap]
+          [userId, cap],
         );
         return result.rows;
       }
@@ -335,7 +348,7 @@ export const resolvers = {
          LEFT JOIN users u ON lh.user_id = u.id
          ORDER BY lh.created_at DESC
          LIMIT $1`,
-        [cap]
+        [cap],
       );
       return result.rows;
     },
@@ -347,7 +360,13 @@ export const resolvers = {
       }
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
       if (result.rows.length === 0) {
-        return { enabled: false, frequency: 'daily', dailyTime: '03:00', collectionName: null, lastRunAt: null };
+        return {
+          enabled: false,
+          frequency: 'daily',
+          dailyTime: '03:00',
+          collectionName: null,
+          lastRunAt: null,
+        };
       }
       const row = result.rows[0];
       return {
@@ -355,7 +374,11 @@ export const resolvers = {
         frequency: row.frequency,
         dailyTime: row.daily_time,
         collectionName: row.collection_name ?? null,
-        lastRunAt: row.last_run_at ? (row.last_run_at instanceof Date ? row.last_run_at.toISOString() : new Date(row.last_run_at).toISOString()) : null,
+        lastRunAt: row.last_run_at
+          ? row.last_run_at instanceof Date
+            ? row.last_run_at.toISOString()
+            : new Date(row.last_run_at).toISOString()
+          : null,
       };
     },
     thisOrThat: async (_: any, { excludeIds }: { excludeIds?: string[] }, context: any) => {
@@ -366,7 +389,7 @@ export const resolvers = {
       }
 
       const userId = context.user.userId;
-      const excludeIntIds = (excludeIds ?? []).map(Number).filter(n => !isNaN(n));
+      const excludeIntIds = (excludeIds ?? []).map(Number).filter((n) => !isNaN(n));
 
       // Fetch candidates, excluding recently seen
       let candidatesResult = await pool.query(
@@ -377,7 +400,7 @@ export const resolvers = {
          LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
          WHERE m.watched_at IS NULL
            AND m.id != ALL($2::int[])`,
-        [userId, excludeIntIds]
+        [userId, excludeIntIds],
       );
 
       // If exclusion leaves < 2 candidates, retry without exclusion
@@ -389,7 +412,7 @@ export const resolvers = {
            FROM movies m
            LEFT JOIN user_movie_elo ume ON ume.movie_id = m.id AND ume.user_id = $1
            WHERE m.watched_at IS NULL`,
-          [userId]
+          [userId],
         );
       }
 
@@ -411,8 +434,24 @@ export const resolvers = {
 
       // Enrich both movies with TMDB data
       const [enrichA, enrichB] = await Promise.all([
-        first.tmdb_id ? enrichWithTmdb(first.tmdb_id) : Promise.resolve({ poster_url: null, release_year: null, director: null, cast: [], tags: [] }),
-        second.tmdb_id ? enrichWithTmdb(second.tmdb_id) : Promise.resolve({ poster_url: null, release_year: null, director: null, cast: [], tags: [] }),
+        first.tmdb_id
+          ? enrichWithTmdb(first.tmdb_id)
+          : Promise.resolve({
+              poster_url: null,
+              release_year: null,
+              director: null,
+              cast: [],
+              tags: [],
+            }),
+        second.tmdb_id
+          ? enrichWithTmdb(second.tmdb_id)
+          : Promise.resolve({
+              poster_url: null,
+              release_year: null,
+              director: null,
+              cast: [],
+              tags: [],
+            }),
       ]);
 
       return {
@@ -447,7 +486,7 @@ export const resolvers = {
          LEFT JOIN users u ON m.requested_by = u.id
          WHERE ume.user_id = $1 AND m.watched_at IS NULL
          ORDER BY ume.elo_rating DESC`,
-        [context.user.userId]
+        [context.user.userId],
       );
 
       return result.rows.map((r: any) => ({
@@ -468,7 +507,7 @@ export const resolvers = {
          WHERE is_active = true AND id <> $1
            AND (username ILIKE $2 OR display_name ILIKE $2)
          ORDER BY username ASC LIMIT 10`,
-        [context.user.userId, `%${escapedQuery}%`]
+        [context.user.userId, `%${escapedQuery}%`],
       );
       return result.rows;
     },
@@ -485,7 +524,7 @@ export const resolvers = {
          JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
          WHERE uc.status = 'accepted' AND (uc.requester_id = $1 OR uc.addressee_id = $1)
          ORDER BY uc.updated_at DESC`,
-        [context.user.userId]
+        [context.user.userId],
       );
       return result.rows.map((r: any) => ({
         id: r.id,
@@ -508,7 +547,7 @@ export const resolvers = {
          JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
          WHERE uc.status = 'pending' AND (uc.requester_id = $1 OR uc.addressee_id = $1)
          ORDER BY uc.created_at DESC`,
-        [context.user.userId]
+        [context.user.userId],
       );
       return result.rows.map((r: any) => ({
         id: r.id,
@@ -532,10 +571,12 @@ export const resolvers = {
          JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
          WHERE uc.id = $2 AND uc.status = 'accepted'
            AND (uc.requester_id = $1 OR uc.addressee_id = $1)`,
-        [userId, connectionId]
+        [userId, connectionId],
       );
       if (conn.rows.length === 0) {
-        throw new GraphQLError('Connection not found or not accepted', { extensions: { code: 'NOT_FOUND' } });
+        throw new GraphQLError('Connection not found or not accepted', {
+          extensions: { code: 'NOT_FOUND' },
+        });
       }
 
       const otherUserId = conn.rows[0].other_user_id;
@@ -560,7 +601,7 @@ export const resolvers = {
          WHERE m.watched_at IS NULL
            AND (ume_a.elo_rating IS NOT NULL OR ume_b.elo_rating IS NOT NULL)
          ORDER BY both_rated DESC, combined_elo DESC`,
-        [userId, otherUserId]
+        [userId, otherUserId],
       );
 
       const connection = {
@@ -584,7 +625,11 @@ export const resolvers = {
     },
   },
   Mutation: {
-    addMovie: async (_: any, { title, tmdb_id }: { title: string; tmdb_id?: number }, context: any) => {
+    addMovie: async (
+      _: any,
+      { title, tmdb_id }: { title: string; tmdb_id?: number },
+      context: any,
+    ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -598,12 +643,11 @@ export const resolvers = {
       }
       const insertResult = await pool.query(
         'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3) RETURNING *',
-        [trimmedTitle, context.user.userId, tmdb_id ?? null]
+        [trimmedTitle, context.user.userId, tmdb_id ?? null],
       );
-      const userRow = await pool.query(
-        'SELECT username, display_name FROM users WHERE id = $1',
-        [context.user.userId]
-      );
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        context.user.userId,
+      ]);
       const requesterName =
         userRow.rows[0]?.display_name || userRow.rows[0]?.username || context.user.username;
       await logAudit(
@@ -612,7 +656,7 @@ export const resolvers = {
         'movie',
         String(insertResult.rows[0].id),
         { title, requester: requesterName },
-        context.ipAddress
+        context.ipAddress,
       );
       return {
         ...insertResult.rows[0],
@@ -620,7 +664,11 @@ export const resolvers = {
         user_display_name: userRow.rows[0]?.display_name,
       };
     },
-    matchMovie: async (_: any, { id, tmdb_id, title }: { id: string; tmdb_id: number; title: string }, context: any) => {
+    matchMovie: async (
+      _: any,
+      { id, tmdb_id, title }: { id: string; tmdb_id: number; title: string },
+      context: any,
+    ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -631,7 +679,7 @@ export const resolvers = {
          FROM movies m
          LEFT JOIN users u ON m.requested_by = u.id
          WHERE m.id = $1`,
-        [id]
+        [id],
       );
       const movie = movieResult.rows[0];
       if (!movie) {
@@ -647,7 +695,7 @@ export const resolvers = {
       const result = await pool.query(
         `UPDATE movies SET tmdb_id = $1, title = $2 WHERE id = $3
          RETURNING *`,
-        [tmdb_id, title, id]
+        [tmdb_id, title, id],
       );
       await logAudit(
         context.user.userId,
@@ -655,7 +703,7 @@ export const resolvers = {
         'movie',
         String(id),
         { original_title: movie.title, matched_title: title, tmdb_id },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
       return {
         ...result.rows[0],
@@ -683,7 +731,7 @@ export const resolvers = {
       const result = await pool.query(
         `UPDATE movies SET watched_at = NOW() WHERE id = $1
          RETURNING *`,
-        [id]
+        [id],
       );
       if (result.rows.length === 0) {
         throw new GraphQLError('Movie not found', {
@@ -691,17 +739,16 @@ export const resolvers = {
         });
       }
       const movie = result.rows[0];
-      const userRow = await pool.query(
-        'SELECT username, display_name FROM users WHERE id = $1',
-        [movie.requested_by]
-      );
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        movie.requested_by,
+      ]);
       await logAudit(
         context.user.userId,
         'MOVIE_WATCHED',
         'movie',
         String(id),
         { title: movie.title },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
       return {
         ...movie,
@@ -725,7 +772,7 @@ export const resolvers = {
           'movie',
           id,
           movie ? { title: movie.title } : null,
-          context.ipAddress ?? 'unknown'
+          context.ipAddress ?? 'unknown',
         );
       }
       return (result.rowCount ?? 0) > 0;
@@ -733,7 +780,7 @@ export const resolvers = {
     recordComparison: async (
       _: any,
       { winnerId, loserId }: { winnerId: string; loserId: string },
-      context: any
+      context: any,
     ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
@@ -743,7 +790,9 @@ export const resolvers = {
 
       const userId = context.user.userId;
       const { winnerElo, loserElo } = await applyComparison(
-        userId, Number(winnerId), Number(loserId)
+        userId,
+        Number(winnerId),
+        Number(loserId),
       );
 
       await logAudit(
@@ -752,16 +801,12 @@ export const resolvers = {
         'movie',
         String(winnerId),
         { winnerId, loserId, winnerElo, loserElo },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
 
       return { winnerId, loserId, winnerElo, loserElo };
     },
-    resetMovieComparisons: async (
-      _: any,
-      { movieId }: { movieId: string },
-      context: any
-    ) => {
+    resetMovieComparisons: async (_: any, { movieId }: { movieId: string }, context: any) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
@@ -782,14 +827,14 @@ export const resolvers = {
       // Delete comparisons involving this movie for this user
       await pool.query(
         'DELETE FROM movie_comparisons WHERE user_id = $1 AND (winner_id = $2 OR loser_id = $2)',
-        [userId, mid]
+        [userId, mid],
       );
 
       // Delete the user's Elo entry for this movie
-      await pool.query(
-        'DELETE FROM user_movie_elo WHERE user_id = $1 AND movie_id = $2',
-        [userId, mid]
-      );
+      await pool.query('DELETE FROM user_movie_elo WHERE user_id = $1 AND movie_id = $2', [
+        userId,
+        mid,
+      ]);
 
       // Recompute global elo_rank (becomes NULL if no other users have data)
       await updateGlobalEloRank(mid);
@@ -800,16 +845,12 @@ export const resolvers = {
         'movie',
         String(movieId),
         { title: movieResult.rows[0].title },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
 
       return true;
     },
-    exportKometa: async (
-      _: any,
-      { collectionName }: { collectionName?: string },
-      context: any
-    ) => {
+    exportKometa: async (_: any, { collectionName }: { collectionName?: string }, context: any) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
           extensions: { code: 'FORBIDDEN' },
@@ -830,7 +871,7 @@ export const resolvers = {
       }
 
       const moviesResult = await pool.query(
-        'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC'
+        'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC',
       );
       const movies = moviesResult.rows;
       const matched = movies.filter((m: any) => m.tmdb_id != null);
@@ -843,7 +884,11 @@ export const resolvers = {
 
       // Sanitize collection name: strip control chars, YAML-special chars, and limit length
       const rawName = collectionName || 'MovieNight Watchlist';
-      const name = rawName.replace(/[:\n\r\t\\#%@`|>!&*?{}\[\]]/g, '').trim().slice(0, 100) || 'MovieNight Watchlist';
+      const name =
+        rawName
+          .replace(/[:\n\r\t\\#%@`|>!&*?{}\[\]]/g, '')
+          .trim()
+          .slice(0, 100) || 'MovieNight Watchlist';
       const today = new Date().toISOString().split('T')[0];
       const idLines = matched.map((m: any) => `      - ${m.tmdb_id}`).join('\n');
       const yaml =
@@ -887,20 +932,25 @@ export const resolvers = {
         'kometa',
         filePath,
         { count: matched.length, skipped: movies.length - matched.length, triggered, triggerError },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
 
       return { filePath, triggered, triggerError: triggerError ?? null };
     },
     updateKometaSchedule: async (
       _: any,
-      { enabled, frequency, dailyTime, collectionName }: {
+      {
+        enabled,
+        frequency,
+        dailyTime,
+        collectionName,
+      }: {
         enabled?: boolean;
         frequency?: string;
         dailyTime?: string;
         collectionName?: string;
       },
-      context: any
+      context: any,
     ) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
@@ -930,17 +980,26 @@ export const resolvers = {
       const values: any[] = [];
       let i = 1;
 
-      if (enabled !== undefined) { sets.push(`enabled = $${i++}`); values.push(enabled); }
-      if (frequency !== undefined) { sets.push(`frequency = $${i++}`); values.push(frequency); }
-      if (dailyTime !== undefined) { sets.push(`daily_time = $${i++}`); values.push(dailyTime); }
-      if (collectionName !== undefined) { sets.push(`collection_name = $${i++}`); values.push(collectionName || null); }
+      if (enabled !== undefined) {
+        sets.push(`enabled = $${i++}`);
+        values.push(enabled);
+      }
+      if (frequency !== undefined) {
+        sets.push(`frequency = $${i++}`);
+        values.push(frequency);
+      }
+      if (dailyTime !== undefined) {
+        sets.push(`daily_time = $${i++}`);
+        values.push(dailyTime);
+      }
+      if (collectionName !== undefined) {
+        sets.push(`collection_name = $${i++}`);
+        values.push(collectionName || null);
+      }
       sets.push(`updated_at = NOW()`);
       values.push(1);
 
-      await pool.query(
-        `UPDATE kometa_schedule SET ${sets.join(', ')} WHERE id = $${i}`,
-        values
-      );
+      await pool.query(`UPDATE kometa_schedule SET ${sets.join(', ')} WHERE id = $${i}`, values);
 
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
       const row = result.rows[0];
@@ -952,7 +1011,11 @@ export const resolvers = {
         frequency: row.frequency,
         dailyTime: row.daily_time,
         collectionName: row.collection_name ?? null,
-        lastRunAt: row.last_run_at ? (row.last_run_at instanceof Date ? row.last_run_at.toISOString() : new Date(row.last_run_at).toISOString()) : null,
+        lastRunAt: row.last_run_at
+          ? row.last_run_at instanceof Date
+            ? row.last_run_at.toISOString()
+            : new Date(row.last_run_at).toISOString()
+          : null,
       };
     },
     importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {
@@ -1009,7 +1072,7 @@ export const resolvers = {
             headers: {
               'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
               'Accept-Language': 'en-US,en;q=0.5',
             },
           });
@@ -1046,7 +1109,7 @@ export const resolvers = {
           });
           const res = await fetch(`https://api.themoviedb.org/3/search/movie?${params}`);
           if (!res.ok) return null;
-          const data = await res.json() as any;
+          const data = (await res.json()) as any;
           return data.results?.[0]?.id ?? null;
         } catch {
           return null;
@@ -1070,7 +1133,7 @@ export const resolvers = {
         try {
           await pool.query(
             'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
-            [title, context.user.userId, tmdbId]
+            [title, context.user.userId, tmdbId],
           );
           existingTitles.add(title.toLowerCase());
           imported++;
@@ -1085,28 +1148,34 @@ export const resolvers = {
         'movie',
         null,
         { url, imported, skipped, tmdb_matched, errors: errors.length },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
 
       return { imported, skipped, tmdb_matched, errors };
     },
-    requestPasswordReset: async (
-      _: any,
-      { email }: { email: string },
-      context: any
-    ) => {
-      const genericMessage = 'If an account exists with that email, a password reset link has been sent.';
+    requestPasswordReset: async (_: any, { email }: { email: string }, context: any) => {
+      const genericMessage =
+        'If an account exists with that email, a password reset link has been sent.';
 
       try {
         const normalizedEmail = email.trim().toLowerCase();
 
         // Check per-IP rate limit
-        if (!checkRateLimit(ipRateLimiter, context.ipAddress, IP_RATE_LIMIT_MAX, IP_RATE_LIMIT_WINDOW)) {
+        if (
+          !checkRateLimit(ipRateLimiter, context.ipAddress, IP_RATE_LIMIT_MAX, IP_RATE_LIMIT_WINDOW)
+        ) {
           return { success: true, message: genericMessage };
         }
 
         // Check per-email rate limit (prevents targeting one user from many IPs)
-        if (!checkRateLimit(emailRateLimiter, normalizedEmail, EMAIL_RATE_LIMIT_MAX, EMAIL_RATE_LIMIT_WINDOW)) {
+        if (
+          !checkRateLimit(
+            emailRateLimiter,
+            normalizedEmail,
+            EMAIL_RATE_LIMIT_MAX,
+            EMAIL_RATE_LIMIT_WINDOW,
+          )
+        ) {
           return { success: true, message: genericMessage };
         }
 
@@ -1117,12 +1186,19 @@ export const resolvers = {
 
         const result = await pool.query(
           'SELECT id, email, is_active FROM users WHERE LOWER(email) = LOWER($1)',
-          [normalizedEmail]
+          [normalizedEmail],
         );
         const user = result.rows[0];
 
         if (!user || !user.is_active) {
-          await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', null, { email: normalizedEmail }, context.ipAddress);
+          await logAudit(
+            null,
+            'PASSWORD_RESET_REQUEST',
+            'user',
+            null,
+            { email: normalizedEmail },
+            context.ipAddress,
+          );
           return { success: true, message: genericMessage };
         }
 
@@ -1135,7 +1211,7 @@ export const resolvers = {
 
         await pool.query(
           'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-          [user.id, tokenHash, expiresAt]
+          [user.id, tokenHash, expiresAt],
         );
 
         try {
@@ -1144,7 +1220,14 @@ export const resolvers = {
           console.error('Failed to send password reset email:', emailErr);
         }
 
-        await logAudit(null, 'PASSWORD_RESET_REQUEST', 'user', String(user.id), null, context.ipAddress);
+        await logAudit(
+          null,
+          'PASSWORD_RESET_REQUEST',
+          'user',
+          String(user.id),
+          null,
+          context.ipAddress,
+        );
       } catch (err) {
         console.error('Password reset request error:', err);
       }
@@ -1154,7 +1237,7 @@ export const resolvers = {
     resetPassword: async (
       _: any,
       { token, newPassword }: { token: string; newPassword: string },
-      context: any
+      context: any,
     ) => {
       if (!newPassword || newPassword.length < 6) {
         throw new GraphQLError('Password must be at least 6 characters', {
@@ -1171,13 +1254,20 @@ export const resolvers = {
          WHERE prt.token_hash = $1
            AND prt.expires_at > NOW()
            AND prt.used_at IS NULL`,
-        [tokenHash]
+        [tokenHash],
       );
 
       const resetRecord = result.rows[0];
 
       if (!resetRecord) {
-        await logAudit(null, 'PASSWORD_RESET_FAILURE', null, null, { reason: 'invalid_or_expired_token' }, context.ipAddress);
+        await logAudit(
+          null,
+          'PASSWORD_RESET_FAILURE',
+          null,
+          null,
+          { reason: 'invalid_or_expired_token' },
+          context.ipAddress,
+        );
         throw new GraphQLError('Invalid or expired reset token', {
           extensions: { code: 'BAD_USER_INPUT' },
         });
@@ -1190,14 +1280,19 @@ export const resolvers = {
       }
 
       const passwordHash = await hashPassword(newPassword);
-      await pool.query(
-        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-        [passwordHash, resetRecord.user_id]
-      );
+      await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [
+        passwordHash,
+        resetRecord.user_id,
+      ]);
 
       // Mark token as used and delete others
-      await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [resetRecord.id]);
-      await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND id != $2', [resetRecord.user_id, resetRecord.id]);
+      await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [
+        resetRecord.id,
+      ]);
+      await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND id != $2', [
+        resetRecord.user_id,
+        resetRecord.id,
+      ]);
 
       await logAudit(
         resetRecord.user_id,
@@ -1205,17 +1300,27 @@ export const resolvers = {
         'user',
         String(resetRecord.user_id),
         null,
-        context.ipAddress
+        context.ipAddress,
       );
 
-      return { success: true, message: 'Password has been reset successfully. You can now log in.' };
+      return {
+        success: true,
+        message: 'Password has been reset successfully. You can now log in.',
+      };
     },
     login: async (
       _: any,
       { username, password }: { username: string; password: string },
-      context: any
+      context: any,
     ) => {
-      if (!checkRateLimit(loginRateLimiter, context.ipAddress, LOGIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_WINDOW)) {
+      if (
+        !checkRateLimit(
+          loginRateLimiter,
+          context.ipAddress,
+          LOGIN_RATE_LIMIT_MAX,
+          LOGIN_RATE_LIMIT_WINDOW,
+        )
+      ) {
         await logLoginHistory(null, context.ipAddress, context.userAgent, false);
         throw new GraphQLError('Too many login attempts. Please try again later.', {
           extensions: { code: 'TOO_MANY_REQUESTS' },
@@ -1273,13 +1378,19 @@ export const resolvers = {
         });
       }
       if (!args.username || args.username.length > 100) {
-        throw new GraphQLError('Username must be between 1 and 100 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Username must be between 1 and 100 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       if (!args.email || args.email.length > 255) {
-        throw new GraphQLError('Email must be between 1 and 255 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Email must be between 1 and 255 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       if (!args.password || args.password.length < 6 || args.password.length > 128) {
-        throw new GraphQLError('Password must be between 6 and 128 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Password must be between 6 and 128 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       const passwordHash = await hashPassword(args.password);
       const isActive = args.is_active !== false;
@@ -1294,7 +1405,7 @@ export const resolvers = {
           args.display_name || null,
           args.is_admin || false,
           isActive,
-        ]
+        ],
       );
       await logAudit(
         context.user.userId,
@@ -1302,7 +1413,7 @@ export const resolvers = {
         'user',
         String(result.rows[0].id),
         { username: args.username, email: args.email, is_admin: args.is_admin || false },
-        context.ipAddress
+        context.ipAddress,
       );
       return result.rows[0];
     },
@@ -1355,7 +1466,7 @@ export const resolvers = {
 
       const result = await pool.query(
         `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING ${USER_COLS}`,
-        values
+        values,
       );
       await logAudit(
         context.user.userId,
@@ -1363,7 +1474,7 @@ export const resolvers = {
         'user',
         String(args.id),
         changes,
-        context.ipAddress
+        context.ipAddress,
       );
       return result.rows[0];
     },
@@ -1379,10 +1490,9 @@ export const resolvers = {
         });
       }
 
-      const targetResult = await pool.query(
-        'SELECT username, email FROM users WHERE id = $1',
-        [id]
-      );
+      const targetResult = await pool.query('SELECT username, email FROM users WHERE id = $1', [
+        id,
+      ]);
       const targetUser = targetResult.rows[0];
 
       const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
@@ -1393,7 +1503,7 @@ export const resolvers = {
           'user',
           id,
           { username: targetUser.username, email: targetUser.email },
-          context.ipAddress
+          context.ipAddress,
         );
       }
       return (result.rowCount ?? 0) > 0;
@@ -1452,7 +1562,7 @@ export const resolvers = {
       for (const movie of SEED_MOVIES) {
         await pool.query(
           'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
-          [movie.title, context.user.userId, movie.tmdb_id]
+          [movie.title, context.user.userId, movie.tmdb_id],
         );
       }
 
@@ -1462,13 +1572,17 @@ export const resolvers = {
         'movie',
         null,
         { count: SEED_MOVIES.length },
-        context.ipAddress ?? 'unknown'
+        context.ipAddress ?? 'unknown',
       );
 
       return SEED_MOVIES.length;
     },
 
-    sendConnectionRequest: async (_: any, { addresseeId }: { addresseeId: string }, context: any) => {
+    sendConnectionRequest: async (
+      _: any,
+      { addresseeId }: { addresseeId: string },
+      context: any,
+    ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
       }
@@ -1476,10 +1590,15 @@ export const resolvers = {
       const addrId = parseInt(addresseeId);
 
       if (requesterId === addrId) {
-        throw new GraphQLError('Cannot connect with yourself', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Cannot connect with yourself', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
 
-      const targetUser = await pool.query('SELECT id FROM users WHERE id = $1 AND is_active = true', [addrId]);
+      const targetUser = await pool.query(
+        'SELECT id FROM users WHERE id = $1 AND is_active = true',
+        [addrId],
+      );
       if (targetUser.rows.length === 0) {
         throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -1487,7 +1606,7 @@ export const resolvers = {
       // Check if reverse pending request exists — auto-accept
       const reverseRow = await pool.query(
         `SELECT id, status FROM user_connections WHERE requester_id = $1 AND addressee_id = $2`,
-        [addrId, requesterId]
+        [addrId, requesterId],
       );
       if (reverseRow.rows.length > 0) {
         const rev = reverseRow.rows[0];
@@ -1497,10 +1616,20 @@ export const resolvers = {
         if (rev.status === 'pending') {
           await pool.query(
             `UPDATE user_connections SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
-            [rev.id]
+            [rev.id],
           );
-          await logAudit(requesterId, 'CONNECTION_AUTO_ACCEPT', 'user_connection', String(rev.id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
-          const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+          await logAudit(
+            requesterId,
+            'CONNECTION_AUTO_ACCEPT',
+            'user_connection',
+            String(rev.id),
+            { addresseeId: addrId },
+            context.ipAddress ?? 'unknown',
+          );
+          const other = await pool.query(
+            'SELECT id, username, display_name FROM users WHERE id = $1',
+            [addrId],
+          );
           return {
             id: rev.id,
             user: other.rows[0],
@@ -1514,12 +1643,14 @@ export const resolvers = {
       // Check if forward request already exists
       const existingRow = await pool.query(
         `SELECT id, status FROM user_connections WHERE requester_id = $1 AND addressee_id = $2`,
-        [requesterId, addrId]
+        [requesterId, addrId],
       );
       if (existingRow.rows.length > 0) {
         const ex = existingRow.rows[0];
         if (ex.status === 'pending') {
-          throw new GraphQLError('Request already pending', { extensions: { code: 'BAD_USER_INPUT' } });
+          throw new GraphQLError('Request already pending', {
+            extensions: { code: 'BAD_USER_INPUT' },
+          });
         }
         if (ex.status === 'accepted') {
           throw new GraphQLError('Already connected', { extensions: { code: 'BAD_USER_INPUT' } });
@@ -1527,10 +1658,20 @@ export const resolvers = {
         // Previously rejected — re-send
         await pool.query(
           `UPDATE user_connections SET status = 'pending', updated_at = NOW() WHERE id = $1`,
-          [ex.id]
+          [ex.id],
         );
-        await logAudit(requesterId, 'CONNECTION_REQUEST', 'user_connection', String(ex.id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
-        const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+        await logAudit(
+          requesterId,
+          'CONNECTION_REQUEST',
+          'user_connection',
+          String(ex.id),
+          { addresseeId: addrId },
+          context.ipAddress ?? 'unknown',
+        );
+        const other = await pool.query(
+          'SELECT id, username, display_name FROM users WHERE id = $1',
+          [addrId],
+        );
         return {
           id: ex.id,
           user: other.rows[0],
@@ -1544,46 +1685,76 @@ export const resolvers = {
       const result = await pool.query(
         `INSERT INTO user_connections (requester_id, addressee_id, status)
          VALUES ($1, $2, 'pending') RETURNING id, created_at`,
-        [requesterId, addrId]
+        [requesterId, addrId],
       );
-      await logAudit(requesterId, 'CONNECTION_REQUEST', 'user_connection', String(result.rows[0].id), { addresseeId: addrId }, context.ipAddress ?? 'unknown');
-      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [addrId]);
+      await logAudit(
+        requesterId,
+        'CONNECTION_REQUEST',
+        'user_connection',
+        String(result.rows[0].id),
+        { addresseeId: addrId },
+        context.ipAddress ?? 'unknown',
+      );
+      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [
+        addrId,
+      ]);
       return {
         id: result.rows[0].id,
         user: other.rows[0],
         status: 'pending',
         direction: 'sent',
-        created_at: result.rows[0].created_at instanceof Date ? result.rows[0].created_at.toISOString() : result.rows[0].created_at,
+        created_at:
+          result.rows[0].created_at instanceof Date
+            ? result.rows[0].created_at.toISOString()
+            : result.rows[0].created_at,
       };
     },
 
-    respondToConnectionRequest: async (_: any, { connectionId, accept }: { connectionId: string; accept: boolean }, context: any) => {
+    respondToConnectionRequest: async (
+      _: any,
+      { connectionId, accept }: { connectionId: string; accept: boolean },
+      context: any,
+    ) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
       }
       const conn = await pool.query(
         `SELECT * FROM user_connections WHERE id = $1 AND addressee_id = $2 AND status = 'pending'`,
-        [connectionId, context.user.userId]
+        [connectionId, context.user.userId],
       );
       if (conn.rows.length === 0) {
-        throw new GraphQLError('Connection request not found', { extensions: { code: 'NOT_FOUND' } });
+        throw new GraphQLError('Connection request not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
       }
 
       const newStatus = accept ? 'accepted' : 'rejected';
       await pool.query(
         `UPDATE user_connections SET status = $1, updated_at = NOW() WHERE id = $2`,
-        [newStatus, connectionId]
+        [newStatus, connectionId],
       );
       const action = accept ? 'CONNECTION_ACCEPT' : 'CONNECTION_REJECT';
-      await logAudit(context.user.userId, action, 'user_connection', connectionId, { requesterId: conn.rows[0].requester_id }, context.ipAddress ?? 'unknown');
+      await logAudit(
+        context.user.userId,
+        action,
+        'user_connection',
+        connectionId,
+        { requesterId: conn.rows[0].requester_id },
+        context.ipAddress ?? 'unknown',
+      );
 
-      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [conn.rows[0].requester_id]);
+      const other = await pool.query('SELECT id, username, display_name FROM users WHERE id = $1', [
+        conn.rows[0].requester_id,
+      ]);
       return {
         id: connectionId,
         user: other.rows[0],
         status: newStatus,
         direction: 'received',
-        created_at: conn.rows[0].created_at instanceof Date ? conn.rows[0].created_at.toISOString() : conn.rows[0].created_at,
+        created_at:
+          conn.rows[0].created_at instanceof Date
+            ? conn.rows[0].created_at.toISOString()
+            : conn.rows[0].created_at,
       };
     },
 
@@ -1593,12 +1764,19 @@ export const resolvers = {
       }
       const result = await pool.query(
         `DELETE FROM user_connections WHERE id = $1 AND (requester_id = $2 OR addressee_id = $2) RETURNING id`,
-        [connectionId, context.user.userId]
+        [connectionId, context.user.userId],
       );
       if (result.rows.length === 0) {
         throw new GraphQLError('Connection not found', { extensions: { code: 'NOT_FOUND' } });
       }
-      await logAudit(context.user.userId, 'CONNECTION_REMOVE', 'user_connection', connectionId, null, context.ipAddress ?? 'unknown');
+      await logAudit(
+        context.user.userId,
+        'CONNECTION_REMOVE',
+        'user_connection',
+        connectionId,
+        null,
+        context.ipAddress ?? 'unknown',
+      );
       return true;
     },
   },
@@ -1619,9 +1797,7 @@ export const resolvers = {
     watched_at: (parent: any) => {
       if (!parent.watched_at) return null;
       const date =
-        parent.watched_at instanceof Date
-          ? parent.watched_at
-          : new Date(parent.watched_at);
+        parent.watched_at instanceof Date ? parent.watched_at : new Date(parent.watched_at);
       return date.toISOString();
     },
     elo_rank: (parent: any) => {
@@ -1631,16 +1807,12 @@ export const resolvers = {
   User: {
     created_at: (parent: any) => {
       const date =
-        parent.created_at instanceof Date
-          ? parent.created_at
-          : new Date(Number(parent.created_at));
+        parent.created_at instanceof Date ? parent.created_at : new Date(Number(parent.created_at));
       return date.toISOString();
     },
     updated_at: (parent: any) => {
       const date =
-        parent.updated_at instanceof Date
-          ? parent.updated_at
-          : new Date(Number(parent.updated_at));
+        parent.updated_at instanceof Date ? parent.updated_at : new Date(Number(parent.updated_at));
       return date.toISOString();
     },
     last_login_at: (parent: any) => {
@@ -1655,9 +1827,7 @@ export const resolvers = {
   AuditLog: {
     created_at: (parent: any) => {
       const date =
-        parent.created_at instanceof Date
-          ? parent.created_at
-          : new Date(Number(parent.created_at));
+        parent.created_at instanceof Date ? parent.created_at : new Date(Number(parent.created_at));
       return date.toISOString();
     },
     metadata: (parent: any) => {
@@ -1670,9 +1840,7 @@ export const resolvers = {
   LoginHistory: {
     created_at: (parent: any) => {
       const date =
-        parent.created_at instanceof Date
-          ? parent.created_at
-          : new Date(Number(parent.created_at));
+        parent.created_at instanceof Date ? parent.created_at : new Date(Number(parent.created_at));
       return date.toISOString();
     },
   },

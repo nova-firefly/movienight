@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-  workflow_dispatch:  # Allow manual triggers from GitHub UI
+  workflow_dispatch: # Allow manual triggers from GitHub UI
 
 env:
   REGISTRY: ghcr.io

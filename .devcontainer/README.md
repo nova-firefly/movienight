@@ -19,11 +19,13 @@ This directory contains the development container configuration for the MovieNig
 ## What's Included
 
 ### Base Environment
+
 - Node.js 20 (LTS)
 - Git
 - GitHub CLI
 
 ### VS Code Extensions
+
 - ESLint
 - Prettier
 - ES7+ React/Redux/React-Native snippets
@@ -32,6 +34,7 @@ This directory contains the development container configuration for the MovieNig
 - Tailwind CSS IntelliSense
 
 ### Port Forwarding
+
 - Port 3000 is automatically forwarded for the React development server
 
 ## Running the Application
@@ -58,19 +61,23 @@ The Firebase configuration is already set up in [src/db/firebase.js](../src/db/f
 ## Troubleshooting
 
 ### Container won't build
+
 - Ensure Docker Desktop is running
 - Try rebuilding the container: Command Palette > `Dev Containers: Rebuild Container`
 
 ### Port 3000 already in use
+
 - Stop any other processes using port 3000
 - Or change the port in [package.json](../package.json) scripts
 
 ### Permission issues
+
 - The container runs as the `node` user (non-root) for security
 - If you encounter permission issues, they may need to be addressed in the Dockerfile
 
 ## Customization
 
 You can customize the devcontainer by editing:
+
 - [devcontainer.json](devcontainer.json) - VS Code settings, extensions, and features
 - [Dockerfile](Dockerfile) - Base image and system dependencies

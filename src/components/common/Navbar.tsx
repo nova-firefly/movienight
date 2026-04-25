@@ -31,7 +31,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         variant={currentView === 'movies' ? 'soft' : 'plain'}
         color="neutral"
         size="sm"
-        onClick={() => { onShowMovies(); setMobileOpen(false); }}
+        onClick={() => {
+          onShowMovies();
+          setMobileOpen(false);
+        }}
         sx={{
           fontWeight: 600,
           color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
@@ -45,7 +48,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           variant={currentView === 'this-or-that' ? 'soft' : 'plain'}
           color="neutral"
           size="sm"
-          onClick={() => { onShowThisOrThat(); setMobileOpen(false); }}
+          onClick={() => {
+            onShowThisOrThat();
+            setMobileOpen(false);
+          }}
           sx={{
             fontWeight: 600,
             color: currentView === 'this-or-that' ? 'primary.400' : 'text.secondary',
@@ -60,7 +66,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           variant={currentView === 'combined-list' ? 'soft' : 'plain'}
           color="neutral"
           size="sm"
-          onClick={() => { onShowCombinedList(); setMobileOpen(false); }}
+          onClick={() => {
+            onShowCombinedList();
+            setMobileOpen(false);
+          }}
           sx={{
             fontWeight: 600,
             color: currentView === 'combined-list' ? 'primary.400' : 'text.secondary',
@@ -75,7 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           variant={currentView === 'admin' ? 'soft' : 'plain'}
           color="neutral"
           size="sm"
-          onClick={() => { onShowAdmin(); setMobileOpen(false); }}
+          onClick={() => {
+            onShowAdmin();
+            setMobileOpen(false);
+          }}
           sx={{
             fontWeight: 600,
             color: currentView === 'admin' ? 'primary.400' : 'text.secondary',
@@ -120,14 +132,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               cursor: 'pointer',
               userSelect: 'none',
             }}
-            onClick={() => { onShowMovies(); setMobileOpen(false); }}
+            onClick={() => {
+              onShowMovies();
+              setMobileOpen(false);
+            }}
           >
             MovieNight
           </Typography>
           {/* Desktop nav links */}
-          <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
-            {navItems}
-          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>{navItems}</Box>
         </Box>
 
         {/* Right side */}
@@ -182,7 +195,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               variant="solid"
               color="primary"
               size="sm"
-              onClick={() => { onShowLogin(); setMobileOpen(false); }}
+              onClick={() => {
+                onShowLogin();
+                setMobileOpen(false);
+              }}
               sx={{ fontWeight: 700, color: '#0d0f1a' }}
             >
               Sign In
@@ -226,7 +242,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <img
                     src={getGravatarUrl(user.email, 32)}
                     alt={user.display_name || user.username}
-                    style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(245, 197, 24, 0.3)' }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      border: '2px solid rgba(245, 197, 24, 0.3)',
+                    }}
                   />
                 )}
                 <Box>

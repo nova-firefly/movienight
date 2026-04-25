@@ -36,10 +36,9 @@ async function startServer() {
         // Revalidate JWT claims against DB to catch demoted/deactivated users
         if (user) {
           try {
-            const dbUser = await pool.query(
-              'SELECT is_admin, is_active FROM users WHERE id = $1',
-              [user.userId]
-            );
+            const dbUser = await pool.query('SELECT is_admin, is_active FROM users WHERE id = $1', [
+              user.userId,
+            ]);
             if (dbUser.rows.length === 0 || !dbUser.rows[0].is_active) {
               user = null; // User deleted or deactivated
             } else {
@@ -51,26 +50,27 @@ async function startServer() {
         }
 
         const ipAddress =
-          (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-          req.ip ||
-          'unknown';
+          (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
         const userAgent = (req.headers['user-agent'] as string) || 'unknown';
         return { user, ipAddress, userAgent };
       },
-    })
+    }),
   );
 
   await initializeDatabase();
   await initScheduler();
 
   // Clean up expired password reset tokens every hour
-  setInterval(async () => {
-    try {
-      await pool.query('DELETE FROM password_reset_tokens WHERE expires_at < NOW()');
-    } catch (err) {
-      console.error('Failed to clean expired reset tokens:', err);
-    }
-  }, 60 * 60 * 1000).unref();
+  setInterval(
+    async () => {
+      try {
+        await pool.query('DELETE FROM password_reset_tokens WHERE expires_at < NOW()');
+      } catch (err) {
+        console.error('Failed to clean expired reset tokens:', err);
+      }
+    },
+    60 * 60 * 1000,
+  ).unref();
 
   app.listen(PORT, () => {
     console.log(`🚀 GraphQL server ready at http://localhost:${PORT}/graphql`);

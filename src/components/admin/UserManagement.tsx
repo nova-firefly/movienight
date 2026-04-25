@@ -51,12 +51,18 @@ export const UserManagement: React.FC = () => {
   const { data, loading, refetch } = useQuery(GET_USERS);
 
   const [createUser, { loading: creating }] = useMutation(CREATE_USER, {
-    onCompleted: () => { refetch(); handleClose(); },
+    onCompleted: () => {
+      refetch();
+      handleClose();
+    },
     onError: (err) => setError(err.message),
   });
 
   const [updateUser, { loading: updating }] = useMutation(UPDATE_USER, {
-    onCompleted: () => { refetch(); handleClose(); },
+    onCompleted: () => {
+      refetch();
+      handleClose();
+    },
     onError: (err) => setError(err.message),
   });
 
@@ -78,7 +84,14 @@ export const UserManagement: React.FC = () => {
       });
     } else {
       setEditingUser(null);
-      setFormData({ username: '', email: '', display_name: '', password: '', is_admin: false, is_active: true });
+      setFormData({
+        username: '',
+        email: '',
+        display_name: '',
+        password: '',
+        is_admin: false,
+        is_active: true,
+      });
     }
     setError('');
     setOpen(true);
@@ -87,7 +100,14 @@ export const UserManagement: React.FC = () => {
   const handleClose = () => {
     setOpen(false);
     setEditingUser(null);
-    setFormData({ username: '', email: '', display_name: '', password: '', is_admin: false, is_active: true });
+    setFormData({
+      username: '',
+      email: '',
+      display_name: '',
+      password: '',
+      is_admin: false,
+      is_active: true,
+    });
     setError('');
   };
 
@@ -106,8 +126,13 @@ export const UserManagement: React.FC = () => {
         if (formData.is_active !== editingUser.is_active) variables.is_active = formData.is_active;
         await updateUser({ variables });
       } else {
-        if (!formData.password) { setError('Password is required for new users'); return; }
-        await createUser({ variables: { ...formData, display_name: formData.display_name || null } });
+        if (!formData.password) {
+          setError('Password is required for new users');
+          return;
+        }
+        await createUser({
+          variables: { ...formData, display_name: formData.display_name || null },
+        });
       }
     } catch {
       // handled by onError
@@ -198,15 +223,21 @@ export const UserManagement: React.FC = () => {
                     {user.display_name ? (
                       <Typography level="body-sm">{user.display_name}</Typography>
                     ) : (
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>—</Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        —
+                      </Typography>
                     )}
                   </td>
                   <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{user.email}</Typography>
+                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                      {user.email}
+                    </Typography>
                   </td>
                   <td>
                     {user.is_admin && (
-                      <Chip size="sm" color="warning" variant="soft">Admin</Chip>
+                      <Chip size="sm" color="warning" variant="soft">
+                        Admin
+                      </Chip>
                     )}
                   </td>
                   <td>
@@ -216,9 +247,7 @@ export const UserManagement: React.FC = () => {
                   </td>
                   <td>
                     <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                      {user.last_login_at
-                        ? new Date(user.last_login_at).toLocaleDateString()
-                        : '—'}
+                      {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '—'}
                     </Typography>
                   </td>
                   <td>
@@ -228,7 +257,12 @@ export const UserManagement: React.FC = () => {
                   </td>
                   <td>
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', pr: 1 }}>
-                      <Button size="sm" variant="soft" color="neutral" onClick={() => handleOpen(user)}>
+                      <Button
+                        size="sm"
+                        variant="soft"
+                        color="neutral"
+                        onClick={() => handleOpen(user)}
+                      >
                         Edit
                       </Button>
                       <IconButton
@@ -302,7 +336,10 @@ export const UserManagement: React.FC = () => {
 
             <FormControl sx={{ mb: 2 }}>
               <FormLabel sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary' }}>
-                Password {editingUser && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave blank to keep)</span>}
+                Password{' '}
+                {editingUser && (
+                  <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave blank to keep)</span>
+                )}
               </FormLabel>
               <Input
                 type="password"

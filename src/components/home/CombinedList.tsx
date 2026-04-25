@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useLazyQuery, useMutation } from '@apollo/client';
-import {
-  Box, Typography, Button, Sheet, Chip, Input, CircularProgress, Alert,
-} from '@mui/joy';
+import { Box, Typography, Button, Sheet, Chip, Input, CircularProgress, Alert } from '@mui/joy';
 import {
   SEARCH_USERS,
   MY_CONNECTIONS,
@@ -68,13 +66,18 @@ const CombinedList: React.FC = () => {
   // Auto-clear alerts
   useEffect(() => {
     if (error || success) {
-      const timer = setTimeout(() => { setError(null); setSuccess(null); }, 4000);
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccess(null);
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [error, success]);
 
-  const incomingPending = pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
-  const outgoingPending = pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'sent') || [];
+  const incomingPending =
+    pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
+  const outgoingPending =
+    pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'sent') || [];
   const connections = connectionsData?.myConnections || [];
 
   return (
@@ -99,12 +102,25 @@ const CombinedList: React.FC = () => {
         </Box>
 
         {/* Alerts */}
-        {error && <Alert color="danger" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert color="success" sx={{ mb: 2 }}>{success}</Alert>}
+        {error && (
+          <Alert color="danger" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert color="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
 
         {/* Search */}
-        <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'var(--mn-border-vis)' }}>
-          <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>Find a friend</Typography>
+        <Sheet
+          variant="outlined"
+          sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'var(--mn-border-vis)' }}
+        >
+          <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>
+            Find a friend
+          </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Input
               placeholder="Search by username..."
@@ -121,14 +137,22 @@ const CombinedList: React.FC = () => {
                 <Box
                   key={u.id}
                   sx={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    p: 1, borderRadius: 'sm', bgcolor: 'background.level1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 'sm',
+                    bgcolor: 'background.level1',
                   }}
                 >
                   <Typography level="body-sm" sx={{ fontWeight: 600 }}>
                     {u.display_name || u.username}
                     {u.display_name && (
-                      <Typography component="span" level="body-xs" sx={{ color: 'text.tertiary', ml: 0.5 }}>
+                      <Typography
+                        component="span"
+                        level="body-xs"
+                        sx={{ color: 'text.tertiary', ml: 0.5 }}
+                      >
                         @{u.username}
                       </Typography>
                     )}
@@ -150,7 +174,10 @@ const CombinedList: React.FC = () => {
 
         {/* Pending incoming */}
         {incomingPending.length > 0 && (
-          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'warning.outlinedBorder' }}>
+          <Sheet
+            variant="outlined"
+            sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'warning.outlinedBorder' }}
+          >
             <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>
               Pending requests ({incomingPending.length})
             </Typography>
@@ -159,26 +186,40 @@ const CombinedList: React.FC = () => {
                 <Box
                   key={req.id}
                   sx={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    p: 1, borderRadius: 'sm', bgcolor: 'background.level1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 'sm',
+                    bgcolor: 'background.level1',
                   }}
                 >
                   <Typography level="body-sm" sx={{ fontWeight: 600 }}>
                     {req.user.display_name || req.user.username}
-                    <Typography component="span" level="body-xs" sx={{ color: 'text.tertiary', ml: 0.5 }}>
+                    <Typography
+                      component="span"
+                      level="body-xs"
+                      sx={{ color: 'text.tertiary', ml: 0.5 }}
+                    >
                       wants to connect
                     </Typography>
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Button
-                      size="sm" variant="soft" color="success"
+                      size="sm"
+                      variant="soft"
+                      color="success"
                       onClick={() => respond({ variables: { connectionId: req.id, accept: true } })}
                     >
                       Accept
                     </Button>
                     <Button
-                      size="sm" variant="plain" color="danger"
-                      onClick={() => respond({ variables: { connectionId: req.id, accept: false } })}
+                      size="sm"
+                      variant="plain"
+                      color="danger"
+                      onClick={() =>
+                        respond({ variables: { connectionId: req.id, accept: false } })
+                      }
                     >
                       Decline
                     </Button>
@@ -191,21 +232,32 @@ const CombinedList: React.FC = () => {
 
         {/* Outgoing pending */}
         {outgoingPending.length > 0 && (
-          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'var(--mn-border-vis)' }}>
-            <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>Sent requests</Typography>
+          <Sheet
+            variant="outlined"
+            sx={{ p: 2, borderRadius: 'md', mb: 3, borderColor: 'var(--mn-border-vis)' }}
+          >
+            <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>
+              Sent requests
+            </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {outgoingPending.map((req: any) => (
                 <Box
                   key={req.id}
                   sx={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    p: 1, borderRadius: 'sm', bgcolor: 'background.level1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 'sm',
+                    bgcolor: 'background.level1',
                   }}
                 >
                   <Typography level="body-sm" sx={{ fontWeight: 600 }}>
                     {req.user.display_name || req.user.username}
                   </Typography>
-                  <Chip size="sm" variant="soft" color="neutral">Pending</Chip>
+                  <Chip size="sm" variant="soft" color="neutral">
+                    Pending
+                  </Chip>
                 </Box>
               ))}
             </Box>
@@ -213,8 +265,13 @@ const CombinedList: React.FC = () => {
         )}
 
         {/* Active connections */}
-        <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'md', borderColor: 'var(--mn-border-vis)' }}>
-          <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>Your connections</Typography>
+        <Sheet
+          variant="outlined"
+          sx={{ p: 2, borderRadius: 'md', borderColor: 'var(--mn-border-vis)' }}
+        >
+          <Typography level="title-sm" sx={{ mb: 1.5, fontWeight: 700 }}>
+            Your connections
+          </Typography>
           {connections.length === 0 && (
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               No connections yet. Search for a friend above!
@@ -225,17 +282,27 @@ const CombinedList: React.FC = () => {
               <Box
                 key={conn.id}
                 sx={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  p: 1, borderRadius: 'sm', bgcolor: 'background.level1',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 'sm',
+                  bgcolor: 'background.level1',
                 }}
               >
                 <Typography level="body-sm" sx={{ fontWeight: 600 }}>
                   {conn.user.display_name || conn.user.username}
                 </Typography>
                 <Button
-                  size="sm" variant="plain" color="danger"
+                  size="sm"
+                  variant="plain"
+                  color="danger"
                   onClick={() => {
-                    if (window.confirm(`Remove connection with ${conn.user.display_name || conn.user.username}?`)) {
+                    if (
+                      window.confirm(
+                        `Remove connection with ${conn.user.display_name || conn.user.username}?`,
+                      )
+                    ) {
                       removeConnection({ variables: { connectionId: conn.id } });
                     }
                   }}

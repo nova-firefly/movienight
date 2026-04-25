@@ -34,7 +34,7 @@ exports.up = (pgm) => {
   pgm.addConstraint(
     'user_movie_rankings',
     'user_movie_rankings_pkey',
-    'PRIMARY KEY (user_id, movie_id)'
+    'PRIMARY KEY (user_id, movie_id)',
   );
   pgm.addIndex('user_movie_rankings', ['user_id', 'rank']);
 

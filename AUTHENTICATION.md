@@ -5,6 +5,7 @@ This document describes the authentication system implemented in MovieNight.
 ## Overview
 
 The MovieNight application now includes a complete authentication system with:
+
 - Password-based login using JWT (JSON Web Tokens)
 - Initial admin user with default credentials
 - User management for admin users (create, edit, delete users)
@@ -133,18 +134,21 @@ deleteUser(id: ID!): Boolean!  # Admin only
 Admin users can manage other users through the "Manage Users" interface:
 
 ### Create User
+
 - Click "Add User" button
 - Enter username, email, and password
 - Optionally check "Is Admin" to grant admin privileges
 - Click "Create"
 
 ### Edit User
+
 - Click "Edit" button next to a user
 - Update username, email, or admin status
 - Optionally enter a new password (leave blank to keep current password)
 - Click "Update"
 
 ### Delete User
+
 - Click "Delete" button next to a user
 - Confirm the deletion
 - Note: Users cannot delete their own account
@@ -161,12 +165,14 @@ Admin users can manage other users through the "Manage Users" interface:
 ## Testing
 
 ### Test Login
+
 1. Start the application: `docker-compose up`
 2. Navigate to `http://localhost:3000`
 3. Login with credentials: `admin` / `admin123`
 4. You should be redirected to the movie list
 
 ### Test User Management (Admin)
+
 1. Login as admin
 2. Click "Manage Users" in the navigation
 3. Create a new user
@@ -175,6 +181,7 @@ Admin users can manage other users through the "Manage Users" interface:
 6. Login as admin again and delete the test user
 
 ### Test Authorization
+
 1. Create a non-admin user
 2. Login as that user
 3. Verify that "Manage Users" is not visible
@@ -195,19 +202,23 @@ If you're upgrading an existing MovieNight installation:
 ## Troubleshooting
 
 ### "Invalid credentials" error
+
 - Verify you're using the correct username and password
 - Check if the admin user was created (check backend logs)
 - Ensure the database migration ran successfully
 
 ### Token expired
+
 - Tokens expire after 7 days
 - Simply login again to get a new token
 
 ### Can't access user management
+
 - Verify you're logged in as an admin user
 - Check the `is_admin` field in the database
 
 ### Backend errors on startup
+
 - Ensure all environment variables are set
 - Check database connectivity
 - Review backend logs for migration errors

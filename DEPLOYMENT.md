@@ -16,12 +16,14 @@ This document describes how to deploy the MovieNight React application to a remo
 The repository uses GitHub Actions for automated builds and deployments:
 
 ### Test Builds (`.github/workflows/test-build.yml`)
+
 - **Triggers:** Push to `dev` branch, pull requests to `dev`
 - **Actions:** Builds Docker image to verify it compiles successfully
 - **Output:** Build success/failure status in GitHub Actions
 - **No deployment:** Test builds do not push to registry or deploy
 
 ### Production Deployment (`.github/workflows/deploy.yml`)
+
 - **Triggers:** Push to `master` branch, manual workflow dispatch
 - **Actions:**
   1. Builds Docker image
@@ -31,6 +33,7 @@ The repository uses GitHub Actions for automated builds and deployments:
 - **Output:** Live application at `http://REMOTE_HOST:8080/movienight/`
 
 **Workflow:**
+
 ```
 Feature Branch → PR to dev → Test Build ✓ → Merge to dev → Test Build ✓
                                                     ↓
@@ -42,16 +45,19 @@ Feature Branch → PR to dev → Test Build ✓ → Merge to dev → Test Build 
 ### On Remote Docker Host
 
 1. **Docker installed and running**
+
    ```bash
    docker --version  # Should be v20.10 or higher
    ```
 
 2. **SSH server running**
+
    ```bash
    sudo systemctl status ssh  # Should be active
    ```
 
 3. **Deployment user with Docker permissions**
+
    ```bash
    sudo useradd -m -s /bin/bash deploy
    sudo usermod -aG docker deploy
@@ -78,6 +84,7 @@ ssh-keygen -t ed25519 -C "github-actions-movienight" -f ~/.ssh/movienight_deploy
 ```
 
 This creates two files:
+
 - `~/.ssh/movienight_deploy` (private key) - Keep this SECRET
 - `~/.ssh/movienight_deploy.pub` (public key) - This goes on the server
 
@@ -129,20 +136,22 @@ exit
 3. Click **New repository secret**
 4. Add the following secrets:
 
-| Secret Name | Value | Example |
-|-------------|-------|---------|
-| `REMOTE_HOST` | IP address or hostname of your Docker host | `192.168.1.100` or `docker.example.com` |
-| `REMOTE_USER` | SSH username (usually `deploy`) | `deploy` |
-| `SSH_PRIVATE_KEY` | Content of `~/.ssh/movienight_deploy` file | (entire file including headers) |
-| `REMOTE_PORT` | SSH port (optional, defaults to 22) | `22` or `2222` |
+| Secret Name       | Value                                      | Example                                 |
+| ----------------- | ------------------------------------------ | --------------------------------------- |
+| `REMOTE_HOST`     | IP address or hostname of your Docker host | `192.168.1.100` or `docker.example.com` |
+| `REMOTE_USER`     | SSH username (usually `deploy`)            | `deploy`                                |
+| `SSH_PRIVATE_KEY` | Content of `~/.ssh/movienight_deploy` file | (entire file including headers)         |
+| `REMOTE_PORT`     | SSH port (optional, defaults to 22)        | `22` or `2222`                          |
 
 **Important for SSH_PRIVATE_KEY:**
+
 - Copy the ENTIRE content of the private key file
 - Include the `-----BEGIN OPENSSH PRIVATE KEY-----` header
 - Include the `-----END OPENSSH PRIVATE KEY-----` footer
 - Paste exactly as-is into the secret value
 
 Example format:
+
 ```
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -262,6 +271,7 @@ git push origin master
 **Symptom:** Build job fails in GitHub Actions
 
 **Solutions:**
+
 1. Check that `package.json` and `package-lock.json` are committed
 2. Verify Node.js dependencies are compatible
 3. Check GitHub Actions logs for specific npm errors
@@ -271,6 +281,7 @@ git push origin master
 **Symptom:** "Permission denied" or "Connection refused"
 
 **Solutions:**
+
 1. Verify `REMOTE_HOST` secret is correct
 2. Test SSH connection manually: `ssh -i private_key deploy@host`
 3. Check SSH_PRIVATE_KEY format (must include headers)
@@ -282,6 +293,7 @@ git push origin master
 **Symptom:** Container exits immediately after starting
 
 **Solutions:**
+
 ```bash
 # SSH to remote host
 ssh deploy@remote-host
@@ -300,6 +312,7 @@ docker logs movienight
 **Symptom:** nginx returns 404 for all routes
 
 **Solutions:**
+
 1. Check nginx.conf is properly copied in Dockerfile
 2. Verify build output structure: `docker exec movienight ls -la /usr/share/nginx/html/`
 3. Check package.json `homepage` setting matches nginx config
@@ -309,6 +322,7 @@ docker logs movienight
 **Symptom:** "denied: permission_denied"
 
 **Solutions:**
+
 1. Check repository package settings (may need to make package public)
 2. Verify workflow has `packages: write` permission
 3. Ensure GITHUB_TOKEN is valid
@@ -466,6 +480,7 @@ docker rm movienight-test
 ## Support
 
 For issues or questions:
+
 1. Check workflow logs in GitHub Actions
 2. Check container logs on remote host
 3. Review this documentation

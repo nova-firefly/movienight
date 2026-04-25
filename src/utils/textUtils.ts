@@ -1,6 +1,6 @@
 export function columnNameToDisplayName(columnName: string) {
   return columnName
-    .split("_")
+    .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+    .join(' ');
 }

@@ -9,16 +9,10 @@ import { LetterboxdImport } from './LetterboxdImport';
 export const AdminPanel: React.FC = () => {
   return (
     <Box>
-      <Typography
-        level="h3"
-        sx={{ fontWeight: 800, mb: 3, letterSpacing: '-0.02em' }}
-      >
+      <Typography level="h3" sx={{ fontWeight: 800, mb: 3, letterSpacing: '-0.02em' }}>
         Admin
       </Typography>
-      <Tabs
-        defaultValue="users"
-        sx={{ bgcolor: 'transparent' }}
-      >
+      <Tabs defaultValue="users" sx={{ bgcolor: 'transparent' }}>
         <TabList
           sx={{
             bgcolor: 'background.surface',
