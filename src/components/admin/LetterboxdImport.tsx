@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { Box, Button, Input, Typography, Alert, CircularProgress, List, ListItem } from '@mui/joy';
-import { IMPORT_FROM_LETTERBOXD, GET_MOVIES } from '../../graphql/queries';
+import { IMPORT_FROM_LETTERBOXD, BACKFILL_TMDB_DATA, GET_MOVIES } from '../../graphql/queries';
 
 interface ImportResult {
   imported: number;
@@ -13,10 +13,14 @@ interface ImportResult {
 export const LetterboxdImport: React.FC = () => {
   const [url, setUrl] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [backfillResult, setBackfillResult] = useState<number | null>(null);
+  const [backfillError, setBackfillError] = useState<string | null>(null);
 
   const [importMovies, { loading }] = useMutation(IMPORT_FROM_LETTERBOXD, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
+
+  const [backfillTmdb, { loading: backfilling }] = useMutation(BACKFILL_TMDB_DATA);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);
@@ -102,6 +106,45 @@ export const LetterboxdImport: React.FC = () => {
           )}
         </Box>
       )}
+
+      {/* TMDB Backfill */}
+      <Box sx={{ mt: 5, pt: 4, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Typography level="title-md" fontWeight={700} sx={{ color: 'text.secondary', mb: 1 }}>
+          Backfill TMDB Data
+        </Typography>
+        <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
+          Fetch poster, director, cast, and genre data from TMDB for any movies that are missing it.
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            loading={backfilling}
+            onClick={async () => {
+              setBackfillResult(null);
+              setBackfillError(null);
+              try {
+                const { data } = await backfillTmdb();
+                setBackfillResult(data.backfillTmdbData);
+              } catch (err: any) {
+                setBackfillError(err.message ?? 'Unknown error');
+              }
+            }}
+          >
+            Backfill Now
+          </Button>
+          {backfillResult !== null && (
+            <Alert color={backfillResult > 0 ? 'success' : 'neutral'} variant="soft" size="sm">
+              {backfillResult > 0
+                ? `Fetched TMDB data for ${backfillResult} movie${backfillResult !== 1 ? 's' : ''}`
+                : 'All movies already have TMDB data'}
+            </Alert>
+          )}
+          {backfillError && (
+            <Alert color="danger" variant="soft" size="sm">
+              {backfillError}
+            </Alert>
+          )}
+        </Box>
+      </Box>
     </Box>
   );
 };
