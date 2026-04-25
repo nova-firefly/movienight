@@ -10,14 +10,14 @@ Two independent systems working together:
 
 ## UX Terminology Changes
 
-| Current | New | Where |
-|---------|-----|-------|
-| `✓` icon + "Mark as watched" title | `✓` icon + "Done" title | Movie row action button |
-| `"Mark [title] as watched? It will be removed from the watchlist."` | `"Mark [title] as done? It'll move to your watch history."` | Confirmation dialog |
-| (n/a) | "Seen it" toggle (eye icon) | Movie row — per-user, toggleable |
-| (n/a) | "History" link | Navbar (subtle, not prominent) |
-| (n/a) | "Watch again" button | History view — brings movie back to queue |
-| "I'm in" / "Pass" | No change | Keep as-is |
+| Current                                                             | New                                                         | Where                                     |
+| ------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------- |
+| `✓` icon + "Mark as watched" title                                  | `✓` icon + "Done" title                                     | Movie row action button                   |
+| `"Mark [title] as watched? It will be removed from the watchlist."` | `"Mark [title] as done? It'll move to your watch history."` | Confirmation dialog                       |
+| (n/a)                                                               | "Seen it" toggle (eye icon)                                 | Movie row — per-user, toggleable          |
+| (n/a)                                                               | "History" link                                              | Navbar (subtle, not prominent)            |
+| (n/a)                                                               | "Watch again" button                                        | History view — brings movie back to queue |
+| "I'm in" / "Pass"                                                   | No change                                                   | Keep as-is                                |
 
 ## Phase 1: Database Migration
 
@@ -66,28 +66,31 @@ type Tag {
 
 type MovieUserTag {
   tag: Tag!
-  user: ConnectionUser!   # reuse existing type (id, username, display_name)
+  user: ConnectionUser! # reuse existing type (id, username, display_name)
   value: String
   createdAt: String!
 }
 ```
 
 Add fields to `Movie` type:
+
 ```graphql
 type Movie {
   # ...existing fields...
-  myTags: [MovieUserTag!]!      # tags set by the current user on this movie
-  userTags: [MovieUserTag!]!    # all users' tags on this movie (visible to everyone)
+  myTags: [MovieUserTag!]! # tags set by the current user on this movie
+  userTags: [MovieUserTag!]! # all users' tags on this movie (visible to everyone)
 }
 ```
 
 Add queries:
+
 ```graphql
 tags: [Tag!]!                                        # list all tag definitions
 watchedMovies(limit: Int, offset: Int): [Movie!]!    # movies with watched_at IS NOT NULL
 ```
 
 Add mutations:
+
 ```graphql
 setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!
 removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!
@@ -134,6 +137,7 @@ export const UNWATCH_MOVIE = gql`...`;
 ```
 
 **Update existing queries** to include `myTags` and `userTags` on Movie:
+
 - `GET_MOVIES` — add `myTags { tag { slug label } } userTags { tag { slug label } user { id display_name username } }`
 
 ## Phase 5: Frontend — "Seen It" Toggle on Movie Rows
@@ -174,9 +178,11 @@ export const UNWATCH_MOVIE = gql`...`;
 - Minimal, not prominent — accessed via a subtle "History" link in the navbar
 
 **Navbar change** (`Navbar.tsx`):
+
 - Add "History" nav button (authenticated only), styled more subtle than other nav items (maybe `variant="plain"` with muted color)
 
 **App.tsx change**:
+
 - Add `'history'` to `ViewName` union
 - Add routing for history view
 - Pass `onShowHistory` callback to Navbar
@@ -192,6 +198,7 @@ Implementation: In the success message area, add a small button "I've seen it" t
 **New file**: `backend/src/__tests__/resolvers/tag-resolvers.test.ts`
 
 Test cases:
+
 - `setMovieTag`: happy path (boolean tag), tag with value, movie not found, tag not found, unauthenticated, upsert behavior, audit logging
 - `removeMovieTag`: happy path, not found (no-op returns false), unauthenticated
 - `unwatchMovie`: happy path (clears watched_at, re-ranks), movie not found, not authorized (not owner/admin), movie not watched (already active), unauthenticated, audit logging
@@ -206,19 +213,19 @@ Test cases:
 
 ## Files Modified (summary)
 
-| File | Change |
-|------|--------|
-| `backend/migrations/1746200000000_create-tags-system.js` | **NEW** — tags + movie_user_tags tables |
-| `backend/src/schema.ts` | Add Tag, MovieUserTag types; add fields, queries, mutations |
-| `backend/src/resolvers.ts` | Add tag/unwatch resolvers, Movie field resolvers |
-| `src/graphql/queries.ts` | Add tag/history queries+mutations, update GET_MOVIES |
-| `src/models/Movies.ts` | Add myTags/userTags to Movie type |
-| `src/components/home/Homepage.tsx` | "Seen it" toggle, "Done" wording, post-add "Seen it" option |
-| `src/components/home/WatchHistory.tsx` | **NEW** — watched history view |
-| `src/components/common/Navbar.tsx` | Add "History" link |
-| `src/App.tsx` | Add history view routing |
-| `backend/src/__tests__/resolvers/tag-resolvers.test.ts` | **NEW** — tag system tests |
-| `CLAUDE.md` | Update with new tables, actions, queries |
+| File                                                     | Change                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| `backend/migrations/1746200000000_create-tags-system.js` | **NEW** — tags + movie_user_tags tables                     |
+| `backend/src/schema.ts`                                  | Add Tag, MovieUserTag types; add fields, queries, mutations |
+| `backend/src/resolvers.ts`                               | Add tag/unwatch resolvers, Movie field resolvers            |
+| `src/graphql/queries.ts`                                 | Add tag/history queries+mutations, update GET_MOVIES        |
+| `src/models/Movies.ts`                                   | Add myTags/userTags to Movie type                           |
+| `src/components/home/Homepage.tsx`                       | "Seen it" toggle, "Done" wording, post-add "Seen it" option |
+| `src/components/home/WatchHistory.tsx`                   | **NEW** — watched history view                              |
+| `src/components/common/Navbar.tsx`                       | Add "History" link                                          |
+| `src/App.tsx`                                            | Add history view routing                                    |
+| `backend/src/__tests__/resolvers/tag-resolvers.test.ts`  | **NEW** — tag system tests                                  |
+| `CLAUDE.md`                                              | Update with new tables, actions, queries                    |
 
 ## Order of implementation
 
