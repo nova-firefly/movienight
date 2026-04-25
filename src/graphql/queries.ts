@@ -519,3 +519,9 @@ export const SOLO_MOVIES = gql`
     }
   }
 `;
+
+export const PASSED_MOVIE_IDS = gql`
+  query PassedMovieIds {
+    passedMovieIds
+  }
+`;

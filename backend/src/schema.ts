@@ -160,6 +160,7 @@ export const typeDefs = `#graphql
     combinedList(connectionId: ID!): CombinedListResult!
     newMoviesFromConnections: [PendingReviewMovie!]!
     soloMovies: [Movie!]!
+    passedMovieIds: [ID!]!
   }
 
   type ImportResult {

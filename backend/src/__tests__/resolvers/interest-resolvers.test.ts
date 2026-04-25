@@ -2,7 +2,7 @@ import { mockQuery, authContext, anonContext } from './__helpers';
 import { resolvers } from '../../resolvers';
 
 const { setMovieInterest } = resolvers.Mutation;
-const { newMoviesFromConnections, soloMovies } = resolvers.Query;
+const { newMoviesFromConnections, soloMovies, passedMovieIds } = resolvers.Query;
 
 beforeEach(() => {
   mockQuery.mockReset();
@@ -204,5 +204,27 @@ describe('Query.soloMovies', () => {
     expect(sql).toContain('my_connections');
     expect(sql).toContain('NOT EXISTS');
     expect(sql).toContain('interested = false');
+  });
+});
+
+// ── Query.passedMovieIds ─────────────────────────────────────────────────────
+
+describe('Query.passedMovieIds', () => {
+  it('returns IDs of movies the user passed on', async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ movie_id: 3 }, { movie_id: 7 }],
+    });
+    const result = await passedMovieIds(null, {}, authContext({ userId: 1 }));
+    expect(result).toEqual(['3', '7']);
+  });
+
+  it('returns empty array when no passes', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await passedMovieIds(null, {}, authContext());
+    expect(result).toEqual([]);
+  });
+
+  it('unauthenticated throws UNAUTHENTICATED', async () => {
+    await expect(passedMovieIds(null, {}, anonContext())).rejects.toThrow('Not authenticated');
   });
 });

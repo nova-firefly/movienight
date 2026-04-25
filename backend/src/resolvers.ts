@@ -657,6 +657,19 @@ export const resolvers = {
 
       return result.rows;
     },
+
+    passedMovieIds: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `SELECT mi.movie_id FROM movie_interest mi
+         JOIN movies m ON m.id = mi.movie_id AND m.watched_at IS NULL
+         WHERE mi.user_id = $1 AND mi.interested = false`,
+        [context.user.userId],
+      );
+      return result.rows.map((r: any) => String(r.movie_id));
+    },
   },
   Mutation: {
     addMovie: async (
