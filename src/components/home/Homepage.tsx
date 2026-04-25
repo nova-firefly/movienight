@@ -11,6 +11,9 @@ import {
   MY_CONNECTIONS,
   PENDING_CONNECTION_REQUESTS,
   COMBINED_LIST,
+  NEW_MOVIES_FROM_CONNECTIONS,
+  SET_MOVIE_INTEREST,
+  SOLO_MOVIES,
 } from '../../graphql/queries';
 import {
   Autocomplete,
@@ -184,10 +187,31 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     fetchPolicy: 'cache-and-network',
   });
 
+  // Movie interest data (only when authenticated)
+  const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
+    skip: !isAuthenticated,
+    pollInterval: 10000,
+  });
+  const { data: soloData } = useQuery(SOLO_MOVIES, {
+    skip: !isAuthenticated,
+    pollInterval: 15000,
+  });
+  const [setMovieInterest] = useMutation(SET_MOVIE_INTEREST, {
+    refetchQueries: [
+      { query: NEW_MOVIES_FROM_CONNECTIONS },
+      { query: SOLO_MOVIES },
+      ...(selectedConnectionId
+        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        : []),
+    ],
+  });
+
   const connections = connectionsData?.myConnections || [];
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
   const isCombinedView = selectedConnectionId !== null;
+  const pendingMovies = pendingMoviesData?.newMoviesFromConnections || [];
+  const soloMovies: Movie[] = soloData?.soloMovies ?? [];
 
   const debouncedTitle = useDebounce(title, 400);
 
@@ -389,6 +413,77 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               </Button>
             )}
           </Box>
+        )}
+
+        {/* New movies from connections — review banner */}
+        {isAuthenticated && !isCombinedView && pendingMovies.length > 0 && (
+          <Sheet
+            variant="outlined"
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 'md',
+              bgcolor: 'primary.softBg',
+              borderColor: 'primary.outlinedBorder',
+            }}
+          >
+            <Typography
+              level="title-sm"
+              sx={{ fontWeight: 700, mb: 1.5, color: 'primary.softColor' }}
+            >
+              New movies from your connections
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {pendingMovies.map((item: any) => (
+                <Box
+                  key={item.movie.id}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 'sm',
+                    bgcolor: 'background.level1',
+                  }}
+                >
+                  <Box>
+                    <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                      {item.movie.title}
+                    </Typography>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                      added by {item.addedBy.display_name || item.addedBy.username}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      color="success"
+                      onClick={() =>
+                        setMovieInterest({
+                          variables: { movieId: item.movie.id, interested: true },
+                        })
+                      }
+                    >
+                      I'm in
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() =>
+                        setMovieInterest({
+                          variables: { movieId: item.movie.id, interested: false },
+                        })
+                      }
+                    >
+                      Pass
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Sheet>
         )}
 
         {/* This or That indicator */}
@@ -784,6 +879,55 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               </table>
             </Box>
           </Sheet>
+        )}
+
+        {/* Solo Queue — movies all connections passed on */}
+        {!isCombinedView && isAuthenticated && soloMovies.length > 0 && (
+          <Box sx={{ mt: 4 }}>
+            <Typography
+              level="title-sm"
+              sx={{ fontWeight: 700, mb: 0.5, textAlign: 'center', color: 'text.secondary' }}
+            >
+              Solo Queue
+            </Typography>
+            <Typography level="body-xs" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 2 }}>
+              Your connections passed on these — watch them on your own!
+            </Typography>
+            <Sheet
+              variant="outlined"
+              sx={{
+                borderRadius: 'md',
+                overflow: 'clip',
+                borderColor: 'var(--mn-border-vis)',
+                opacity: 0.75,
+              }}
+            >
+              <Box sx={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    minWidth: 480,
+                    borderCollapse: 'collapse',
+                    tableLayout: 'auto',
+                  }}
+                >
+                  <tbody>
+                    {soloMovies.map((movie) => (
+                      <MovieRow
+                        key={movie.id}
+                        movie={movie}
+                        isAdmin={isAdmin}
+                        canMarkWatched={true}
+                        onMarkWatched={handleMarkWatched}
+                        onDelete={handleDelete}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Sheet>
+          </Box>
         )}
 
         {/* Seed button — admin only, test env only */}

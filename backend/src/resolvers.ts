@@ -566,8 +566,10 @@ export const resolvers = {
          LEFT JOIN users u ON m.requested_by = u.id
          LEFT JOIN user_movie_elo ume_a ON ume_a.movie_id = m.id AND ume_a.user_id = $1
          LEFT JOIN user_movie_elo ume_b ON ume_b.movie_id = m.id AND ume_b.user_id = $2
+         LEFT JOIN movie_interest mi_self ON mi_self.movie_id = m.id AND mi_self.user_id = $1
          WHERE m.watched_at IS NULL
            AND (ume_a.elo_rating IS NOT NULL OR ume_b.elo_rating IS NOT NULL)
+           AND (mi_self.interested IS NULL OR mi_self.interested = true)
          ORDER BY both_rated DESC, combined_elo DESC`,
         [userId, otherUserId],
       );
@@ -590,6 +592,70 @@ export const resolvers = {
           bothRated: r.both_rated,
         })),
       };
+    },
+
+    newMoviesFromConnections: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const result = await pool.query(
+        `SELECT DISTINCT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id,
+                m.watched_at, m.elo_rank,
+                u.id AS adder_id, u.username AS adder_username, u.display_name AS adder_display_name
+         FROM movies m
+         JOIN users u ON m.requested_by = u.id
+         JOIN user_connections uc
+           ON uc.status = 'accepted'
+           AND (
+             (uc.requester_id = $1 AND uc.addressee_id = m.requested_by)
+             OR (uc.addressee_id = $1 AND uc.requester_id = m.requested_by)
+           )
+         LEFT JOIN movie_interest mi ON mi.user_id = $1 AND mi.movie_id = m.id
+         WHERE m.watched_at IS NULL
+           AND m.requested_by <> $1
+           AND mi.user_id IS NULL
+         ORDER BY m.date_submitted DESC`,
+        [userId],
+      );
+
+      return result.rows.map((r: any) => ({
+        movie: r,
+        addedBy: { id: r.adder_id, username: r.adder_username, display_name: r.adder_display_name },
+      }));
+    },
+
+    soloMovies: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const result = await pool.query(
+        `WITH my_connections AS (
+           SELECT CASE WHEN requester_id = $1 THEN addressee_id ELSE requester_id END AS other_id
+           FROM user_connections
+           WHERE status = 'accepted'
+             AND (requester_id = $1 OR addressee_id = $1)
+         )
+         SELECT m.*
+         FROM movies m
+         WHERE m.requested_by = $1
+           AND m.watched_at IS NULL
+           AND (SELECT COUNT(*) FROM my_connections) > 0
+           AND NOT EXISTS (
+             SELECT 1 FROM my_connections mc
+             WHERE NOT EXISTS (
+               SELECT 1 FROM movie_interest mi
+               WHERE mi.movie_id = m.id AND mi.user_id = mc.other_id AND mi.interested = false
+             )
+           )
+         ORDER BY m.date_submitted DESC`,
+        [userId],
+      );
+
+      return result.rows;
     },
   },
   Mutation: {
@@ -1772,6 +1838,46 @@ export const resolvers = {
         context.ipAddress ?? 'unknown',
       );
       return true;
+    },
+
+    setMovieInterest: async (
+      _: any,
+      { movieId, interested }: { movieId: string; interested: boolean },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const movieCheck = await pool.query(
+        'SELECT id, title FROM movies WHERE id = $1 AND watched_at IS NULL',
+        [movieId],
+      );
+      if (movieCheck.rows.length === 0) {
+        throw new GraphQLError('Movie not found or already watched', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      await pool.query(
+        `INSERT INTO movie_interest (user_id, movie_id, interested, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id, movie_id)
+         DO UPDATE SET interested = $3, updated_at = NOW()`,
+        [userId, movieId, interested],
+      );
+
+      await logAudit(
+        userId,
+        'MOVIE_INTEREST_SET',
+        'movie',
+        String(movieId),
+        { interested, title: movieCheck.rows[0].title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return { movieId, interested };
     },
   },
   Movie: {

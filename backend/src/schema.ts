@@ -131,6 +131,16 @@ export const typeDefs = `#graphql
     rankings: [CombinedRanking!]!
   }
 
+  type PendingReviewMovie {
+    movie: Movie!
+    addedBy: ConnectionUser!
+  }
+
+  type SetInterestResult {
+    movieId: ID!
+    interested: Boolean!
+  }
+
   type Query {
     appInfo: AppInfo!
     movies: [Movie!]!
@@ -148,6 +158,8 @@ export const typeDefs = `#graphql
     myConnections: [UserConnection!]!
     pendingConnectionRequests: [UserConnection!]!
     combinedList(connectionId: ID!): CombinedListResult!
+    newMoviesFromConnections: [PendingReviewMovie!]!
+    soloMovies: [Movie!]!
   }
 
   type ImportResult {
@@ -189,5 +201,6 @@ export const typeDefs = `#graphql
     sendConnectionRequest(addresseeId: ID!): UserConnection!
     respondToConnectionRequest(connectionId: ID!, accept: Boolean!): UserConnection!
     removeConnection(connectionId: ID!): Boolean!
+    setMovieInterest(movieId: ID!, interested: Boolean!): SetInterestResult!
   }
 `;
