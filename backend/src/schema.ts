@@ -180,6 +180,7 @@ export const typeDefs = `#graphql
     exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
+    triggerBackup: String!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
