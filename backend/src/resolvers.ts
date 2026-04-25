@@ -120,32 +120,11 @@ setInterval(
   15 * 60 * 1000,
 ).unref();
 
-// ── TMDB enrichment cache ────────────────────────────────────────────────────
+// ── TMDB metadata: fetch from API and persist to DB ──────────────────────────
 
-interface TmdbCacheEntry {
-  data: TmdbEnrichment;
-  expiresAt: number;
-}
-
-interface TmdbEnrichment {
-  poster_url: string | null;
-  release_year: string | null;
-  director: string | null;
-  cast: string[];
-  tags: string[];
-}
-
-const tmdbCache = new Map<number, TmdbCacheEntry>();
-const TMDB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-async function enrichWithTmdb(tmdbId: number): Promise<TmdbEnrichment> {
-  const cached = tmdbCache.get(tmdbId);
-  if (cached && cached.expiresAt > Date.now()) return cached.data;
-
+async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<void> {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    return { poster_url: null, release_year: null, director: null, cast: [], tags: [] };
-  }
+  if (!apiKey) return;
 
   try {
     const [movieRes, creditsRes, keywordsRes] = await Promise.all([
@@ -162,22 +141,22 @@ async function enrichWithTmdb(tmdbId: number): Promise<TmdbEnrichment> {
 
     const genres: string[] = movie?.genres?.map((g: any) => g.name) ?? [];
     const keywordNames: string[] = keywords?.keywords?.map((k: any) => k.name) ?? [];
-    // Fill tags: genres first, then keywords, up to 5
     const tags = [...genres, ...keywordNames.filter((k) => !genres.includes(k))].slice(0, 5);
 
-    const data: TmdbEnrichment = {
-      poster_url: movie?.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null,
-      release_year: movie?.release_date ? movie.release_date.split('-')[0] : null,
-      director: credits?.crew?.find((c: any) => c.job === 'Director')?.name ?? null,
-      cast: (credits?.cast ?? []).slice(0, 3).map((c: any) => c.name),
-      tags,
-    };
+    const posterPath = movie?.poster_path ?? null;
+    const releaseYear = movie?.release_date ? movie.release_date.split('-')[0] : null;
+    const director = credits?.crew?.find((c: any) => c.job === 'Director')?.name ?? null;
+    const castList = (credits?.cast ?? []).slice(0, 3).map((c: any) => c.name);
 
-    tmdbCache.set(tmdbId, { data, expiresAt: Date.now() + TMDB_CACHE_TTL });
-    return data;
+    await pool.query(
+      `UPDATE movies
+       SET poster_path = $1, release_year = $2, director = $3,
+           cast_list = $4, genre_tags = $5, tmdb_fetched_at = NOW()
+       WHERE id = $6`,
+      [posterPath, releaseYear, director, castList, tags, movieId],
+    );
   } catch (err) {
-    console.error(`TMDB enrichment failed for ${tmdbId}:`, err);
-    return { poster_url: null, release_year: null, director: null, cast: [], tags: [] };
+    console.error('TMDB fetch+store failed for movie %d (tmdb %d):', movieId, tmdbId, err);
   }
 }
 
@@ -391,9 +370,10 @@ export const resolvers = {
       const userId = context.user.userId;
       const excludeIntIds = (excludeIds ?? []).map(Number).filter((n) => !isNaN(n));
 
-      // Fetch candidates, excluding recently seen
+      // Fetch candidates with cached TMDB metadata, excluding recently seen
       let candidatesResult = await pool.query(
         `SELECT m.id, m.title, m.tmdb_id,
+                m.poster_path, m.release_year, m.director, m.cast_list, m.genre_tags,
                 COALESCE(ume.comparison_count, 0) AS user_comparison_count,
                 COALESCE(ume.elo_rating, 1000) AS elo_rating
          FROM movies m
@@ -407,6 +387,7 @@ export const resolvers = {
       if (candidatesResult.rows.length < 2) {
         candidatesResult = await pool.query(
           `SELECT m.id, m.title, m.tmdb_id,
+                  m.poster_path, m.release_year, m.director, m.cast_list, m.genre_tags,
                   COALESCE(ume.comparison_count, 0) AS user_comparison_count,
                   COALESCE(ume.elo_rating, 1000) AS elo_rating
            FROM movies m
@@ -422,51 +403,38 @@ export const resolvers = {
         });
       }
 
-      const candidates: MovieCandidate[] = candidatesResult.rows.map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        tmdb_id: r.tmdb_id,
-        userComparisonCount: Number(r.user_comparison_count),
-        elo_rating: Number(r.elo_rating),
-      }));
+      // Build a lookup so we can retrieve DB rows after pair selection
+      const rowMap = new Map<number, any>();
+      const candidates: MovieCandidate[] = candidatesResult.rows.map((r: any) => {
+        rowMap.set(r.id, r);
+        return {
+          id: r.id,
+          title: r.title,
+          tmdb_id: r.tmdb_id,
+          userComparisonCount: Number(r.user_comparison_count),
+          elo_rating: Number(r.elo_rating),
+        };
+      });
 
       const [first, second] = selectPair(candidates);
 
-      // Enrich both movies with TMDB data
-      const [enrichA, enrichB] = await Promise.all([
-        first.tmdb_id
-          ? enrichWithTmdb(first.tmdb_id)
-          : Promise.resolve({
-              poster_url: null,
-              release_year: null,
-              director: null,
-              cast: [],
-              tags: [],
-            }),
-        second.tmdb_id
-          ? enrichWithTmdb(second.tmdb_id)
-          : Promise.resolve({
-              poster_url: null,
-              release_year: null,
-              director: null,
-              cast: [],
-              tags: [],
-            }),
-      ]);
+      const buildMovie = (candidate: MovieCandidate) => {
+        const row = rowMap.get(candidate.id)!;
+        return {
+          id: String(candidate.id),
+          title: candidate.title,
+          tmdb_id: candidate.tmdb_id,
+          poster_url: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
+          release_year: row.release_year ?? null,
+          director: row.director ?? null,
+          cast: row.cast_list ?? [],
+          tags: row.genre_tags ?? [],
+        };
+      };
 
       return {
-        movieA: {
-          id: String(first.id),
-          title: first.title,
-          tmdb_id: first.tmdb_id,
-          ...enrichA,
-        },
-        movieB: {
-          id: String(second.id),
-          title: second.title,
-          tmdb_id: second.tmdb_id,
-          ...enrichB,
-        },
+        movieA: buildMovie(first),
+        movieB: buildMovie(second),
       };
     },
     myRankings: async (_: any, __: any, context: any) => {
@@ -658,6 +626,11 @@ export const resolvers = {
         { title, requester: requesterName },
         context.ipAddress,
       );
+      // Fetch and store TMDB metadata in the background
+      const newMovieId = insertResult.rows[0].id;
+      if (tmdb_id) {
+        fetchAndStoreTmdbData(newMovieId, tmdb_id).catch(() => {});
+      }
       return {
         ...insertResult.rows[0],
         user_username: userRow.rows[0]?.username,
@@ -705,6 +678,8 @@ export const resolvers = {
         { original_title: movie.title, matched_title: title, tmdb_id },
         context.ipAddress ?? 'unknown',
       );
+      // Fetch and store TMDB metadata in the background
+      fetchAndStoreTmdbData(Number(id), tmdb_id).catch(() => {});
       return {
         ...result.rows[0],
         user_username: movie.user_username,
@@ -1558,12 +1533,14 @@ export const resolvers = {
       await pool.query('DELETE FROM user_movie_elo');
       await pool.query('DELETE FROM movies');
 
-      // Insert seed movies
+      // Insert seed movies and fetch TMDB metadata
       for (const movie of SEED_MOVIES) {
-        await pool.query(
-          'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3)',
+        const ins = await pool.query(
+          'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3) RETURNING id',
           [movie.title, context.user.userId, movie.tmdb_id],
         );
+        // Fire-and-forget TMDB fetch for each seeded movie
+        fetchAndStoreTmdbData(ins.rows[0].id, movie.tmdb_id).catch(() => {});
       }
 
       await logAudit(
@@ -1576,6 +1553,23 @@ export const resolvers = {
       );
 
       return SEED_MOVIES.length;
+    },
+    backfillTmdbData: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      // Find movies with tmdb_id but no cached metadata
+      const result = await pool.query(
+        `SELECT id, tmdb_id FROM movies WHERE tmdb_id IS NOT NULL AND tmdb_fetched_at IS NULL`,
+      );
+      let count = 0;
+      for (const row of result.rows) {
+        await fetchAndStoreTmdbData(row.id, row.tmdb_id);
+        count++;
+      }
+      return count;
     },
 
     sendConnectionRequest: async (

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import {
   THIS_OR_THAT,
@@ -18,10 +18,16 @@ const ThisOrThat: React.FC = () => {
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [fading, setFading] = useState(false);
 
-  const [fetchPair, { data: pairData, loading: pairLoading, error: pairError }] = useLazyQuery(
-    THIS_OR_THAT,
-    { fetchPolicy: 'network-only' },
-  );
+  // Current pair state (either from initial fetch or swapped from pre-fetch)
+  const [currentPair, setCurrentPair] = useState<any>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [pairError, setPairError] = useState<any>(null);
+
+  const [fetchPair] = useLazyQuery(THIS_OR_THAT, { fetchPolicy: 'network-only' });
+
+  // Pre-fetched next pair
+  const prefetchedRef = useRef<any>(null);
+  const prefetchingRef = useRef(false);
 
   const [recordComparison, { loading: recording }] = useMutation(RECORD_COMPARISON, {
     refetchQueries: [{ query: GET_MOVIES }],
@@ -37,9 +43,44 @@ const ThisOrThat: React.FC = () => {
     refetchQueries: [{ query: MY_RANKINGS }, { query: GET_MOVIES }],
   });
 
+  // Pre-fetch the next pair in the background
+  const prefetchNext = useCallback(
+    (excludeIds: string[] = []) => {
+      if (prefetchingRef.current) return;
+      prefetchingRef.current = true;
+      prefetchedRef.current = null;
+      fetchPair({ variables: { excludeIds } })
+        .then((result) => {
+          prefetchedRef.current = result.data?.thisOrThat ?? null;
+          prefetchingRef.current = false;
+        })
+        .catch(() => {
+          prefetchingRef.current = false;
+        });
+    },
+    [fetchPair],
+  );
+
+  // Load a pair (used for initial load and fallback)
   const loadPair = useCallback(
     (excludeIds: string[] = []) => {
-      fetchPair({ variables: { excludeIds } });
+      fetchPair({ variables: { excludeIds } })
+        .then((result) => {
+          if (result.data?.thisOrThat) {
+            setCurrentPair(result.data.thisOrThat);
+            setPairError(null);
+          }
+          if (result.error) {
+            setPairError(result.error);
+          }
+          setInitialLoading(false);
+          setFading(false);
+        })
+        .catch((err) => {
+          setPairError(err);
+          setInitialLoading(false);
+          setFading(false);
+        });
     },
     [fetchPair],
   );
@@ -49,11 +90,19 @@ const ThisOrThat: React.FC = () => {
     loadPair();
   }, [loadPair]);
 
-  const handlePick = async (winnerId: string) => {
-    const pair = pairData?.thisOrThat;
-    if (!pair || recording) return;
+  // Pre-fetch next pair once current pair is shown
+  useEffect(() => {
+    if (currentPair && !fading) {
+      const excludeIds = [currentPair.movieA.id, currentPair.movieB.id];
+      prefetchNext(excludeIds);
+    }
+  }, [currentPair, fading, prefetchNext]);
 
-    const loserId = pair.movieA.id === winnerId ? pair.movieB.id : pair.movieA.id;
+  const handlePick = async (winnerId: string) => {
+    if (!currentPair || recording) return;
+
+    const loserId =
+      currentPair.movieA.id === winnerId ? currentPair.movieB.id : currentPair.movieA.id;
 
     // Fade out
     setFading(true);
@@ -62,24 +111,23 @@ const ThisOrThat: React.FC = () => {
       await recordComparison({ variables: { winnerId, loserId } });
       setSessionCount((c) => c + 1);
 
-      // Track seen IDs for next pair exclusion
-      const newSeen = [...seenIds, pair.movieA.id, pair.movieB.id];
+      // Track seen IDs
+      const newSeen = [...seenIds, currentPair.movieA.id, currentPair.movieB.id];
       setSeenIds(newSeen);
 
-      // Load next pair
-      loadPair([pair.movieA.id, pair.movieB.id]);
+      // Use pre-fetched pair if available, otherwise fetch fresh
+      if (prefetchedRef.current) {
+        setCurrentPair(prefetchedRef.current);
+        prefetchedRef.current = null;
+        setFading(false);
+      } else {
+        loadPair([currentPair.movieA.id, currentPair.movieB.id]);
+      }
     } catch (err: any) {
       console.error('Failed to record comparison:', err);
       setFading(false);
     }
   };
-
-  // Clear fade when new pair arrives
-  useEffect(() => {
-    if (pairData?.thisOrThat) {
-      setFading(false);
-    }
-  }, [pairData]);
 
   const handleReset = async (movieId: string, title: string) => {
     if (!window.confirm(`Reset all your comparisons for "${title}"?`)) return;
@@ -91,11 +139,11 @@ const ThisOrThat: React.FC = () => {
   };
 
   const isNotEnoughMovies = pairError?.graphQLErrors?.some(
-    (e) => e.extensions?.code === 'BAD_USER_INPUT',
+    (e: any) => e.extensions?.code === 'BAD_USER_INPUT',
   );
 
-  const pair = pairData?.thisOrThat;
-  const showSkeleton = (pairLoading || fading) && !isNotEnoughMovies;
+  const pair = currentPair;
+  const showSkeleton = (initialLoading || (fading && !prefetchedRef.current)) && !isNotEnoughMovies;
 
   return (
     <Box

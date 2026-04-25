@@ -473,3 +473,9 @@ export const REMOVE_CONNECTION = gql`
     removeConnection(connectionId: $connectionId)
   }
 `;
+
+export const BACKFILL_TMDB_DATA = gql`
+  mutation BackfillTmdbData {
+    backfillTmdbData
+  }
+`;

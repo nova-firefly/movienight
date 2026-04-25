@@ -185,6 +185,7 @@ export const typeDefs = `#graphql
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     deleteUser(id: ID!): Boolean!
     seedMovies: Int!
+    backfillTmdbData: Int!
     sendConnectionRequest(addresseeId: ID!): UserConnection!
     respondToConnectionRequest(connectionId: ID!, accept: Boolean!): UserConnection!
     removeConnection(connectionId: ID!): Boolean!
