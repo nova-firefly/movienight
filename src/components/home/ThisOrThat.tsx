@@ -23,10 +23,7 @@ const ThisOrThat: React.FC = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [pairError, setPairError] = useState<any>(null);
 
-  const [fetchPair] = useLazyQuery(
-    THIS_OR_THAT,
-    { fetchPolicy: 'network-only' },
-  );
+  const [fetchPair] = useLazyQuery(THIS_OR_THAT, { fetchPolicy: 'network-only' });
 
   // Pre-fetched next pair
   const prefetchedRef = useRef<any>(null);
@@ -52,34 +49,38 @@ const ThisOrThat: React.FC = () => {
       if (prefetchingRef.current) return;
       prefetchingRef.current = true;
       prefetchedRef.current = null;
-      fetchPair({ variables: { excludeIds } }).then((result) => {
-        prefetchedRef.current = result.data?.thisOrThat ?? null;
-        prefetchingRef.current = false;
-      }).catch(() => {
-        prefetchingRef.current = false;
-      });
+      fetchPair({ variables: { excludeIds } })
+        .then((result) => {
+          prefetchedRef.current = result.data?.thisOrThat ?? null;
+          prefetchingRef.current = false;
+        })
+        .catch(() => {
+          prefetchingRef.current = false;
+        });
     },
-    [fetchPair]
+    [fetchPair],
   );
 
   // Load a pair (used for initial load and fallback)
   const loadPair = useCallback(
     (excludeIds: string[] = []) => {
-      fetchPair({ variables: { excludeIds } }).then((result) => {
-        if (result.data?.thisOrThat) {
-          setCurrentPair(result.data.thisOrThat);
-          setPairError(null);
-        }
-        if (result.error) {
-          setPairError(result.error);
-        }
-        setInitialLoading(false);
-        setFading(false);
-      }).catch((err) => {
-        setPairError(err);
-        setInitialLoading(false);
-        setFading(false);
-      });
+      fetchPair({ variables: { excludeIds } })
+        .then((result) => {
+          if (result.data?.thisOrThat) {
+            setCurrentPair(result.data.thisOrThat);
+            setPairError(null);
+          }
+          if (result.error) {
+            setPairError(result.error);
+          }
+          setInitialLoading(false);
+          setFading(false);
+        })
+        .catch((err) => {
+          setPairError(err);
+          setInitialLoading(false);
+          setFading(false);
+        });
     },
     [fetchPair],
   );
@@ -100,7 +101,8 @@ const ThisOrThat: React.FC = () => {
   const handlePick = async (winnerId: string) => {
     if (!currentPair || recording) return;
 
-    const loserId = currentPair.movieA.id === winnerId ? currentPair.movieB.id : currentPair.movieA.id;
+    const loserId =
+      currentPair.movieA.id === winnerId ? currentPair.movieB.id : currentPair.movieA.id;
 
     // Fade out
     setFading(true);

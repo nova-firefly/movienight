@@ -153,10 +153,10 @@ async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<v
        SET poster_path = $1, release_year = $2, director = $3,
            cast_list = $4, genre_tags = $5, tmdb_fetched_at = NOW()
        WHERE id = $6`,
-      [posterPath, releaseYear, director, castList, tags, movieId]
+      [posterPath, releaseYear, director, castList, tags, movieId],
     );
   } catch (err) {
-    console.error(`TMDB fetch+store failed for movie ${movieId} (tmdb ${tmdbId}):`, err);
+    console.error('TMDB fetch+store failed for movie %d (tmdb %d):', movieId, tmdbId, err);
   }
 }
 
@@ -424,9 +424,7 @@ export const resolvers = {
           id: String(candidate.id),
           title: candidate.title,
           tmdb_id: candidate.tmdb_id,
-          poster_url: row.poster_path
-            ? `https://image.tmdb.org/t/p/w342${row.poster_path}`
-            : null,
+          poster_url: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
           release_year: row.release_year ?? null,
           director: row.director ?? null,
           cast: row.cast_list ?? [],
@@ -1564,7 +1562,7 @@ export const resolvers = {
       }
       // Find movies with tmdb_id but no cached metadata
       const result = await pool.query(
-        `SELECT id, tmdb_id FROM movies WHERE tmdb_id IS NOT NULL AND tmdb_fetched_at IS NULL`
+        `SELECT id, tmdb_id FROM movies WHERE tmdb_id IS NOT NULL AND tmdb_fetched_at IS NULL`,
       );
       let count = 0;
       for (const row of result.rows) {
