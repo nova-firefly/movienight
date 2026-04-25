@@ -229,6 +229,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [lastAddedMovieId, setLastAddedMovieId] = useState<string | null>(null);
+  const [askSeenMovieId, setAskSeenMovieId] = useState<string | null>(null);
 
   // Connections data (only when authenticated)
   const { data: connectionsData } = useQuery(MY_CONNECTIONS, { skip: !isAuthenticated });
@@ -557,31 +558,68 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       added by {item.addedBy.display_name || item.addedBy.username}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <Button
-                      size="sm"
-                      variant="soft"
-                      color="success"
-                      onClick={() =>
-                        setMovieInterest({
-                          variables: { movieId: item.movie.id, interested: true },
-                        })
-                      }
-                    >
-                      I'm in
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="plain"
-                      color="neutral"
-                      onClick={() =>
-                        setMovieInterest({
-                          variables: { movieId: item.movie.id, interested: false },
-                        })
-                      }
-                    >
-                      Pass
-                    </Button>
+                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                    {askSeenMovieId === item.movie.id ? (
+                      <>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mr: 0.5 }}>
+                          Seen it?
+                        </Typography>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="warning"
+                          onClick={async () => {
+                            setAskSeenMovieId(null);
+                            await setMovieInterest({
+                              variables: { movieId: item.movie.id, interested: true },
+                            });
+                            try {
+                              await setMovieTag({
+                                variables: { movieId: item.movie.id, tagSlug: 'seen' },
+                              });
+                            } catch {}
+                          }}
+                        >
+                          Yes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="plain"
+                          color="neutral"
+                          onClick={() => {
+                            setAskSeenMovieId(null);
+                            setMovieInterest({
+                              variables: { movieId: item.movie.id, interested: true },
+                            });
+                          }}
+                        >
+                          No
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="success"
+                          onClick={() => setAskSeenMovieId(item.movie.id)}
+                        >
+                          I'm in
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="plain"
+                          color="neutral"
+                          onClick={() =>
+                            setMovieInterest({
+                              variables: { movieId: item.movie.id, interested: false },
+                            })
+                          }
+                        >
+                          Pass
+                        </Button>
+                      </>
+                    )}
                   </Box>
                 </Box>
               ))}
