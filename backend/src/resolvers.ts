@@ -884,7 +884,11 @@ export const resolvers = {
 
       // Sanitize collection name: strip control chars, YAML-special chars, and limit length
       const rawName = collectionName || 'MovieNight Watchlist';
-      const name = rawName.replace(/[:\n\r\t\\#%@`|>!&*?{}\[\]]/g, '').trim().slice(0, 100) || 'MovieNight Watchlist';
+      const name =
+        rawName
+          .replace(/[:\n\r\t\\#%@`|>!&*?{}\[\]]/g, '')
+          .trim()
+          .slice(0, 100) || 'MovieNight Watchlist';
       const today = new Date().toISOString().split('T')[0];
       const idLines = matched.map((m: any) => `      - ${m.tmdb_id}`).join('\n');
       const yaml =
@@ -1309,7 +1313,14 @@ export const resolvers = {
       { username, password }: { username: string; password: string },
       context: any,
     ) => {
-      if (!checkRateLimit(loginRateLimiter, context.ipAddress, LOGIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_WINDOW)) {
+      if (
+        !checkRateLimit(
+          loginRateLimiter,
+          context.ipAddress,
+          LOGIN_RATE_LIMIT_MAX,
+          LOGIN_RATE_LIMIT_WINDOW,
+        )
+      ) {
         await logLoginHistory(null, context.ipAddress, context.userAgent, false);
         throw new GraphQLError('Too many login attempts. Please try again later.', {
           extensions: { code: 'TOO_MANY_REQUESTS' },
@@ -1367,13 +1378,19 @@ export const resolvers = {
         });
       }
       if (!args.username || args.username.length > 100) {
-        throw new GraphQLError('Username must be between 1 and 100 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Username must be between 1 and 100 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       if (!args.email || args.email.length > 255) {
-        throw new GraphQLError('Email must be between 1 and 255 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Email must be between 1 and 255 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       if (!args.password || args.password.length < 6 || args.password.length > 128) {
-        throw new GraphQLError('Password must be between 6 and 128 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+        throw new GraphQLError('Password must be between 6 and 128 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
       }
       const passwordHash = await hashPassword(args.password);
       const isActive = args.is_active !== false;

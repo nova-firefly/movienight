@@ -36,10 +36,9 @@ async function startServer() {
         // Revalidate JWT claims against DB to catch demoted/deactivated users
         if (user) {
           try {
-            const dbUser = await pool.query(
-              'SELECT is_admin, is_active FROM users WHERE id = $1',
-              [user.userId]
-            );
+            const dbUser = await pool.query('SELECT is_admin, is_active FROM users WHERE id = $1', [
+              user.userId,
+            ]);
             if (dbUser.rows.length === 0 || !dbUser.rows[0].is_active) {
               user = null; // User deleted or deactivated
             } else {
