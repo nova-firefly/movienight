@@ -11,6 +11,10 @@ import {
   MY_CONNECTIONS,
   PENDING_CONNECTION_REQUESTS,
   COMBINED_LIST,
+  NEW_MOVIES_FROM_CONNECTIONS,
+  SET_MOVIE_INTEREST,
+  SOLO_MOVIES,
+  PASSED_MOVIE_IDS,
 } from '../../graphql/queries';
 import {
   Autocomplete,
@@ -184,10 +188,38 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     fetchPolicy: 'cache-and-network',
   });
 
+  // Movie interest data (only when authenticated)
+  const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
+    skip: !isAuthenticated,
+    pollInterval: 10000,
+  });
+  const { data: soloData } = useQuery(SOLO_MOVIES, {
+    skip: !isAuthenticated,
+    pollInterval: 15000,
+  });
+  const { data: passedData } = useQuery(PASSED_MOVIE_IDS, {
+    skip: !isAuthenticated,
+    pollInterval: 10000,
+  });
+  const [setMovieInterest] = useMutation(SET_MOVIE_INTEREST, {
+    refetchQueries: [
+      { query: NEW_MOVIES_FROM_CONNECTIONS },
+      { query: SOLO_MOVIES },
+      { query: PASSED_MOVIE_IDS },
+      ...(selectedConnectionId && selectedConnectionId !== 'solo'
+        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        : []),
+    ],
+  });
+
   const connections = connectionsData?.myConnections || [];
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
-  const isCombinedView = selectedConnectionId !== null;
+  const isSoloView = selectedConnectionId === 'solo';
+  const isCombinedView = selectedConnectionId !== null && !isSoloView;
+  const pendingMovies = pendingMoviesData?.newMoviesFromConnections || [];
+  const soloMovies: Movie[] = soloData?.soloMovies ?? [];
+  const passedMovieIds: Set<string> = new Set(passedData?.passedMovieIds ?? []);
 
   const debouncedTitle = useDebounce(title, 400);
 
@@ -223,10 +255,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const { data: appInfoData } = useQuery(GET_APP_INFO, { fetchPolicy: 'cache-first' });
   const isProd = appInfoData?.appInfo?.isProduction ?? true;
 
-  const movies: Movie[] = data?.movies ?? [];
+  const allMovies: Movie[] = data?.movies ?? [];
+  const movies = allMovies.filter((m) => !passedMovieIds.has(String(m.id)));
 
   // Check if the current user has any personal Elo data
-  const hasEloData = isAuthenticated && movies.some((m) => m.elo_rank != null);
+  const hasEloData = isAuthenticated && allMovies.some((m) => m.elo_rank != null);
 
   const unmatchedMovies = movies.filter(
     (m) => !m.tmdb_id && (isAdmin || (user && String(m.requested_by) === String(user.id))),
@@ -313,7 +346,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         </Box>
 
         {/* View selector — segmented control */}
-        {isAuthenticated && connections.length > 0 && (
+        {isAuthenticated && (connections.length > 0 || soloMovies.length > 0) && (
           <Box
             sx={{
               display: 'flex',
@@ -324,13 +357,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             }}
           >
             <Button
-              variant={!isCombinedView ? 'soft' : 'plain'}
+              variant={!isCombinedView && !isSoloView ? 'soft' : 'plain'}
               color="neutral"
               size="sm"
               onClick={() => setSelectedConnectionId(null)}
               sx={{
                 fontWeight: 600,
-                color: !isCombinedView ? 'primary.400' : 'text.secondary',
+                color: !isCombinedView && !isSoloView ? 'primary.400' : 'text.secondary',
                 '&:hover': { color: 'primary.300' },
               }}
             >
@@ -352,6 +385,21 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 {conn.user.display_name || conn.user.username} + Me
               </Button>
             ))}
+            {soloMovies.length > 0 && (
+              <Button
+                variant={isSoloView ? 'soft' : 'plain'}
+                color="neutral"
+                size="sm"
+                onClick={() => setSelectedConnectionId('solo')}
+                sx={{
+                  fontWeight: 600,
+                  color: isSoloView ? 'primary.400' : 'text.secondary',
+                  '&:hover': { color: 'primary.300' },
+                }}
+              >
+                Solo Queue
+              </Button>
+            )}
           </Box>
         )}
 
@@ -391,8 +439,79 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           </Box>
         )}
 
+        {/* New movies from connections — review banner */}
+        {isAuthenticated && !isCombinedView && !isSoloView && pendingMovies.length > 0 && (
+          <Sheet
+            variant="outlined"
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 'md',
+              bgcolor: 'primary.softBg',
+              borderColor: 'primary.outlinedBorder',
+            }}
+          >
+            <Typography
+              level="title-sm"
+              sx={{ fontWeight: 700, mb: 1.5, color: 'primary.softColor' }}
+            >
+              New movies from your connections
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {pendingMovies.map((item: any) => (
+                <Box
+                  key={item.movie.id}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 'sm',
+                    bgcolor: 'background.level1',
+                  }}
+                >
+                  <Box>
+                    <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                      {item.movie.title}
+                    </Typography>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                      added by {item.addedBy.display_name || item.addedBy.username}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      color="success"
+                      onClick={() =>
+                        setMovieInterest({
+                          variables: { movieId: item.movie.id, interested: true },
+                        })
+                      }
+                    >
+                      I'm in
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() =>
+                        setMovieInterest({
+                          variables: { movieId: item.movie.id, interested: false },
+                        })
+                      }
+                    >
+                      Pass
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Sheet>
+        )}
+
         {/* This or That indicator */}
-        {!isCombinedView && movies.length >= 2 && (
+        {!isCombinedView && !isSoloView && movies.length >= 2 && (
           <Box
             sx={{
               mb: 3,
@@ -656,8 +775,52 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           </>
         )}
 
+        {/* Solo Queue view */}
+        {isSoloView && (
+          <>
+            <Box sx={{ textAlign: 'center', mb: 3 }}>
+              <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+                Your connections passed on these — watch them on your own!
+              </Typography>
+            </Box>
+            <Sheet
+              variant="outlined"
+              sx={{
+                borderRadius: 'md',
+                overflow: 'clip',
+                borderColor: 'var(--mn-border-vis)',
+              }}
+            >
+              <Box sx={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    minWidth: 540,
+                    borderCollapse: 'collapse',
+                    tableLayout: 'auto',
+                  }}
+                >
+                  <tbody>
+                    {soloMovies.map((movie) => (
+                      <MovieRow
+                        key={movie.id}
+                        movie={movie}
+                        isAdmin={isAdmin}
+                        canMarkWatched={true}
+                        onMarkWatched={handleMarkWatched}
+                        onDelete={handleDelete}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Sheet>
+          </>
+        )}
+
         {/* Movie table (personal view) */}
-        {!isCombinedView && (
+        {!isCombinedView && !isSoloView && (
           <Sheet
             variant="outlined"
             sx={{

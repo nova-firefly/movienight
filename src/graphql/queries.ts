@@ -479,3 +479,49 @@ export const BACKFILL_TMDB_DATA = gql`
     backfillTmdbData
   }
 `;
+
+export const NEW_MOVIES_FROM_CONNECTIONS = gql`
+  query NewMoviesFromConnections {
+    newMoviesFromConnections {
+      movie {
+        id
+        title
+        tmdb_id
+        date_submitted
+      }
+      addedBy {
+        id
+        username
+        display_name
+      }
+    }
+  }
+`;
+
+export const SET_MOVIE_INTEREST = gql`
+  mutation SetMovieInterest($movieId: ID!, $interested: Boolean!) {
+    setMovieInterest(movieId: $movieId, interested: $interested) {
+      movieId
+      interested
+    }
+  }
+`;
+
+export const SOLO_MOVIES = gql`
+  query SoloMovies {
+    soloMovies {
+      id
+      title
+      requester
+      requested_by
+      date_submitted
+      tmdb_id
+    }
+  }
+`;
+
+export const PASSED_MOVIE_IDS = gql`
+  query PassedMovieIds {
+    passedMovieIds
+  }
+`;
