@@ -15,6 +15,8 @@ import {
   SET_MOVIE_INTEREST,
   SOLO_MOVIES,
   PASSED_MOVIE_IDS,
+  SET_MOVIE_TAG,
+  REMOVE_MOVIE_TAG,
 } from '../../graphql/queries';
 import {
   Autocomplete,
@@ -27,6 +29,7 @@ import {
   IconButton,
   ListItemContent,
   CircularProgress,
+  Tooltip,
 } from '@mui/joy';
 import TmdbMatchFlow from './TmdbMatchFlow';
 import { Movie } from '../../models/Movies';
@@ -58,6 +61,7 @@ interface MovieRowProps {
   canMarkWatched: boolean;
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
+  onToggleSeen: (id: string, currentlySeen: boolean) => void;
   isAuthenticated: boolean;
 }
 
@@ -67,95 +71,144 @@ const MovieRow: React.FC<MovieRowProps> = ({
   canMarkWatched,
   onMarkWatched,
   onDelete,
+  onToggleSeen,
   isAuthenticated,
-}) => (
-  <tr>
-    {/* Title */}
-    <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
-      <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-        {movie.title}
-      </Typography>
-    </td>
+}) => {
+  const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
+  const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
+  const seenCount = seenByUsers.length;
+  const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
 
-    {/* Suggested by */}
-    <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
-      <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
-        {movie.requester}
-      </Chip>
-    </td>
-
-    {/* Date */}
-    <td style={{ verticalAlign: 'middle', padding: '12px 16px', whiteSpace: 'nowrap' }}>
-      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-        {new Date(movie.date_submitted).toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })}
-      </Typography>
-    </td>
-
-    {/* TMDB */}
-    <td style={{ verticalAlign: 'middle', padding: '12px 8px', textAlign: 'center' }}>
-      {movie.tmdb_id ? (
-        <a
-          href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
-        >
-          ↗
-        </a>
-      ) : null}
-    </td>
-
-    {/* Actions */}
-    {(canMarkWatched || isAdmin) && (
-      <td
-        style={{
-          verticalAlign: 'middle',
-          padding: '0 12px',
-          textAlign: 'right',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {canMarkWatched && (
-          <IconButton
-            size="sm"
-            color="success"
-            variant="plain"
-            onClick={() => onMarkWatched(movie.id, movie.title)}
-            title={`Mark "${movie.title}" as watched`}
-            sx={{
-              opacity: 0.5,
-              transition: 'opacity 0.15s',
-              '&:hover': { opacity: 1 },
-              mr: isAdmin ? 0.5 : 0,
-            }}
-          >
-            ✓
-          </IconButton>
-        )}
-        {isAdmin && (
-          <IconButton
-            size="sm"
-            color="danger"
-            variant="plain"
-            onClick={() => onDelete(movie.id, movie.title)}
-            title={`Remove "${movie.title}"`}
-            sx={{
-              opacity: 0.5,
-              transition: 'opacity 0.15s',
-              '&:hover': { opacity: 1 },
-            }}
-          >
-            ✕
-          </IconButton>
-        )}
+  return (
+    <tr>
+      {/* Title */}
+      <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
+        <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          {movie.title}
+        </Typography>
       </td>
-    )}
-  </tr>
-);
+
+      {/* Suggested by */}
+      <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
+        <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
+          {movie.requester}
+        </Chip>
+      </td>
+
+      {/* Date */}
+      <td style={{ verticalAlign: 'middle', padding: '12px 16px', whiteSpace: 'nowrap' }}>
+        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+          {new Date(movie.date_submitted).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Typography>
+      </td>
+
+      {/* TMDB */}
+      <td style={{ verticalAlign: 'middle', padding: '12px 8px', textAlign: 'center' }}>
+        {movie.tmdb_id ? (
+          <a
+            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
+          >
+            ↗
+          </a>
+        ) : null}
+      </td>
+
+      {/* Seen it */}
+      {isAuthenticated && (
+        <td style={{ verticalAlign: 'middle', padding: '0 4px', textAlign: 'center' }}>
+          <Tooltip
+            title={
+              seenCount > 0
+                ? `Seen by: ${seenNames.join(', ')}`
+                : isSeen
+                  ? 'Remove "Seen it"'
+                  : "I've seen this"
+            }
+            placement="top"
+            arrow
+          >
+            <IconButton
+              size="sm"
+              variant="plain"
+              color={isSeen ? 'warning' : 'neutral'}
+              onClick={() => onToggleSeen(movie.id, isSeen)}
+              sx={{
+                opacity: isSeen ? 0.9 : 0.35,
+                transition: 'opacity 0.15s',
+                '&:hover': { opacity: 1 },
+                fontSize: '0.85rem',
+              }}
+            >
+              {isSeen ? '👁' : '👁‍🗨'}
+              {seenCount > 0 && (
+                <Typography
+                  component="span"
+                  level="body-xs"
+                  sx={{ ml: 0.25, fontWeight: 700, fontSize: '0.6rem' }}
+                >
+                  {seenCount}
+                </Typography>
+              )}
+            </IconButton>
+          </Tooltip>
+        </td>
+      )}
+
+      {/* Actions */}
+      {(canMarkWatched || isAdmin) && (
+        <td
+          style={{
+            verticalAlign: 'middle',
+            padding: '0 12px',
+            textAlign: 'right',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {canMarkWatched && (
+            <IconButton
+              size="sm"
+              color="success"
+              variant="plain"
+              onClick={() => onMarkWatched(movie.id, movie.title)}
+              title={`Mark "${movie.title}" as done`}
+              sx={{
+                opacity: 0.5,
+                transition: 'opacity 0.15s',
+                '&:hover': { opacity: 1 },
+                mr: isAdmin ? 0.5 : 0,
+              }}
+            >
+              ✓
+            </IconButton>
+          )}
+          {isAdmin && (
+            <IconButton
+              size="sm"
+              color="danger"
+              variant="plain"
+              onClick={() => onDelete(movie.id, movie.title)}
+              title={`Remove "${movie.title}"`}
+              sx={{
+                opacity: 0.5,
+                transition: 'opacity 0.15s',
+                '&:hover': { opacity: 1 },
+              }}
+            >
+              ✕
+            </IconButton>
+          )}
+        </td>
+      )}
+    </tr>
+  );
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -175,6 +228,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const [errorMessage, setErrorMessage] = useState('');
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [lastAddedMovieId, setLastAddedMovieId] = useState<string | null>(null);
 
   // Connections data (only when authenticated)
   const { data: connectionsData } = useQuery(MY_CONNECTIONS, { skip: !isAuthenticated });
@@ -201,6 +255,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     skip: !isAuthenticated,
     pollInterval: 10000,
   });
+  const [setMovieTag] = useMutation(SET_MOVIE_TAG, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+  const [removeMovieTag] = useMutation(REMOVE_MOVIE_TAG, {
+    refetchQueries: [{ query: GET_MOVIES }],
+  });
+
   const [setMovieInterest] = useMutation(SET_MOVIE_INTEREST, {
     refetchQueries: [
       { query: NEW_MOVIES_FROM_CONNECTIONS },
@@ -266,12 +327,23 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   );
 
   const handleMarkWatched = async (id: string, movieTitle: string) => {
-    if (!window.confirm(`Mark "${movieTitle}" as watched? It will be removed from the watchlist.`))
-      return;
+    if (!window.confirm(`Mark "${movieTitle}" as done? It'll move to your watch history.`)) return;
     try {
       await markWatched({ variables: { id } });
     } catch (err: any) {
-      setErrorMessage(`Error marking movie as watched: ${err.message}`);
+      setErrorMessage(`Error marking movie as done: ${err.message}`);
+    }
+  };
+
+  const handleToggleSeen = async (id: string, currentlySeen: boolean) => {
+    try {
+      if (currentlySeen) {
+        await removeMovieTag({ variables: { movieId: id, tagSlug: 'seen' } });
+      } else {
+        await setMovieTag({ variables: { movieId: id, tagSlug: 'seen' } });
+      }
+    } catch (err: any) {
+      setErrorMessage(`Error updating tag: ${err.message}`);
     }
   };
 
@@ -303,12 +375,18 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
       return;
     }
     try {
-      await addMovie({ variables: { title: title.trim(), tmdb_id: tmdbId } });
+      const { data: addData } = await addMovie({
+        variables: { title: title.trim(), tmdb_id: tmdbId },
+      });
       setSuccessMessage('Added to the list!');
+      setLastAddedMovieId(addData?.addMovie?.id ?? null);
       setTitle('');
       setTmdbId(null);
       setTmdbOptions([]);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => {
+        setSuccessMessage('');
+        setLastAddedMovieId(null);
+      }, 5000);
     } catch (error: any) {
       setErrorMessage(`Error: ${error.message}`);
     }
@@ -320,6 +398,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     1 + // suggested by
     1 + // added
     1 + // tmdb
+    (isAuthenticated ? 1 : 0) + // seen
     (isAuthenticated ? 1 : 0); // actions
 
   return (
@@ -607,12 +686,39 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             </form>
 
             {successMessage && (
-              <Typography
-                level="body-sm"
-                sx={{ textAlign: 'center', mt: 1.5, color: 'success.400', fontWeight: 600 }}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1.5,
+                  mt: 1.5,
+                }}
               >
-                {successMessage}
-              </Typography>
+                <Typography level="body-sm" sx={{ color: 'success.400', fontWeight: 600 }}>
+                  {successMessage}
+                </Typography>
+                {lastAddedMovieId && (
+                  <Button
+                    size="sm"
+                    variant="soft"
+                    color="neutral"
+                    onClick={async () => {
+                      try {
+                        await setMovieTag({
+                          variables: { movieId: lastAddedMovieId, tagSlug: 'seen' },
+                        });
+                        setLastAddedMovieId(null);
+                      } catch (err: any) {
+                        setErrorMessage(`Error: ${err.message}`);
+                      }
+                    }}
+                    sx={{ fontSize: '0.75rem', py: 0.25 }}
+                  >
+                    I've seen this
+                  </Button>
+                )}
+              </Box>
             )}
             {errorMessage && (
               <Typography
@@ -809,6 +915,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                         canMarkWatched={true}
                         onMarkWatched={handleMarkWatched}
                         onDelete={handleDelete}
+                        onToggleSeen={handleToggleSeen}
                         isAuthenticated={isAuthenticated}
                       />
                     ))}
@@ -900,6 +1007,21 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     {isAuthenticated && (
                       <th
                         style={{
+                          padding: '10px 4px',
+                          textAlign: 'center',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          color: 'var(--mn-text-muted)',
+                        }}
+                      >
+                        Seen
+                      </th>
+                    )}
+                    {isAuthenticated && (
+                      <th
+                        style={{
                           padding: '10px 12px',
                           textAlign: 'right',
                           fontSize: '0.7rem',
@@ -939,6 +1061,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                         }
                         onMarkWatched={handleMarkWatched}
                         onDelete={handleDelete}
+                        onToggleSeen={handleToggleSeen}
                         isAuthenticated={isAuthenticated}
                       />
                     ))

@@ -8,6 +8,8 @@ export const typeDefs = `#graphql
     elo_rank: Float
     tmdb_id: Int
     watched_at: String
+    myTags: [MovieUserTag!]!
+    userTags: [MovieUserTag!]!
   }
 
   type TmdbMovie {
@@ -141,6 +143,22 @@ export const typeDefs = `#graphql
     interested: Boolean!
   }
 
+  """Tag definition (e.g. 'seen', 'podcast-ep'). Extensible — new tags can be added to the DB."""
+  type Tag {
+    id: ID!
+    slug: String!
+    label: String!
+    valueType: String!
+  }
+
+  """A per-user tag on a movie. Boolean tags have null value; number/text tags carry a value."""
+  type MovieUserTag {
+    tag: Tag!
+    user: ConnectionUser!
+    value: String
+    createdAt: String!
+  }
+
   type Query {
     appInfo: AppInfo!
     movies: [Movie!]!
@@ -161,6 +179,8 @@ export const typeDefs = `#graphql
     newMoviesFromConnections: [PendingReviewMovie!]!
     soloMovies: [Movie!]!
     passedMovieIds: [ID!]!
+    tags: [Tag!]!
+    watchedMovies(limit: Int, offset: Int): [Movie!]!
   }
 
   type ImportResult {
@@ -203,5 +223,8 @@ export const typeDefs = `#graphql
     respondToConnectionRequest(connectionId: ID!, accept: Boolean!): UserConnection!
     removeConnection(connectionId: ID!): Boolean!
     setMovieInterest(movieId: ID!, interested: Boolean!): SetInterestResult!
+    setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!
+    removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!
+    unwatchMovie(id: ID!): Movie!
   }
 `;

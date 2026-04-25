@@ -3,13 +3,14 @@ import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGravatarUrl } from '../../utils/gravatar';
 
-type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
+type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
 
 interface NavbarProps {
   currentView: ViewName;
   onShowMovies: () => void;
   onShowThisOrThat: () => void;
   onShowCombinedList: () => void;
+  onShowHistory: () => void;
   onShowAdmin: () => void;
   onShowLogin: () => void;
 }
@@ -19,6 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onShowMovies,
   onShowThisOrThat,
   onShowCombinedList,
+  onShowHistory,
   onShowAdmin,
   onShowLogin,
 }) => {
@@ -77,6 +79,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           }}
         >
           Combined
+        </Button>
+      )}
+      {isAuthenticated && (
+        <Button
+          variant={currentView === 'history' ? 'soft' : 'plain'}
+          color="neutral"
+          size="sm"
+          onClick={() => {
+            onShowHistory();
+            setMobileOpen(false);
+          }}
+          sx={{
+            fontWeight: 600,
+            color: currentView === 'history' ? 'primary.400' : 'text.tertiary',
+            '&:hover': { color: 'primary.300' },
+            fontSize: '0.8rem',
+          }}
+        >
+          History
         </Button>
       )}
       {isAuthenticated && user?.is_admin && (
