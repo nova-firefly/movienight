@@ -670,6 +670,38 @@ export const resolvers = {
       );
       return result.rows.map((r: any) => String(r.movie_id));
     },
+
+    tags: async () => {
+      const result = await pool.query('SELECT * FROM tags ORDER BY slug');
+      return result.rows.map((r: any) => ({
+        id: String(r.id),
+        slug: r.slug,
+        label: r.label,
+        valueType: r.value_type,
+      }));
+    },
+
+    watchedMovies: async (
+      _: any,
+      { limit, offset }: { limit?: number; offset?: number },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const safeLimit = Math.min(Math.max(limit ?? 50, 1), 200);
+      const safeOffset = Math.max(offset ?? 0, 0);
+      const result = await pool.query(
+        `SELECT m.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM movies m
+         LEFT JOIN users u ON m.requested_by = u.id
+         WHERE m.watched_at IS NOT NULL
+         ORDER BY m.watched_at DESC
+         LIMIT $1 OFFSET $2`,
+        [safeLimit, safeOffset],
+      );
+      return result.rows;
+    },
   },
   Mutation: {
     addMovie: async (
@@ -1892,6 +1924,143 @@ export const resolvers = {
 
       return { movieId, interested };
     },
+
+    setMovieTag: async (
+      _: any,
+      { movieId, tagSlug, value }: { movieId: string; tagSlug: string; value?: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const tagResult = await pool.query('SELECT * FROM tags WHERE slug = $1', [tagSlug]);
+      if (tagResult.rows.length === 0) {
+        throw new GraphQLError('Tag not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      const tag = tagResult.rows[0];
+
+      const movieResult = await pool.query('SELECT id, title FROM movies WHERE id = $1', [movieId]);
+      if (movieResult.rows.length === 0) {
+        throw new GraphQLError('Movie not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO movie_user_tags (movie_id, user_id, tag_id, value, updated_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (movie_id, user_id, tag_id)
+         DO UPDATE SET value = $4, updated_at = NOW()
+         RETURNING *`,
+        [movieId, userId, tag.id, value ?? null],
+      );
+
+      const userResult = await pool.query(
+        'SELECT id, username, display_name FROM users WHERE id = $1',
+        [userId],
+      );
+
+      await logAudit(
+        userId,
+        'MOVIE_TAG_SET',
+        'movie',
+        String(movieId),
+        { tag: tagSlug, value: value ?? null, title: movieResult.rows[0].title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      const row = result.rows[0];
+      const u = userResult.rows[0];
+      return {
+        tag: { id: String(tag.id), slug: tag.slug, label: tag.label, valueType: tag.value_type },
+        user: { id: String(u.id), username: u.username, display_name: u.display_name },
+        value: row.value,
+        createdAt:
+          row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      };
+    },
+
+    removeMovieTag: async (
+      _: any,
+      { movieId, tagSlug }: { movieId: string; tagSlug: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const tagResult = await pool.query('SELECT id FROM tags WHERE slug = $1', [tagSlug]);
+      if (tagResult.rows.length === 0) {
+        return false;
+      }
+
+      const movieResult = await pool.query('SELECT id, title FROM movies WHERE id = $1', [movieId]);
+
+      const result = await pool.query(
+        'DELETE FROM movie_user_tags WHERE movie_id = $1 AND user_id = $2 AND tag_id = $3 RETURNING id',
+        [movieId, userId, tagResult.rows[0].id],
+      );
+
+      if (result.rows.length > 0) {
+        await logAudit(
+          userId,
+          'MOVIE_TAG_REMOVE',
+          'movie',
+          String(movieId),
+          { tag: tagSlug, title: movieResult.rows[0]?.title },
+          context.ipAddress ?? 'unknown',
+        );
+      }
+
+      return result.rows.length > 0;
+    },
+
+    unwatchMovie: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const movieCheck = await pool.query('SELECT * FROM movies WHERE id = $1', [id]);
+      if (movieCheck.rows.length === 0) {
+        throw new GraphQLError('Movie not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      if (!movieCheck.rows[0].watched_at) {
+        throw new GraphQLError('Movie is not marked as watched', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      if (!context.user.isAdmin && movieCheck.rows[0].requested_by !== context.user.userId) {
+        throw new GraphQLError('Not authorized', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      const result = await pool.query(
+        `UPDATE movies
+         SET watched_at = NULL,
+             rank = (SELECT COALESCE(MAX(rank), 0) + 1 FROM movies WHERE watched_at IS NULL)
+         WHERE id = $1
+         RETURNING *`,
+        [id],
+      );
+      const movie = result.rows[0];
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        movie.requested_by,
+      ]);
+
+      await logAudit(
+        context.user.userId,
+        'MOVIE_UNWATCH',
+        'movie',
+        String(id),
+        { title: movie.title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return {
+        ...movie,
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
   },
   Movie: {
     requester: (parent: any) => {
@@ -1899,6 +2068,42 @@ export const resolvers = {
         return parent.user_display_name || parent.user_username || parent.requester || 'Unknown';
       }
       return parent.requester || 'Unknown';
+    },
+    myTags: async (parent: any, _: any, context: any) => {
+      if (!context.user) return [];
+      const result = await pool.query(
+        `SELECT mut.*, t.slug, t.label, t.value_type,
+                u.id AS uid, u.username, u.display_name
+         FROM movie_user_tags mut
+         JOIN tags t ON mut.tag_id = t.id
+         JOIN users u ON mut.user_id = u.id
+         WHERE mut.movie_id = $1 AND mut.user_id = $2`,
+        [parent.id, context.user.userId],
+      );
+      return result.rows.map((r: any) => ({
+        tag: { id: String(r.tag_id), slug: r.slug, label: r.label, valueType: r.value_type },
+        user: { id: String(r.uid), username: r.username, display_name: r.display_name },
+        value: r.value,
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      }));
+    },
+    userTags: async (parent: any) => {
+      const result = await pool.query(
+        `SELECT mut.*, t.slug, t.label, t.value_type,
+                u.id AS uid, u.username, u.display_name
+         FROM movie_user_tags mut
+         JOIN tags t ON mut.tag_id = t.id
+         JOIN users u ON mut.user_id = u.id
+         WHERE mut.movie_id = $1
+         ORDER BY mut.created_at`,
+        [parent.id],
+      );
+      return result.rows.map((r: any) => ({
+        tag: { id: String(r.tag_id), slug: r.slug, label: r.label, valueType: r.value_type },
+        user: { id: String(r.uid), username: r.username, display_name: r.display_name },
+        value: r.value,
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      }));
     },
     date_submitted: (parent: any) => {
       const date =

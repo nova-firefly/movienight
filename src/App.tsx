@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/joy';
 import HomePage from './components/home/Homepage';
 import ThisOrThat from './components/home/ThisOrThat';
 import CombinedList from './components/home/CombinedList';
+import WatchHistory from './components/home/WatchHistory';
 import { Login } from './components/auth/Login';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
@@ -14,7 +15,7 @@ import { useAuth } from './contexts/AuthContext';
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
 const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== 'master';
 
-type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'admin';
+type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
 
 const App = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -94,6 +95,10 @@ const App = () => {
       return <CombinedList />;
     }
 
+    if (currentView === 'history' && isAuthenticated) {
+      return <WatchHistory />;
+    }
+
     return (
       <HomePage
         onShowThisOrThat={() => setCurrentView('this-or-that')}
@@ -135,6 +140,7 @@ const App = () => {
         onShowMovies={() => setCurrentView('movies')}
         onShowThisOrThat={() => setCurrentView('this-or-that')}
         onShowCombinedList={() => setCurrentView('combined-list')}
+        onShowHistory={() => setCurrentView('history')}
         onShowAdmin={() => setCurrentView('admin')}
         onShowLogin={() => setShowLogin(true)}
       />

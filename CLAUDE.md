@@ -59,13 +59,18 @@ searchTmdb(query: String!): [TmdbMovie!]!          # TMDB search (needs TMDB_API
 auditLogs(limit: Int, offset: Int): [AuditLog!]!  # admin only, max 500
 loginHistory(userId: ID, limit: Int): [LoginHistory!]!  # admin only, max 500
 kometaSchedule: KometaSchedule                     # admin only
+tags: [Tag!]!                                          # all tag definitions (public)
+watchedMovies(limit: Int, offset: Int): [Movie!]!      # requires auth, watched history
 
 # Mutations
 addMovie(title: String!, tmdb_id: Int): Movie!         # requires auth
 matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!  # requires auth, owner or admin
-markWatched(id: ID!): Movie!                            # requires auth, owner or admin
+markWatched(id: ID!): Movie!                            # requires auth, owner or admin ("Done")
 deleteMovie(id: ID!): Boolean!                          # admin only
 reorderMovie(id: ID!, afterId: ID): Movie!             # admin only (afterId=null → move to top)
+setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!  # requires auth
+removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!  # requires auth
+unwatchMovie(id: ID!): Movie!                          # requires auth, owner or admin (requeue)
 exportKometa(collectionName: String): KometaExportResult!  # admin + production only
 updateKometaSchedule(...): KometaSchedule!             # admin + production only
 importFromLetterboxd(url: String!): ImportResult!      # admin only
@@ -89,10 +94,11 @@ src/components/
 ├── auth/
 │   └── Login.tsx            # username/password form
 ├── common/
-│   ├── Navbar.tsx           # Movies/Admin navigation, Logout
+│   ├── Navbar.tsx           # Movies/This or That/Combined/History/Admin navigation, Logout
 │   └── Footer.tsx           # deploy timestamp, git branch/hash
 └── home/
-    ├── Homepage.tsx          # movie list, drag-to-reorder (@dnd-kit), Add Movie, Mark Watched
+    ├── Homepage.tsx          # movie list, Add Movie, "Done" (mark watched), "Seen it" toggle
+    ├── WatchHistory.tsx      # paginated watched history + "Watch again" requeue
     └── TmdbMatchFlow.tsx     # TMDB search + match UI for unmatched movies
 ```
 
@@ -114,16 +120,38 @@ src/components/
 | `audit_logs`      | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at                                                     |
 | `login_history`   | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at                                                                                 |
 | `kometa_schedule` | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at                                                                          |
+| `tags`            | id, slug (unique, varchar 50), label (varchar 100), value_type ('boolean'\|'number'\|'text'), created_at                                              |
+| `movie_user_tags` | id, movie_id (FK→movies), user_id (FK→users), tag_id (FK→tags), value (nullable text), created_at, updated_at — UNIQUE(movie_id, user_id, tag_id)     |
 
 ## Audit log actions
 
-`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_DELETE`, `MOVIE_REORDER`, `MOVIE_TMDB_MATCH`, `MOVIE_INTEREST_SET`, `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `LETTERBOXD_IMPORT`
+`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_DELETE`, `MOVIE_REORDER`, `MOVIE_TMDB_MATCH`, `MOVIE_INTEREST_SET`, `MOVIE_TAG_SET`, `MOVIE_TAG_REMOVE`, `MOVIE_UNWATCH`, `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `LETTERBOXD_IMPORT`
 
 ## Key features
 
-### Watched tracking
+### Watched tracking ("Done")
 
-`markWatched(id)` sets `watched_at = NOW()`. `movies` query returns only `WHERE watched_at IS NULL`.
+`markWatched(id)` sets `watched_at = NOW()`. `movies` query returns only `WHERE watched_at IS NULL`. UI labels this action "Done" and confirms with "It'll move to your watch history."
+
+`unwatchMovie(id)` clears `watched_at` and sets `rank = MAX(rank)+1`, putting the movie back at the end of the queue ("Watch again" in the History view).
+
+`watchedMovies(limit, offset)` returns movies with `watched_at IS NOT NULL` for the History view.
+
+### Per-user tag system
+
+Generic, extensible tagging framework for movies. Tags are per-user (Alice can tag Inception as "seen" independently of Bob).
+
+**Tables**: `tags` (definitions) + `movie_user_tags` (per-user, per-movie instances). See migration `1746200000000_create-tags-system.js`.
+
+**Tag types**: `boolean` (tag exists = true), `number`, `text` (value stored in `movie_user_tags.value`).
+
+**Seeded tags**: `seen` ("Seen it") — indicates a user has personally watched the movie before.
+
+**Adding new tags**: `INSERT INTO tags (slug, label, value_type) VALUES ('podcast-ep', 'Podcast Episode', 'number');`
+
+**GraphQL**: `setMovieTag(movieId, tagSlug, value?)` upserts, `removeMovieTag(movieId, tagSlug)` deletes. `Movie.myTags` returns current user's tags; `Movie.userTags` returns all users' tags.
+
+**Frontend**: Eye icon toggle on movie rows for "Seen it". Shows count of users who've seen the movie + tooltip with names. "I've seen this" button appears after adding a movie.
 
 ### Drag-and-drop reordering
 
@@ -207,6 +235,7 @@ backend/src/__tests__/
     connection-resolvers.test.ts
     letterboxd-resolvers.test.ts
     kometa-resolvers.test.ts
+    tag-resolvers.test.ts
 
 src/utils/__tests__/
   textUtils.test.ts

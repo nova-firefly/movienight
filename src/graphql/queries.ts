@@ -10,6 +10,23 @@ export const GET_MOVIES = gql`
       date_submitted
       elo_rank
       tmdb_id
+      myTags {
+        tag {
+          slug
+          label
+        }
+      }
+      userTags {
+        tag {
+          slug
+          label
+        }
+        user {
+          id
+          display_name
+          username
+        }
+      }
     }
   }
 `;
@@ -523,5 +540,64 @@ export const SOLO_MOVIES = gql`
 export const PASSED_MOVIE_IDS = gql`
   query PassedMovieIds {
     passedMovieIds
+  }
+`;
+
+export const GET_TAGS = gql`
+  query GetTags {
+    tags {
+      id
+      slug
+      label
+      valueType
+    }
+  }
+`;
+
+export const SET_MOVIE_TAG = gql`
+  mutation SetMovieTag($movieId: ID!, $tagSlug: String!, $value: String) {
+    setMovieTag(movieId: $movieId, tagSlug: $tagSlug, value: $value) {
+      tag {
+        slug
+        label
+      }
+      user {
+        id
+        display_name
+        username
+      }
+      value
+      createdAt
+    }
+  }
+`;
+
+export const REMOVE_MOVIE_TAG = gql`
+  mutation RemoveMovieTag($movieId: ID!, $tagSlug: String!) {
+    removeMovieTag(movieId: $movieId, tagSlug: $tagSlug)
+  }
+`;
+
+export const WATCHED_MOVIES = gql`
+  query WatchedMovies($limit: Int, $offset: Int) {
+    watchedMovies(limit: $limit, offset: $offset) {
+      id
+      title
+      requester
+      requested_by
+      date_submitted
+      watched_at
+      tmdb_id
+    }
+  }
+`;
+
+export const UNWATCH_MOVIE = gql`
+  mutation UnwatchMovie($id: ID!) {
+    unwatchMovie(id: $id) {
+      id
+      title
+      watched_at
+    }
   }
 `;
