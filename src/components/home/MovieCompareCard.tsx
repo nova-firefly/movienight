@@ -46,7 +46,8 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
     <Box
       sx={{
         width: '100%',
-        aspectRatio: { xs: '3/4', sm: '2/3' },
+        maxHeight: { xs: 'calc(50dvh - 80px)', sm: 'calc(70dvh - 100px)' },
+        aspectRatio: '2/3',
         bgcolor: 'background.level2',
         display: 'flex',
         alignItems: 'center',
@@ -58,7 +59,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
         <img
           src={movie.poster_url}
           alt={movie.title}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       ) : (
         <Typography level="body-sm" sx={{ color: 'text.tertiary', textAlign: 'center', px: 2 }}>

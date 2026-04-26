@@ -10,6 +10,7 @@ export const GET_MOVIES = gql`
       date_submitted
       elo_rank
       tmdb_id
+      poster_url
       myTags {
         tag {
           slug
@@ -533,6 +534,7 @@ export const SOLO_MOVIES = gql`
       requested_by
       date_submitted
       tmdb_id
+      poster_url
     }
   }
 `;
@@ -588,6 +590,7 @@ export const WATCHED_MOVIES = gql`
       date_submitted
       watched_at
       tmdb_id
+      poster_url
     }
   }
 `;

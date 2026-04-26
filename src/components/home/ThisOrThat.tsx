@@ -237,7 +237,11 @@ const ThisOrThat: React.FC = () => {
                   >
                     <Skeleton
                       variant="rectangular"
-                      sx={{ width: '100%', aspectRatio: { xs: '3/4', sm: '2/3' } }}
+                      sx={{
+                        width: '100%',
+                        aspectRatio: '2/3',
+                        maxHeight: { xs: 'calc(50dvh - 80px)', sm: 'calc(70dvh - 100px)' },
+                      }}
                     />
                     <Box sx={{ p: { xs: 1, sm: 2 } }}>
                       <Skeleton variant="text" sx={{ width: '70%', mb: 1 }} />

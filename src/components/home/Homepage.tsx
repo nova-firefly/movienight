@@ -82,10 +82,35 @@ const MovieRow: React.FC<MovieRowProps> = ({
   return (
     <tr>
       {/* Title */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
-        <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {movie.title}
-        </Typography>
+      <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {movie.poster_url ? (
+            <img
+              src={movie.poster_url}
+              alt=""
+              style={{
+                width: 28,
+                height: 42,
+                objectFit: 'cover',
+                borderRadius: 3,
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: 28,
+                height: 42,
+                bgcolor: 'background.level2',
+                borderRadius: '3px',
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            {movie.title}
+          </Typography>
+        </Box>
       </td>
 
       {/* Suggested by */}

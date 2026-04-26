@@ -8,6 +8,7 @@ export const typeDefs = `#graphql
     elo_rank: Float
     tmdb_id: Int
     watched_at: String
+    poster_url: String
     myTags: [MovieUserTag!]!
     userTags: [MovieUserTag!]!
   }
