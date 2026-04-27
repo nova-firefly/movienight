@@ -151,23 +151,30 @@ const ThisOrThat: React.FC = () => {
       sx={{
         flex: 1,
         bgcolor: 'background.body',
-        px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 3, sm: 5 },
+        px: { xs: 1.5, sm: 3, md: 4 },
+        py: { xs: 1.5, sm: 3 },
       }}
     >
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-        {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
-          <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
+        {/* Header + Tabs */}
+        <Box sx={{ textAlign: 'center', mb: { xs: 1.5, sm: 2.5 } }}>
+          <Typography
+            level="h3"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              fontSize: { xs: '1.1rem', sm: '1.5rem' },
+            }}
+          >
             This or That
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+          <Typography level="body-xs" sx={{ color: 'text.secondary', mb: { xs: 1, sm: 1.5 } }}>
             Pick which movie you'd rather watch
           </Typography>
         </Box>
 
         {/* Tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: { xs: 1.5, sm: 2.5 } }}>
           <Button
             variant={tab === 'compare' ? 'soft' : 'plain'}
             color="neutral"
@@ -197,7 +204,7 @@ const ThisOrThat: React.FC = () => {
             {sessionCount > 0 && (
               <Typography
                 level="body-xs"
-                sx={{ textAlign: 'center', mb: 2, color: 'text.tertiary' }}
+                sx={{ textAlign: 'center', mb: { xs: 1, sm: 1.5 }, color: 'text.tertiary' }}
               >
                 {sessionCount} comparison{sessionCount !== 1 ? 's' : ''} this session
               </Typography>
@@ -218,7 +225,7 @@ const ThisOrThat: React.FC = () => {
                 sx={{
                   display: 'flex',
                   flexDirection: 'row',
-                  gap: { xs: 1.5, sm: 3 },
+                  gap: { xs: 1, sm: 2.5 },
                   justifyContent: 'center',
                 }}
               >
@@ -243,12 +250,12 @@ const ThisOrThat: React.FC = () => {
                         maxHeight: { xs: 'calc(50dvh - 80px)', sm: 'calc(70dvh - 100px)' },
                       }}
                     />
-                    <Box sx={{ p: { xs: 1, sm: 2 } }}>
-                      <Skeleton variant="text" sx={{ width: '70%', mb: 1 }} />
-                      <Skeleton variant="text" sx={{ width: '50%', mb: 1 }} />
+                    <Box sx={{ p: { xs: 0.75, sm: 1.5 } }}>
+                      <Skeleton variant="text" sx={{ width: '70%', mb: 0.5 }} />
+                      <Skeleton variant="text" sx={{ width: '50%', mb: 0.5 }} />
                       <Skeleton
                         variant="rectangular"
-                        sx={{ width: '100%', height: 36, borderRadius: 'sm' }}
+                        sx={{ width: '100%', height: 32, borderRadius: 'sm' }}
                       />
                     </Box>
                   </Box>
@@ -262,7 +269,7 @@ const ThisOrThat: React.FC = () => {
                 sx={{
                   display: 'flex',
                   flexDirection: 'row',
-                  gap: { xs: 1.5, sm: 3 },
+                  gap: { xs: 1, sm: 2.5 },
                   justifyContent: 'center',
                   alignItems: 'stretch',
                   opacity: fading ? 0 : 1,
