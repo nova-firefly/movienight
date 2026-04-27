@@ -13,6 +13,7 @@ export type Movie = {
   elo_rank: number | null;
   tmdb_id?: number | null;
   watched_at?: string | null;
+  poster_url?: string | null;
   myTags?: MovieUserTag[];
   userTags?: MovieUserTag[];
 };

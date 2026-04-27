@@ -46,7 +46,8 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
     <Box
       sx={{
         width: '100%',
-        aspectRatio: { xs: '3/4', sm: '2/3' },
+        maxHeight: { xs: 'calc(50dvh - 80px)', sm: 'calc(70dvh - 100px)' },
+        aspectRatio: '2/3',
         bgcolor: 'background.level2',
         display: 'flex',
         alignItems: 'center',
@@ -58,7 +59,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
         <img
           src={movie.poster_url}
           alt={movie.title}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       ) : (
         <Typography level="body-sm" sx={{ color: 'text.tertiary', textAlign: 'center', px: 2 }}>
@@ -68,8 +69,19 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
     </Box>
 
     {/* Info */}
-    <Box sx={{ p: { xs: 1, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-      <Typography level="title-sm" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '1rem' } }}>
+    <Box
+      sx={{
+        p: { xs: 0.75, sm: 1.5 },
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: { xs: 0.25, sm: 0.5 },
+      }}
+    >
+      <Typography
+        level="title-sm"
+        sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.95rem' }, lineHeight: 1.3 }}
+      >
         {movie.title}
         {movie.release_year && (
           <Typography component="span" level="body-xs" sx={{ color: 'text.secondary', ml: 0.5 }}>
@@ -79,15 +91,24 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
       </Typography>
 
       {movie.director && (
-        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-          Directed by {movie.director}
+        <Typography
+          level="body-xs"
+          sx={{ color: 'text.secondary', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+        >
+          {movie.director}
         </Typography>
       )}
 
       {movie.cast.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
           {movie.cast.map((name) => (
-            <Chip key={name} size="sm" variant="soft" color="neutral">
+            <Chip
+              key={name}
+              size="sm"
+              variant="soft"
+              color="neutral"
+              sx={{ '--Chip-minHeight': '20px', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+            >
               {name}
             </Chip>
           ))}
@@ -95,9 +116,15 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
       )}
 
       {movie.tags.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
           {movie.tags.map((tag) => (
-            <Chip key={tag} size="sm" variant="outlined" color="primary">
+            <Chip
+              key={tag}
+              size="sm"
+              variant="outlined"
+              color="primary"
+              sx={{ '--Chip-minHeight': '20px', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+            >
               {tag}
             </Chip>
           ))}
@@ -110,17 +137,18 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
         </Typography>
       )}
 
-      <Box sx={{ mt: 'auto', pt: 1 }}>
+      <Box sx={{ mt: 'auto', pt: { xs: 0.5, sm: 0.75 } }}>
         <Button
           variant="solid"
           color="primary"
           fullWidth
+          size="sm"
           disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
             onPick(movie.id);
           }}
-          sx={{ fontWeight: 700, color: '#0d0f1a' }}
+          sx={{ fontWeight: 700, color: '#0d0f1a', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
         >
           Pick This One
         </Button>
