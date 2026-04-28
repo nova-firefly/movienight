@@ -19,9 +19,9 @@ async function runKometaExportScheduled(): Promise<void> {
     if (settingsResult.rows.length === 0 || !settingsResult.rows[0].enabled) return;
     const settings = settingsResult.rows[0];
 
-    const mdblistApiKey = process.env.MDBLIST_API_KEY;
+    const mdblistApiKey = settings.mdblist_api_key || process.env.MDBLIST_API_KEY;
     if (!mdblistApiKey) {
-      console.error('[Kometa Scheduler] MDBLIST_API_KEY not configured, skipping');
+      console.error('[Kometa Scheduler] MDBList API key not configured, skipping');
       return;
     }
 

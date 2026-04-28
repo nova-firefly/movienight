@@ -66,6 +66,7 @@ export const typeDefs = `#graphql
     collectionName: String
     lastRunAt: String
     mdblistListUrl: String
+    mdblistApiKeySet: Boolean!
   }
 
   type QuickLoginUser {
@@ -214,6 +215,7 @@ export const typeDefs = `#graphql
     resetMovieComparisons(movieId: ID!): Boolean!
     exportKometa(collectionName: String): KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
+    setMdblistApiKey(apiKey: String!): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
     login(username: String!, password: String!): AuthPayload!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!

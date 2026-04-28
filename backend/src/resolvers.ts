@@ -348,6 +348,7 @@ export const resolvers = {
           collectionName: null,
           lastRunAt: null,
           mdblistListUrl: null,
+          mdblistApiKeySet: !!process.env.MDBLIST_API_KEY,
         };
       }
       const row = result.rows[0];
@@ -362,6 +363,7 @@ export const resolvers = {
             : new Date(row.last_run_at).toISOString()
           : null,
         mdblistListUrl: row.mdblist_list_url ?? null,
+        mdblistApiKeySet: !!(row.mdblist_api_key || process.env.MDBLIST_API_KEY),
       };
     },
     thisOrThat: async (_: any, { excludeIds }: { excludeIds?: string[] }, context: any) => {
@@ -960,13 +962,6 @@ export const resolvers = {
         });
       }
 
-      const mdblistApiKey = process.env.MDBLIST_API_KEY;
-      if (!mdblistApiKey) {
-        throw new GraphQLError('MDBLIST_API_KEY is not configured', {
-          extensions: { code: 'INTERNAL_SERVER_ERROR' },
-        });
-      }
-
       const moviesResult = await pool.query(
         'SELECT title, tmdb_id, elo_rank FROM movies WHERE watched_at IS NULL ORDER BY elo_rank DESC NULLS LAST, date_submitted ASC',
       );
@@ -989,8 +984,14 @@ export const resolvers = {
 
       // Get or create MDBList list
       const schedRow = await pool.query(
-        'SELECT mdblist_list_id, mdblist_list_url FROM kometa_schedule WHERE id = 1',
+        'SELECT mdblist_list_id, mdblist_list_url, mdblist_api_key FROM kometa_schedule WHERE id = 1',
       );
+      const mdblistApiKey = schedRow.rows[0]?.mdblist_api_key || process.env.MDBLIST_API_KEY;
+      if (!mdblistApiKey) {
+        throw new GraphQLError('MDBList API key is not configured', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
       let listId = schedRow.rows[0]?.mdblist_list_id;
       let listUrl = schedRow.rows[0]?.mdblist_list_url;
 
@@ -1135,6 +1136,42 @@ export const resolvers = {
             : new Date(row.last_run_at).toISOString()
           : null,
         mdblistListUrl: row.mdblist_list_url ?? null,
+        mdblistApiKeySet: !!(row.mdblist_api_key || process.env.MDBLIST_API_KEY),
+      };
+    },
+    setMdblistApiKey: async (_: any, { apiKey }: { apiKey: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const trimmed = apiKey.trim();
+      if (!trimmed) {
+        throw new GraphQLError('API key cannot be empty', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      await pool.query(
+        'UPDATE kometa_schedule SET mdblist_api_key = $1, updated_at = NOW() WHERE id = 1',
+        [trimmed],
+      );
+
+      const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
+      const row = result.rows[0];
+      return {
+        enabled: row.enabled,
+        frequency: row.frequency,
+        dailyTime: row.daily_time,
+        collectionName: row.collection_name ?? null,
+        lastRunAt: row.last_run_at
+          ? row.last_run_at instanceof Date
+            ? row.last_run_at.toISOString()
+            : new Date(row.last_run_at).toISOString()
+          : null,
+        mdblistListUrl: row.mdblist_list_url ?? null,
+        mdblistApiKeySet: true,
       };
     },
     importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {

@@ -10,7 +10,7 @@ import {
 } from './__helpers';
 import { resolvers } from '../../resolvers';
 
-const { exportKometa, updateKometaSchedule } = resolvers.Mutation;
+const { exportKometa, updateKometaSchedule, setMdblistApiKey } = resolvers.Mutation;
 
 describe('Mutation.exportKometa', () => {
   const origEnv = { ...process.env };
@@ -41,12 +41,20 @@ describe('Mutation.exportKometa', () => {
     );
   });
 
-  it('missing MDBLIST_API_KEY throws INTERNAL_SERVER_ERROR', async () => {
+  it('missing MDBList API key throws BAD_USER_INPUT', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     delete process.env.MDBLIST_API_KEY;
+    // Movies query
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ title: 'Movie', tmdb_id: 100, elo_rank: 1000 }],
+    });
+    // kometa_schedule SELECT (no DB API key either)
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: null, mdblist_list_url: null, mdblist_api_key: null }],
+    });
     await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
-      'MDBLIST_API_KEY is not configured',
+      'MDBList API key is not configured',
     );
   });
 
@@ -314,5 +322,67 @@ describe('Mutation.updateKometaSchedule', () => {
     expect(result.frequency).toBe('hourly');
     expect(result.mdblistListUrl).toBeNull();
     expect(mockRescheduleKometa).toHaveBeenCalledWith(true, 'hourly', '03:00');
+  });
+});
+
+describe('Mutation.setMdblistApiKey', () => {
+  it('non-admin throws FORBIDDEN', async () => {
+    await expect(setMdblistApiKey(null, { apiKey: 'key' }, authContext())).rejects.toThrow(
+      'Not authorized',
+    );
+  });
+
+  it('empty key throws BAD_USER_INPUT', async () => {
+    await expect(setMdblistApiKey(null, { apiKey: '   ' }, adminContext())).rejects.toThrow(
+      'API key cannot be empty',
+    );
+  });
+
+  it('admin can set API key and gets back updated schedule', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            enabled: false,
+            frequency: 'daily',
+            daily_time: '03:00',
+            collection_name: null,
+            last_run_at: null,
+            mdblist_list_url: null,
+            mdblist_api_key: 'new-key',
+          },
+        ],
+      });
+
+    const result = await setMdblistApiKey(null, { apiKey: 'new-key' }, adminContext());
+    expect(result.mdblistApiKeySet).toBe(true);
+    expect(result.enabled).toBe(false);
+    expect(mockQuery).toHaveBeenCalledWith(
+      'UPDATE kometa_schedule SET mdblist_api_key = $1, updated_at = NOW() WHERE id = 1',
+      ['new-key'],
+    );
+  });
+
+  it('trims whitespace from API key', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+      rows: [
+        {
+          enabled: false,
+          frequency: 'daily',
+          daily_time: '03:00',
+          collection_name: null,
+          last_run_at: null,
+          mdblist_list_url: null,
+          mdblist_api_key: 'trimmed',
+        },
+      ],
+    });
+
+    await setMdblistApiKey(null, { apiKey: '  trimmed  ' }, adminContext());
+    expect(mockQuery).toHaveBeenCalledWith(
+      'UPDATE kometa_schedule SET mdblist_api_key = $1, updated_at = NOW() WHERE id = 1',
+      ['trimmed'],
+    );
   });
 });

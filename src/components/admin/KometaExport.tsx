@@ -20,6 +20,7 @@ import {
   EXPORT_KOMETA,
   GET_KOMETA_SCHEDULE,
   UPDATE_KOMETA_SCHEDULE,
+  SET_MDBLIST_API_KEY,
   GET_APP_INFO,
 } from '../../graphql/queries';
 
@@ -37,6 +38,7 @@ interface ScheduleData {
   collectionName: string | null;
   lastRunAt: string | null;
   mdblistListUrl: string | null;
+  mdblistApiKeySet: boolean;
 }
 
 function generateKometaYaml(
@@ -74,6 +76,10 @@ export const KometaExport: React.FC = () => {
   const isProd = appInfoData?.appInfo?.isProduction ?? true;
   const [updateSchedule, { loading: savingSchedule }] = useMutation(UPDATE_KOMETA_SCHEDULE);
 
+  const [setMdblistApiKey, { loading: savingApiKey }] = useMutation(SET_MDBLIST_API_KEY, {
+    refetchQueries: [{ query: GET_KOMETA_SCHEDULE }],
+  });
+
   const [copied, setCopied] = useState(false);
   const [exportResult, setExportResult] = useState<
     | {
@@ -90,6 +96,12 @@ export const KometaExport: React.FC = () => {
   const [schedFrequency, setSchedFrequency] = useState('daily');
   const [schedDailyTime, setSchedDailyTime] = useState('03:00');
   const [schedSaveResult, setSchedSaveResult] = useState<'saved' | { error: string } | null>(null);
+
+  // MDBList API key state
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaveResult, setApiKeySaveResult] = useState<'saved' | { error: string } | null>(
+    null,
+  );
 
   // Sync form state when server data loads
   useEffect(() => {
@@ -156,7 +168,20 @@ export const KometaExport: React.FC = () => {
     }
   };
 
+  const handleSaveApiKey = async () => {
+    setApiKeySaveResult(null);
+    try {
+      await setMdblistApiKey({ variables: { apiKey: apiKeyInput } });
+      setApiKeyInput('');
+      setApiKeySaveResult('saved');
+      setTimeout(() => setApiKeySaveResult(null), 3000);
+    } catch (err: any) {
+      setApiKeySaveResult({ error: err.message });
+    }
+  };
+
   const lastRun: string | null = scheduleData?.kometaSchedule?.lastRunAt ?? null;
+  const apiKeySet: boolean = scheduleData?.kometaSchedule?.mdblistApiKeySet ?? false;
 
   if (loading && movies.length === 0) {
     return (
@@ -289,6 +314,58 @@ export const KometaExport: React.FC = () => {
           </Sheet>
         </>
       )}
+
+      <Divider sx={{ my: 3 }} />
+
+      <Typography level="title-sm" fontWeight={700} sx={{ mb: 2 }}>
+        MDBList API Key
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 380, mb: 0 }}>
+        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+          Required for syncing movies to MDBList. Get a free key at{' '}
+          <a href="https://mdblist.com/preferences/" target="_blank" rel="noopener noreferrer">
+            mdblist.com/preferences
+          </a>
+          .
+        </Typography>
+
+        <Typography level="body-xs" sx={{ color: apiKeySet ? 'success.600' : 'warning.600' }}>
+          {apiKeySet ? 'API key is configured.' : 'No API key set — export will fail.'}
+        </Typography>
+
+        <FormControl>
+          <FormLabel>{apiKeySet ? 'Update API key' : 'Enter API key'}</FormLabel>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Input
+              size="sm"
+              type="password"
+              placeholder="mdblist_api_key"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <Button
+              size="sm"
+              variant="outlined"
+              color="primary"
+              loading={savingApiKey}
+              onClick={handleSaveApiKey}
+              disabled={!apiKeyInput.trim()}
+            >
+              Save
+            </Button>
+          </Box>
+        </FormControl>
+
+        {apiKeySaveResult && (
+          <Alert color={apiKeySaveResult === 'saved' ? 'success' : 'danger'} size="sm">
+            {apiKeySaveResult === 'saved'
+              ? 'API key saved'
+              : (apiKeySaveResult as { error: string }).error}
+          </Alert>
+        )}
+      </Box>
 
       <Divider sx={{ my: 3 }} />
 

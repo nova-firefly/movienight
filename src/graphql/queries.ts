@@ -272,6 +272,7 @@ export const GET_KOMETA_SCHEDULE = gql`
       collectionName
       lastRunAt
       mdblistListUrl
+      mdblistApiKeySet
     }
   }
 `;
@@ -285,6 +286,14 @@ export const GET_APP_INFO = gql`
         username
         password
       }
+    }
+  }
+`;
+
+export const SET_MDBLIST_API_KEY = gql`
+  mutation SetMdblistApiKey($apiKey: String!) {
+    setMdblistApiKey(apiKey: $apiKey) {
+      mdblistApiKeySet
     }
   }
 `;
