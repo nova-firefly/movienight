@@ -271,6 +271,7 @@ export const GET_KOMETA_SCHEDULE = gql`
       dailyTime
       collectionName
       lastRunAt
+      mdblistListUrl
     }
   }
 `;

@@ -35,6 +35,7 @@ services:
       PORT: ${BACKEND_PORT}
       NODE_ENV: development
       TMDB_API_KEY: ${TMDB_API_KEY:-}
+      MDBLIST_API_KEY: ${MDBLIST_API_KEY:-}
       KOMETA_COLLECTIONS_PATH: ${KOMETA_COLLECTIONS_PATH:-}
       KOMETA_TRIGGER_URL: ${KOMETA_TRIGGER_URL:-}
       SMTP_HOST: ${SMTP_HOST:-localhost}
@@ -88,6 +89,7 @@ services:
     environment:
       - TZ=America/New_York
       - NODE_ENV=production
+      - MDBLIST_API_KEY=${MDBLIST_API_KEY:-}
       - KOMETA_COLLECTIONS_PATH=${KOMETA_COLLECTIONS_PATH:-}
       - KOMETA_TRIGGER_URL=${KOMETA_TRIGGER_URL:-}
     networks:

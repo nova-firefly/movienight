@@ -31,6 +31,14 @@ jest.mock('../../scheduler', () => ({
   rescheduleKometa: (...args: any[]) => mockRescheduleKometa(...args),
 }));
 
+// Mock mdblist
+export const mockCreateList = jest.fn();
+export const mockSyncList = jest.fn();
+jest.mock('../../mdblist', () => ({
+  createList: (...args: any[]) => mockCreateList(...args),
+  syncList: (...args: any[]) => mockSyncList(...args),
+}));
+
 // Mock elo
 export const mockApplyComparison = jest.fn();
 export const mockUpdateGlobalEloRank = jest.fn();

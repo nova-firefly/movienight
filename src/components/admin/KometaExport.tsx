@@ -36,17 +36,22 @@ interface ScheduleData {
   dailyTime: string;
   collectionName: string | null;
   lastRunAt: string | null;
+  mdblistListUrl: string | null;
 }
 
-function generateKometaYaml(movies: Movie[], collectionName: string): string {
-  const matched = movies.filter((m) => m.tmdb_id != null);
+function generateKometaYaml(
+  collectionName: string,
+  mdblistUrl: string | null,
+  movieCount: number,
+): string {
   const today = new Date().toISOString().split('T')[0];
-  const idLines = matched.map((m) => `      - ${m.tmdb_id}`).join('\n');
+  const listRef = mdblistUrl || '<mdblist_url — created on first export>';
   return (
+    `## ${movieCount} movies synced to MDBList\n` +
     `collections:\n` +
     `  ${collectionName}:\n` +
-    `    tmdb_movie:\n` +
-    `${idLines}\n` +
+    `    mdblist_list: ${listRef}\n` +
+    `    collection_order: custom\n` +
     `    sync_mode: sync\n` +
     `    radarr_add_missing: true\n` +
     `    radarr_search: true\n` +
@@ -99,9 +104,11 @@ export const KometaExport: React.FC = () => {
   const collectionName = 'MovieNight Watchlist';
 
   const movies: Movie[] = [...(data?.movies ?? [])].sort((a: Movie, b: Movie) => a.rank - b.rank);
-  const matched = movies.filter((m) => m.tmdb_id != null);
-  const unmatched = movies.filter((m) => m.tmdb_id == null);
-  const yaml = movies.length > 0 ? generateKometaYaml(movies, collectionName) : '';
+  const matched = movies.filter((m) => m.tmdb_id != null && m.tmdb_id > 0);
+  const unmatched = movies.filter((m) => m.tmdb_id == null || m.tmdb_id <= 0);
+  const mdblistUrl: string | null = scheduleData?.kometaSchedule?.mdblistListUrl ?? null;
+  const yaml =
+    movies.length > 0 ? generateKometaYaml(collectionName, mdblistUrl, matched.length) : '';
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(yaml);
@@ -166,11 +173,20 @@ export const KometaExport: React.FC = () => {
       </Typography>
 
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
-        Generates a Kometa collection file using <code>tmdb_movie</code> +{' '}
-        <code>collection_order: release</code> sorted by release date.{' '}
-        <strong>Write to Kometa</strong> writes directly to the configured{' '}
-        <code>KOMETA_COLLECTIONS_PATH</code> on the server.
+        Syncs movies to an MDBList list and writes a Kometa collection file using{' '}
+        <code>mdblist_list</code> + <code>collection_order: custom</code> to preserve rank order.{' '}
+        <strong>Write to Kometa</strong> syncs the list and writes to{' '}
+        <code>KOMETA_COLLECTIONS_PATH</code>.
       </Typography>
+
+      {mdblistUrl && (
+        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 2 }}>
+          MDBList:{' '}
+          <a href={mdblistUrl} target="_blank" rel="noopener noreferrer">
+            {mdblistUrl}
+          </a>
+        </Typography>
+      )}
 
       {unmatched.length > 0 && (
         <Alert color="warning" sx={{ mb: 2 }}>

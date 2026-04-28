@@ -65,6 +65,7 @@ export const typeDefs = `#graphql
     dailyTime: String!
     collectionName: String
     lastRunAt: String
+    mdblistListUrl: String
   }
 
   type QuickLoginUser {
