@@ -21,6 +21,9 @@ import {
 import { GET_USERS, CREATE_USER, UPDATE_USER, DELETE_USER } from '../../graphql/queries';
 import { User } from '../../models/User';
 import { getGravatarUrl } from '../../utils/gravatar';
+import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../hooks/useConfirm';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const thStyle: React.CSSProperties = {
   padding: '10px 16px',
@@ -36,6 +39,8 @@ const thStyle: React.CSSProperties = {
 };
 
 export const UserManagement: React.FC = () => {
+  const { showError } = useToast();
+  const { confirm, dialogProps: confirmDialogProps } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
@@ -68,7 +73,7 @@ export const UserManagement: React.FC = () => {
 
   const [deleteUser] = useMutation(DELETE_USER, {
     onCompleted: () => refetch(),
-    onError: (err) => alert(err.message),
+    onError: (err) => showError(err.message),
   });
 
   const handleOpen = (user?: User) => {
@@ -140,7 +145,13 @@ export const UserManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this user?')) {
+    const ok = await confirm({
+      title: 'Delete user?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'danger',
+    });
+    if (ok) {
       await deleteUser({ variables: { id } });
     }
   };
@@ -385,6 +396,8 @@ export const UserManagement: React.FC = () => {
           </form>
         </ModalDialog>
       </Modal>
+
+      <ConfirmDialog {...confirmDialogProps} />
     </Box>
   );
 };

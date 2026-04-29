@@ -9,10 +9,13 @@ import {
 } from '../../graphql/queries';
 import { Box, Typography, Button, Sheet, Chip, Skeleton } from '@mui/joy';
 import MovieCompareCard from './MovieCompareCard';
+import ConfirmDialog from '../common/ConfirmDialog';
+import { useConfirm } from '../../hooks/useConfirm';
 
 type Tab = 'compare' | 'rankings';
 
 const ThisOrThat: React.FC = () => {
+  const { confirm, dialogProps } = useConfirm();
   const [tab, setTab] = useState<Tab>('compare');
   const [sessionCount, setSessionCount] = useState(0);
   const [seenIds, setSeenIds] = useState<string[]>([]);
@@ -130,7 +133,13 @@ const ThisOrThat: React.FC = () => {
   };
 
   const handleReset = async (movieId: string, title: string) => {
-    if (!window.confirm(`Reset all your comparisons for "${title}"?`)) return;
+    const ok = await confirm({
+      title: 'Reset comparisons?',
+      message: `All your comparisons for "${title}" will be removed.`,
+      confirmText: 'Reset',
+      confirmColor: 'danger',
+    });
+    if (!ok) return;
     try {
       await resetComparisons({ variables: { movieId } });
     } catch (err: any) {
@@ -405,6 +414,8 @@ const ThisOrThat: React.FC = () => {
           </>
         )}
       </Box>
+
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
 };
