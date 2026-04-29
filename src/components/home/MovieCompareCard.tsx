@@ -20,7 +20,11 @@ interface MovieCompareCardProps {
 
 const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disabled }) => (
   <Box
-    onClick={() => !disabled && onPick(movie.id)}
+    onClick={() => {
+      if (disabled) return;
+      (document.activeElement as HTMLElement)?.blur();
+      onPick(movie.id);
+    }}
     sx={{
       flex: 1,
       cursor: disabled ? 'default' : 'pointer',
@@ -155,6 +159,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
           disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
+            (e.currentTarget as HTMLElement).blur();
             onPick(movie.id);
           }}
           sx={{

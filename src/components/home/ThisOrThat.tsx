@@ -287,6 +287,7 @@ const ThisOrThat: React.FC = () => {
               >
                 <Box sx={{ flex: 1, maxWidth: { sm: 360 }, display: 'flex' }}>
                   <MovieCompareCard
+                    key={pair.movieA.id}
                     movie={pair.movieA}
                     onPick={handlePick}
                     disabled={recording || fading}
@@ -310,6 +311,7 @@ const ThisOrThat: React.FC = () => {
 
                 <Box sx={{ flex: 1, maxWidth: { sm: 360 }, display: 'flex' }}>
                   <MovieCompareCard
+                    key={pair.movieB.id}
                     movie={pair.movieB}
                     onPick={handlePick}
                     disabled={recording || fading}
