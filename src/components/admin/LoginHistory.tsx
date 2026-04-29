@@ -45,84 +45,138 @@ export const LoginHistory: React.FC = () => {
       <Typography level="title-md" fontWeight={700} sx={{ color: 'text.secondary', mb: 2 }}>
         {data?.loginHistory?.length ?? 0} entries
       </Typography>
-      <Sheet
-        variant="outlined"
-        sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
-      >
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table
-            stickyHeader
-            sx={{
-              '--TableCell-headBackground': 'var(--mn-bg-elevated)',
-              '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
-              '--TableCell-paddingY': '10px',
-              '--TableCell-paddingX': '16px',
-              minWidth: 560,
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 145 }}>Time</th>
-                <th style={{ ...thStyle, width: 120 }}>User</th>
-                <th style={{ ...thStyle, width: 90 }}>Result</th>
-                <th style={{ ...thStyle, width: 120 }}>IP Address</th>
-                <th style={thStyle}>User Agent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.loginHistory.map((entry: LoginHistoryEntry) => (
-                <tr key={entry.id}>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {new Date(entry.created_at).toLocaleString()}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-sm"
-                      fontWeight={entry.username ? 600 : 400}
-                      sx={{ color: entry.username ? 'text.primary' : 'text.tertiary' }}
-                    >
-                      {entry.username || 'unknown'}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Chip size="sm" color={entry.succeeded ? 'success' : 'danger'} variant="soft">
-                      {entry.succeeded ? 'Success' : 'Failed'}
-                    </Chip>
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
-                    >
-                      {entry.ip_address || '—'}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{
-                        color: 'text.secondary',
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={entry.user_agent || ''}
-                    >
-                      {entry.user_agent || '—'}
-                    </Typography>
-                  </td>
+      {/* Desktop table */}
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Sheet
+          variant="outlined"
+          sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
+        >
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table
+              stickyHeader
+              sx={{
+                '--TableCell-headBackground': 'var(--mn-bg-elevated)',
+                '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
+                '--TableCell-paddingY': '10px',
+                '--TableCell-paddingX': '16px',
+                minWidth: 560,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: 145 }}>Time</th>
+                  <th style={{ ...thStyle, width: 120 }}>User</th>
+                  <th style={{ ...thStyle, width: 90 }}>Result</th>
+                  <th style={{ ...thStyle, width: 120 }}>IP Address</th>
+                  <th style={thStyle}>User Agent</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Box>
-      </Sheet>
+              </thead>
+              <tbody>
+                {data?.loginHistory.map((entry: LoginHistoryEntry) => (
+                  <tr key={entry.id}>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {new Date(entry.created_at).toLocaleString()}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-sm"
+                        fontWeight={entry.username ? 600 : 400}
+                        sx={{ color: entry.username ? 'text.primary' : 'text.tertiary' }}
+                      >
+                        {entry.username || 'unknown'}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Chip size="sm" color={entry.succeeded ? 'success' : 'danger'} variant="soft">
+                        {entry.succeeded ? 'Success' : 'Failed'}
+                      </Chip>
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+                      >
+                        {entry.ip_address || '—'}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{
+                          color: 'text.secondary',
+                          maxWidth: 300,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={entry.user_agent || ''}
+                      >
+                        {entry.user_agent || '—'}
+                      </Typography>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Box>
+        </Sheet>
+      </Box>
+
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+        {data?.loginHistory.map((entry: LoginHistoryEntry) => (
+          <Sheet
+            key={entry.id}
+            variant="outlined"
+            sx={{ borderRadius: 'md', mb: 1, p: 1.5, borderColor: 'var(--mn-border-vis)' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography
+                level="body-sm"
+                fontWeight={entry.username ? 600 : 400}
+                sx={{ color: entry.username ? 'text.primary' : 'text.tertiary' }}
+              >
+                {entry.username || 'unknown'}
+              </Typography>
+              <Chip size="sm" color={entry.succeeded ? 'success' : 'danger'} variant="soft">
+                {entry.succeeded ? 'Success' : 'Failed'}
+              </Chip>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', ml: 'auto' }}>
+                {new Date(entry.created_at).toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ mt: 0.5 }}>
+              {entry.ip_address && (
+                <Typography
+                  level="body-xs"
+                  sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+                >
+                  {entry.ip_address}
+                </Typography>
+              )}
+              {entry.user_agent && (
+                <Typography
+                  level="body-xs"
+                  sx={{
+                    color: 'text.tertiary',
+                    mt: 0.25,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {entry.user_agent}
+                </Typography>
+              )}
+            </Box>
+          </Sheet>
+        ))}
+      </Box>
     </Box>
   );
 };
