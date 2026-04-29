@@ -23,6 +23,10 @@ export const AdminPanel: React.FC = () => {
             gap: 0.5,
             mb: 3,
             '--Tab-indicatorThickness': '0px',
+            overflowX: 'auto',
+            flexWrap: 'nowrap',
+            '&::-webkit-scrollbar': { display: 'none' },
+            scrollbarWidth: 'none',
           }}
         >
           <Tab
@@ -31,6 +35,8 @@ export const AdminPanel: React.FC = () => {
               borderRadius: 'xs',
               fontWeight: 600,
               fontSize: '0.85rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               '&[aria-selected="true"]': {
                 bgcolor: 'background.level2',
                 color: 'primary.400',
@@ -45,6 +51,8 @@ export const AdminPanel: React.FC = () => {
               borderRadius: 'xs',
               fontWeight: 600,
               fontSize: '0.85rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               '&[aria-selected="true"]': {
                 bgcolor: 'background.level2',
                 color: 'primary.400',
@@ -59,6 +67,8 @@ export const AdminPanel: React.FC = () => {
               borderRadius: 'xs',
               fontWeight: 600,
               fontSize: '0.85rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               '&[aria-selected="true"]': {
                 bgcolor: 'background.level2',
                 color: 'primary.400',
@@ -73,6 +83,8 @@ export const AdminPanel: React.FC = () => {
               borderRadius: 'xs',
               fontWeight: 600,
               fontSize: '0.85rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               '&[aria-selected="true"]': {
                 bgcolor: 'background.level2',
                 color: 'primary.400',
@@ -87,6 +99,8 @@ export const AdminPanel: React.FC = () => {
               borderRadius: 'xs',
               fontWeight: 600,
               fontSize: '0.85rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               '&[aria-selected="true"]': {
                 bgcolor: 'background.level2',
                 color: 'primary.400',

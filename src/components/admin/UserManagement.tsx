@@ -181,123 +181,211 @@ export const UserManagement: React.FC = () => {
         </Button>
       </Box>
 
-      <Sheet
-        variant="outlined"
-        sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
-      >
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table
-            stickyHeader
-            sx={{
-              '--TableCell-headBackground': 'var(--mn-bg-elevated)',
-              '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
-              '--TableCell-paddingY': '12px',
-              '--TableCell-paddingX': '16px',
-              minWidth: 720,
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 44 }} />
-                <th style={thStyle}>Username</th>
-                <th style={thStyle}>Display Name</th>
-                <th style={thStyle}>Email</th>
-                <th style={{ ...thStyle, width: 70 }}>Admin</th>
-                <th style={{ ...thStyle, width: 100 }}>Status</th>
-                <th style={{ ...thStyle, width: 110 }}>Last Login</th>
-                <th style={{ ...thStyle, width: 100 }}>Created</th>
-                <th style={{ ...thStyle, width: 110, textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.users.map((user: User) => (
-                <tr key={user.id}>
-                  <td style={{ paddingLeft: 16 }}>
-                    <img
-                      src={getGravatarUrl(user.email, 28)}
-                      alt=""
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        display: 'block',
-                        border: '2px solid rgba(245,197,24,0.2)',
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <Typography level="body-sm" fontWeight={600}>
-                      {user.username}
-                    </Typography>
-                  </td>
-                  <td>
-                    {user.display_name ? (
-                      <Typography level="body-sm">{user.display_name}</Typography>
-                    ) : (
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                        —
-                      </Typography>
-                    )}
-                  </td>
-                  <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                      {user.email}
-                    </Typography>
-                  </td>
-                  <td>
-                    {user.is_admin && (
-                      <Chip size="sm" color="warning" variant="soft">
-                        Admin
-                      </Chip>
-                    )}
-                  </td>
-                  <td>
-                    <Chip size="sm" color={user.is_active ? 'success' : 'neutral'} variant="soft">
-                      {user.is_active ? 'Active' : 'Suspended'}
-                    </Chip>
-                  </td>
-                  <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                      {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '—'}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                      {new Date(user.created_at!).toLocaleDateString()}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', pr: 1 }}>
-                      <Button
-                        size="sm"
-                        variant="soft"
-                        color="neutral"
-                        onClick={() => handleOpen(user)}
-                      >
-                        Edit
-                      </Button>
-                      <IconButton
-                        size="sm"
-                        variant="plain"
-                        color="danger"
-                        onClick={() => handleDelete(user.id)}
-                        sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
-                      >
-                        ✕
-                      </IconButton>
-                    </Box>
-                  </td>
+      {/* Desktop table */}
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Sheet
+          variant="outlined"
+          sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
+        >
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table
+              stickyHeader
+              sx={{
+                '--TableCell-headBackground': 'var(--mn-bg-elevated)',
+                '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
+                '--TableCell-paddingY': '12px',
+                '--TableCell-paddingX': '16px',
+                minWidth: 720,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: 44 }} />
+                  <th style={thStyle}>Username</th>
+                  <th style={thStyle}>Display Name</th>
+                  <th style={thStyle}>Email</th>
+                  <th style={{ ...thStyle, width: 70 }}>Admin</th>
+                  <th style={{ ...thStyle, width: 100 }}>Status</th>
+                  <th style={{ ...thStyle, width: 110 }}>Last Login</th>
+                  <th style={{ ...thStyle, width: 100 }}>Created</th>
+                  <th style={{ ...thStyle, width: 110, textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Box>
-      </Sheet>
+              </thead>
+              <tbody>
+                {data?.users.map((user: User) => (
+                  <tr key={user.id}>
+                    <td style={{ paddingLeft: 16 }}>
+                      <img
+                        src={getGravatarUrl(user.email, 28)}
+                        alt=""
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          display: 'block',
+                          border: '2px solid rgba(245,197,24,0.2)',
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <Typography level="body-sm" fontWeight={600}>
+                        {user.username}
+                      </Typography>
+                    </td>
+                    <td>
+                      {user.display_name ? (
+                        <Typography level="body-sm">{user.display_name}</Typography>
+                      ) : (
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                          —
+                        </Typography>
+                      )}
+                    </td>
+                    <td>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        {user.email}
+                      </Typography>
+                    </td>
+                    <td>
+                      {user.is_admin && (
+                        <Chip size="sm" color="warning" variant="soft">
+                          Admin
+                        </Chip>
+                      )}
+                    </td>
+                    <td>
+                      <Chip size="sm" color={user.is_active ? 'success' : 'neutral'} variant="soft">
+                        {user.is_active ? 'Active' : 'Suspended'}
+                      </Chip>
+                    </td>
+                    <td>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        {user.last_login_at
+                          ? new Date(user.last_login_at).toLocaleDateString()
+                          : '—'}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        {new Date(user.created_at!).toLocaleDateString()}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', pr: 1 }}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="neutral"
+                          onClick={() => handleOpen(user)}
+                        >
+                          Edit
+                        </Button>
+                        <IconButton
+                          size="sm"
+                          variant="plain"
+                          color="danger"
+                          onClick={() => handleDelete(user.id)}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
+                        >
+                          ✕
+                        </IconButton>
+                      </Box>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Box>
+        </Sheet>
+      </Box>
+
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+        {data?.users.map((user: User) => (
+          <Sheet
+            key={user.id}
+            variant="outlined"
+            sx={{ borderRadius: 'md', mb: 1, p: 1.5, borderColor: 'var(--mn-border-vis)' }}
+          >
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <img
+                src={getGravatarUrl(user.email, 32)}
+                alt=""
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  border: '2px solid rgba(245,197,24,0.2)',
+                }}
+              />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                  <Typography level="body-sm" fontWeight={600}>
+                    {user.username}
+                  </Typography>
+                  {user.is_admin && (
+                    <Chip size="sm" color="warning" variant="soft">
+                      Admin
+                    </Chip>
+                  )}
+                  <Chip size="sm" color={user.is_active ? 'success' : 'neutral'} variant="soft">
+                    {user.is_active ? 'Active' : 'Suspended'}
+                  </Chip>
+                </Box>
+                {user.display_name && user.display_name !== user.username && (
+                  <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
+                    {user.display_name}
+                  </Typography>
+                )}
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
+                  {user.email}
+                </Typography>
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
+                  Last login:{' '}
+                  {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                  {' · '}Created: {new Date(user.created_at!).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 0.5,
+                mt: 1,
+                pt: 0.5,
+                borderTop: '1px solid',
+                borderColor: 'var(--mn-border)',
+              }}
+            >
+              <Button
+                size="sm"
+                variant="soft"
+                color="neutral"
+                onClick={() => handleOpen(user)}
+                sx={{ minHeight: 44 }}
+              >
+                Edit
+              </Button>
+              <IconButton
+                size="sm"
+                variant="soft"
+                color="danger"
+                onClick={() => handleDelete(user.id)}
+                sx={{ minWidth: 44, minHeight: 44 }}
+              >
+                ✕
+              </IconButton>
+            </Box>
+          </Sheet>
+        ))}
+      </Box>
 
       <Modal open={open} onClose={handleClose}>
         <ModalDialog
           sx={{
-            minWidth: 420,
+            width: { xs: '92vw', sm: 420 },
             maxWidth: '95vw',
             bgcolor: 'background.level1',
             borderColor: 'var(--mn-border-vis)',

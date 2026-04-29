@@ -55,96 +55,153 @@ export const AuditLog: React.FC = () => {
       <Typography level="title-md" fontWeight={700} sx={{ color: 'text.secondary', mb: 2 }}>
         {data?.auditLogs?.length ?? 0} entries
       </Typography>
-      <Sheet
-        variant="outlined"
-        sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
-      >
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table
-            stickyHeader
-            sx={{
-              '--TableCell-headBackground': 'var(--mn-bg-elevated)',
-              '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
-              '--TableCell-paddingY': '10px',
-              '--TableCell-paddingX': '16px',
-              minWidth: 680,
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 145 }}>Time</th>
-                <th style={{ ...thStyle, width: 110 }}>Actor</th>
-                <th style={{ ...thStyle, width: 155 }}>Action</th>
-                <th style={{ ...thStyle, width: 120 }}>Target</th>
-                <th style={thStyle}>Details</th>
-                <th style={{ ...thStyle, width: 115 }}>IP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.auditLogs.map((log: AuditLogEntry) => (
-                <tr key={log.id}>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {new Date(log.created_at).toLocaleString()}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-sm"
-                      fontWeight={log.actor_username ? 600 : 400}
-                      sx={{ color: log.actor_username ? 'text.primary' : 'text.tertiary' }}
-                    >
-                      {log.actor_username || '—'}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Chip size="sm" color={actionColor(log.action)} variant="soft">
-                      {log.action}
-                    </Chip>
-                  </td>
-                  <td>
-                    {log.target_type && log.target_id ? (
-                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                        {log.target_type}:{log.target_id}
-                      </Typography>
-                    ) : (
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                        —
-                      </Typography>
-                    )}
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{
-                        color: 'text.secondary',
-                        maxWidth: 260,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={log.metadata || ''}
-                    >
-                      {log.metadata || '—'}
-                    </Typography>
-                  </td>
-                  <td>
-                    <Typography
-                      level="body-xs"
-                      sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
-                    >
-                      {log.ip_address || '—'}
-                    </Typography>
-                  </td>
+      {/* Desktop table */}
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Sheet
+          variant="outlined"
+          sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
+        >
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table
+              stickyHeader
+              sx={{
+                '--TableCell-headBackground': 'var(--mn-bg-elevated)',
+                '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
+                '--TableCell-paddingY': '10px',
+                '--TableCell-paddingX': '16px',
+                minWidth: 680,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: 145 }}>Time</th>
+                  <th style={{ ...thStyle, width: 110 }}>Actor</th>
+                  <th style={{ ...thStyle, width: 155 }}>Action</th>
+                  <th style={{ ...thStyle, width: 120 }}>Target</th>
+                  <th style={thStyle}>Details</th>
+                  <th style={{ ...thStyle, width: 115 }}>IP</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Box>
-      </Sheet>
+              </thead>
+              <tbody>
+                {data?.auditLogs.map((log: AuditLogEntry) => (
+                  <tr key={log.id}>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {new Date(log.created_at).toLocaleString()}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-sm"
+                        fontWeight={log.actor_username ? 600 : 400}
+                        sx={{ color: log.actor_username ? 'text.primary' : 'text.tertiary' }}
+                      >
+                        {log.actor_username || '—'}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Chip size="sm" color={actionColor(log.action)} variant="soft">
+                        {log.action}
+                      </Chip>
+                    </td>
+                    <td>
+                      {log.target_type && log.target_id ? (
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                          {log.target_type}:{log.target_id}
+                        </Typography>
+                      ) : (
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                          —
+                        </Typography>
+                      )}
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{
+                          color: 'text.secondary',
+                          maxWidth: 260,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={log.metadata || ''}
+                      >
+                        {log.metadata || '—'}
+                      </Typography>
+                    </td>
+                    <td>
+                      <Typography
+                        level="body-xs"
+                        sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+                      >
+                        {log.ip_address || '—'}
+                      </Typography>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Box>
+        </Sheet>
+      </Box>
+
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+        {data?.auditLogs.map((log: AuditLogEntry) => (
+          <Sheet
+            key={log.id}
+            variant="outlined"
+            sx={{ borderRadius: 'md', mb: 1, p: 1.5, borderColor: 'var(--mn-border-vis)' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Chip size="sm" color={actionColor(log.action)} variant="soft">
+                {log.action}
+              </Chip>
+              <Typography level="body-sm" fontWeight={600}>
+                {log.actor_username || '—'}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+              {log.target_type && log.target_id ? (
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                  {log.target_type}:{log.target_id}
+                </Typography>
+              ) : null}
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', ml: 'auto' }}>
+                {new Date(log.created_at).toLocaleString()}
+              </Typography>
+            </Box>
+            {log.metadata && (
+              <Typography
+                level="body-xs"
+                sx={{
+                  color: 'text.secondary',
+                  mt: 0.5,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                }}
+              >
+                {log.metadata}
+              </Typography>
+            )}
+            {log.ip_address && (
+              <Typography
+                level="body-xs"
+                sx={{ color: 'text.tertiary', fontFamily: 'monospace', mt: 0.25 }}
+              >
+                {log.ip_address}
+              </Typography>
+            )}
+          </Sheet>
+        ))}
+      </Box>
     </Box>
   );
 };
