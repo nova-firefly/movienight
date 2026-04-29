@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Typography } from '@mui/joy';
+import { Chip } from '@mui/joy';
 
 interface ThisOrThatBannerProps {
   hasEloData: boolean;
@@ -11,45 +11,27 @@ const ThisOrThatBanner: React.FC<ThisOrThatBannerProps> = ({
   hasEloData,
   isAuthenticated,
   onShowThisOrThat,
-}) => (
-  <Box
-    sx={{
-      mb: 3,
-      p: 1.5,
-      borderRadius: 'md',
-      bgcolor: 'primary.softBg',
-      border: '1px solid',
-      borderColor: 'primary.outlinedBorder',
-      textAlign: 'center',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 1,
-    }}
-  >
-    {isAuthenticated ? (
-      <>
-        <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-          {hasEloData ? 'Keep ranking movies!' : 'Rate movies to get your personal ranking.'}
-        </Typography>
-        {onShowThisOrThat && (
-          <Button
-            variant="soft"
-            color="primary"
-            size="sm"
-            onClick={onShowThisOrThat}
-            sx={{ fontWeight: 700 }}
-          >
-            This or That
-          </Button>
-        )}
-      </>
-    ) : (
-      <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-        Sign in to rank movies with This or That
-      </Typography>
-    )}
-  </Box>
-);
+}) => {
+  if (!isAuthenticated || !onShowThisOrThat) return null;
+
+  return (
+    <Chip
+      variant="soft"
+      color="primary"
+      size="sm"
+      onClick={onShowThisOrThat}
+      sx={{
+        cursor: 'pointer',
+        fontWeight: 600,
+        fontSize: '0.7rem',
+        opacity: 0.75,
+        transition: 'opacity 0.15s',
+        '&:hover': { opacity: 1 },
+      }}
+    >
+      {hasEloData ? '▸ Keep ranking' : '▸ Rank movies'}
+    </Chip>
+  );
+};
 
 export default ThisOrThatBanner;

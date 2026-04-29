@@ -221,11 +221,28 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
             Movie List
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            {movies.length === 0
-              ? 'No movies yet — suggest one!'
-              : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              {movies.length === 0
+                ? 'No movies yet — suggest one!'
+                : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
+            </Typography>
+            {movies.length >= 2 && (
+              <ThisOrThatBanner
+                hasEloData={hasEloData}
+                isAuthenticated={isAuthenticated}
+                onShowThisOrThat={onShowThisOrThat}
+              />
+            )}
+          </Box>
         </Box>
 
         {/* View selector */}
@@ -248,15 +265,6 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             onShowConnections={onShowConnections}
             onSetInterest={handleSetInterest}
             onSetSeenTag={handleSetSeenTag}
-          />
-        )}
-
-        {/* This or That indicator */}
-        {!isCombinedView && !isSoloView && movies.length >= 2 && (
-          <ThisOrThatBanner
-            hasEloData={hasEloData}
-            isAuthenticated={isAuthenticated}
-            onShowThisOrThat={onShowThisOrThat}
           />
         )}
 
