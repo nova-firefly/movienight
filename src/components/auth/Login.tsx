@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { Box, Button, FormControl, FormLabel, Input, Typography, Alert } from '@mui/joy';
-import { LOGIN, GET_APP_INFO } from '../../graphql/queries';
+import { Box, Button, Divider, FormControl, FormLabel, Input, Typography, Alert } from '@mui/joy';
+import { LOGIN, GET_APP_INFO, CREATE_PLEX_PIN, COMPLETE_PLEX_AUTH } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginProps {
@@ -17,6 +17,11 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
   const { data: appInfoData } = useQuery(GET_APP_INFO);
   const quickLoginUsers: { label: string; username: string; password: string }[] =
     appInfoData?.appInfo?.quickLoginUsers ?? [];
+  const plexAuthEnabled = appInfoData?.appInfo?.plexAuthEnabled ?? false;
+
+  const [createPlexPin] = useMutation(CREATE_PLEX_PIN);
+  const [completePlexAuth] = useMutation(COMPLETE_PLEX_AUTH);
+  const [plexLoading, setPlexLoading] = useState(false);
 
   const [loginMutation, { loading }] = useMutation(LOGIN, {
     onCompleted: (data) => {
@@ -66,6 +71,36 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
       await loginMutation({ variables: { username, password } });
     } catch {
       // handled by onError
+    }
+  };
+
+  const handlePlexLogin = async () => {
+    setPlexLoading(true);
+    setError('');
+    try {
+      const { data: pinData } = await createPlexPin();
+      const { pinId, authUrl } = pinData.createPlexPin;
+
+      // Open Plex auth in popup
+      window.open(authUrl, 'PlexAuth', 'width=800,height=600');
+
+      // Server polls Plex until auth completes (up to 2 min)
+      const { data: authData } = await completePlexAuth({
+        variables: { pinId },
+      });
+
+      login(authData.completePlexAuth.token, authData.completePlexAuth.user);
+    } catch (err: any) {
+      const code = err?.graphQLErrors?.[0]?.extensions?.code;
+      if (code === 'FORBIDDEN') {
+        setError('Your account has been disabled. Please contact an administrator.');
+      } else if (code === 'TOO_MANY_REQUESTS') {
+        setError('Too many login attempts. Please try again later.');
+      } else {
+        setError('Plex sign-in failed. Please try again.');
+      }
+    } finally {
+      setPlexLoading(false);
     }
   };
 
@@ -216,6 +251,31 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
               Sign In
             </Button>
           </form>
+
+          {plexAuthEnabled && (
+            <>
+              <Divider sx={{ my: 3, color: 'text.tertiary', fontSize: '0.75rem' }}>or</Divider>
+              <Button
+                fullWidth
+                variant="outlined"
+                color="neutral"
+                loading={plexLoading}
+                onClick={handlePlexLogin}
+                sx={{
+                  fontWeight: 700,
+                  py: 1.25,
+                  borderColor: '#e5a00d',
+                  color: '#e5a00d',
+                  '&:hover': {
+                    borderColor: '#f5c518',
+                    bgcolor: 'rgba(229, 160, 13, 0.08)',
+                  },
+                }}
+              >
+                Sign in with Plex
+              </Button>
+            </>
+          )}
 
           {quickLoginUsers.length > 0 && (
             <Box sx={{ mt: 3 }}>

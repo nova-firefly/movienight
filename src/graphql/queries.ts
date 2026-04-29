@@ -122,6 +122,9 @@ export const GET_ME = gql`
       is_admin
       is_active
       last_login_at
+      plex_id
+      plex_username
+      plex_thumb
       created_at
       updated_at
     }
@@ -138,6 +141,8 @@ export const GET_USERS = gql`
       is_admin
       is_active
       last_login_at
+      plex_id
+      plex_username
       created_at
       updated_at
     }
@@ -292,6 +297,7 @@ export const GET_APP_INFO = gql`
   query GetAppInfo {
     appInfo {
       isProduction
+      plexAuthEnabled
       quickLoginUsers {
         label
         username
@@ -611,6 +617,57 @@ export const UNWATCH_MOVIE = gql`
       id
       title
       watched_at
+    }
+  }
+`;
+
+export const CREATE_PLEX_PIN = gql`
+  mutation CreatePlexPin {
+    createPlexPin {
+      pinId
+      code
+      authUrl
+    }
+  }
+`;
+
+export const COMPLETE_PLEX_AUTH = gql`
+  mutation CompletePlexAuth($pinId: Int!) {
+    completePlexAuth(pinId: $pinId) {
+      token
+      user {
+        id
+        username
+        email
+        display_name
+        is_admin
+        is_active
+        plex_id
+        plex_username
+        plex_thumb
+      }
+    }
+  }
+`;
+
+export const LINK_PLEX_ACCOUNT = gql`
+  mutation LinkPlexAccount($pinId: Int!) {
+    linkPlexAccount(pinId: $pinId) {
+      id
+      plex_id
+      plex_username
+      plex_thumb
+    }
+  }
+`;
+
+export const UNLINK_PLEX_ACCOUNT = gql`
+  mutation UnlinkPlexAccount {
+    unlinkPlexAccount {
+      id
+      plex_id
+      plex_username
+      plex_thumb
     }
   }
 `;

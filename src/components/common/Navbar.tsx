@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { useQuery } from '@apollo/client';
 import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGravatarUrl } from '../../utils/gravatar';
+import { GET_APP_INFO } from '../../graphql/queries';
+import { PlexLinkButton } from '../auth/PlexLinkButton';
 
 type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
 
@@ -26,6 +29,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: appInfoData } = useQuery(GET_APP_INFO);
+  const plexAuthEnabled = appInfoData?.appInfo?.plexAuthEnabled ?? false;
 
   const navItems = (
     <>
@@ -199,6 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     {user?.display_name || user?.username}
                   </Typography>
+                  {plexAuthEnabled && <PlexLinkButton />}
                 </Box>
               </Box>
               <Button
@@ -278,6 +284,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Typography level="body-sm" fontWeight={600}>
                     {user?.display_name || user?.username}
                   </Typography>
+                  {plexAuthEnabled && <PlexLinkButton />}
                 </Box>
               </Box>
             </>

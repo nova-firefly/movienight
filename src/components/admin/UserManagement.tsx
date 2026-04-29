@@ -204,6 +204,7 @@ export const UserManagement: React.FC = () => {
                   <th style={thStyle}>Username</th>
                   <th style={thStyle}>Display Name</th>
                   <th style={thStyle}>Email</th>
+                  <th style={thStyle}>Plex</th>
                   <th style={{ ...thStyle, width: 70 }}>Admin</th>
                   <th style={{ ...thStyle, width: 100 }}>Status</th>
                   <th style={{ ...thStyle, width: 110 }}>Last Login</th>
@@ -245,6 +246,17 @@ export const UserManagement: React.FC = () => {
                       <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
                         {user.email}
                       </Typography>
+                    </td>
+                    <td>
+                      {user.plex_username ? (
+                        <Typography level="body-xs" sx={{ color: '#e5a00d' }}>
+                          {user.plex_username}
+                        </Typography>
+                      ) : (
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                          —
+                        </Typography>
+                      )}
                     </td>
                     <td>
                       {user.is_admin && (
@@ -341,6 +353,11 @@ export const UserManagement: React.FC = () => {
                 <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                   {user.email}
                 </Typography>
+                {user.plex_username && (
+                  <Typography level="body-xs" sx={{ color: '#e5a00d', mt: 0.25 }}>
+                    Plex: {user.plex_username}
+                  </Typography>
+                )}
                 <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                   Last login:{' '}
                   {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
