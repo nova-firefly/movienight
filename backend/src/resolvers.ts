@@ -1483,7 +1483,10 @@ export const resolvers = {
         });
       }
 
-      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      const result = await pool.query(
+        'SELECT * FROM users WHERE username = $1 OR LOWER(email) = LOWER($1)',
+        [username],
+      );
       const user = result.rows[0];
 
       if (!user) {

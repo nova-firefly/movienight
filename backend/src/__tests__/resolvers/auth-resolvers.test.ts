@@ -45,6 +45,32 @@ describe('Mutation.login', () => {
     expect(result.user).not.toHaveProperty('password_hash');
   });
 
+  it('returns token and user when logging in with email', async () => {
+    const dbUser = {
+      id: 1,
+      username: 'alice',
+      email: 'alice@example.com',
+      display_name: 'Alice',
+      password_hash: 'hashed',
+      is_admin: false,
+      is_active: true,
+      last_login_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    mockQuery
+      .mockResolvedValueOnce({ rows: [dbUser] }) // SELECT user by email
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE last_login_at
+      .mockResolvedValueOnce({ rows: [] }) // logLoginHistory
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    mockComparePassword.mockResolvedValue(true);
+    mockGenerateToken.mockReturnValue('jwt-token');
+
+    const result = await login(null, { username: 'alice@example.com', password: 'pass' }, ctx);
+    expect(result.token).toBe('jwt-token');
+    expect(result.user.username).toBe('alice');
+  });
+
   it('throws UNAUTHENTICATED for invalid username', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // no user found
