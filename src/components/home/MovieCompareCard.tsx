@@ -31,6 +31,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
       borderColor: 'divider',
       transition: 'border-color 0.2s, transform 0.15s, box-shadow 0.2s',
       opacity: disabled ? 0.5 : 1,
+      '&:focus, &:focus-visible': { outline: 'none' },
       '&:hover': disabled
         ? {}
         : {
@@ -148,7 +149,12 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
             e.stopPropagation();
             onPick(movie.id);
           }}
-          sx={{ fontWeight: 700, color: '#0d0f1a', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+          sx={{
+            fontWeight: 700,
+            color: '#0d0f1a',
+            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+            '&:focus, &:focus-visible': { outline: 'none', outlineOffset: 0 },
+          }}
         >
           Pick This One
         </Button>
