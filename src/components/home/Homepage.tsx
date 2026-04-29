@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
+import { Box, Button, Typography, Sheet, Chip, CircularProgress, Skeleton } from '@mui/joy';
 import {
   GET_MOVIES,
-  ADD_MOVIE,
   DELETE_MOVIE,
   MARK_WATCHED,
-  SEARCH_TMDB,
   SEED_MOVIES,
   GET_APP_INFO,
   MY_CONNECTIONS,
@@ -18,222 +17,18 @@ import {
   SET_MOVIE_TAG,
   REMOVE_MOVIE_TAG,
 } from '../../graphql/queries';
-import {
-  Autocomplete,
-  AutocompleteOption,
-  Box,
-  Button,
-  Typography,
-  Sheet,
-  Chip,
-  IconButton,
-  ListItemContent,
-  CircularProgress,
-  Tooltip,
-} from '@mui/joy';
 import TmdbMatchFlow from './TmdbMatchFlow';
+import MovieRow from './MovieRow';
+import MovieCard from './MovieCard';
+import AddMovieForm from './AddMovieForm';
+import ViewSelector from './ViewSelector';
+import ConnectionBanners from './ConnectionBanners';
+import ThisOrThatBanner from './ThisOrThatBanner';
+import ConfirmDialog from '../common/ConfirmDialog';
 import { Movie } from '../../models/Movies';
 import { useAuth } from '../../contexts/AuthContext';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-type TmdbOption = {
-  tmdb_id: number;
-  title: string;
-  release_year: string | null;
-  overview: string | null;
-};
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
-
-// ── Movie row ─────────────────────────────────────────────────────────────────
-
-interface MovieRowProps {
-  movie: Movie;
-  isAdmin: boolean;
-  canMarkWatched: boolean;
-  onMarkWatched: (id: string, title: string) => void;
-  onDelete: (id: string, title: string) => void;
-  onToggleSeen: (id: string, currentlySeen: boolean) => void;
-  isAuthenticated: boolean;
-}
-
-const MovieRow: React.FC<MovieRowProps> = ({
-  movie,
-  isAdmin,
-  canMarkWatched,
-  onMarkWatched,
-  onDelete,
-  onToggleSeen,
-  isAuthenticated,
-}) => {
-  const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
-  const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
-  const seenCount = seenByUsers.length;
-  const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
-
-  return (
-    <tr>
-      {/* Title */}
-      <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {movie.poster_url ? (
-            <img
-              src={movie.poster_url}
-              alt=""
-              style={{
-                width: 28,
-                height: 42,
-                objectFit: 'cover',
-                borderRadius: 3,
-                flexShrink: 0,
-              }}
-            />
-          ) : (
-            <Box
-              sx={{
-                width: 28,
-                height: 42,
-                bgcolor: 'background.level2',
-                borderRadius: '3px',
-                flexShrink: 0,
-              }}
-            />
-          )}
-          <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {movie.title}
-          </Typography>
-        </Box>
-      </td>
-
-      {/* Suggested by */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
-        <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
-          {movie.requester}
-        </Chip>
-      </td>
-
-      {/* Date */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 16px', whiteSpace: 'nowrap' }}>
-        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-          {new Date(movie.date_submitted).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Typography>
-      </td>
-
-      {/* TMDB */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 8px', textAlign: 'center' }}>
-        {movie.tmdb_id ? (
-          <a
-            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
-          >
-            ↗
-          </a>
-        ) : null}
-      </td>
-
-      {/* Seen it */}
-      {isAuthenticated && (
-        <td style={{ verticalAlign: 'middle', padding: '0 4px', textAlign: 'center' }}>
-          <Tooltip
-            title={
-              seenCount > 0
-                ? `Seen by: ${seenNames.join(', ')}`
-                : isSeen
-                  ? 'Remove "Seen it"'
-                  : "I've seen this"
-            }
-            placement="top"
-            arrow
-          >
-            <IconButton
-              size="sm"
-              variant="plain"
-              color={isSeen ? 'warning' : 'neutral'}
-              onClick={() => onToggleSeen(movie.id, isSeen)}
-              sx={{
-                opacity: isSeen ? 0.9 : 0.35,
-                transition: 'opacity 0.15s',
-                '&:hover': { opacity: 1 },
-                fontSize: '0.85rem',
-              }}
-            >
-              {isSeen ? '👁' : '👁‍🗨'}
-              {seenCount > 0 && (
-                <Typography
-                  component="span"
-                  level="body-xs"
-                  sx={{ ml: 0.25, fontWeight: 700, fontSize: '0.6rem' }}
-                >
-                  {seenCount}
-                </Typography>
-              )}
-            </IconButton>
-          </Tooltip>
-        </td>
-      )}
-
-      {/* Actions */}
-      {(canMarkWatched || isAdmin) && (
-        <td
-          style={{
-            verticalAlign: 'middle',
-            padding: '0 12px',
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {canMarkWatched && (
-            <IconButton
-              size="sm"
-              color="success"
-              variant="plain"
-              onClick={() => onMarkWatched(movie.id, movie.title)}
-              title={`Mark "${movie.title}" as done`}
-              sx={{
-                opacity: 0.5,
-                transition: 'opacity 0.15s',
-                '&:hover': { opacity: 1 },
-                mr: isAdmin ? 0.5 : 0,
-              }}
-            >
-              ✓
-            </IconButton>
-          )}
-          {isAdmin && (
-            <IconButton
-              size="sm"
-              color="danger"
-              variant="plain"
-              onClick={() => onDelete(movie.id, movie.title)}
-              title={`Remove "${movie.title}"`}
-              sx={{
-                opacity: 0.5,
-                transition: 'opacity 0.15s',
-                '&:hover': { opacity: 1 },
-              }}
-            >
-              ✕
-            </IconButton>
-          )}
-        </td>
-      )}
-    </tr>
-  );
-};
+import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../hooks/useConfirm';
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -244,16 +39,12 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections }) => {
   const { isAuthenticated, user } = useAuth();
+  const { showError } = useToast();
+  const { confirm, dialogProps } = useConfirm();
   const isAdmin = user?.is_admin ?? false;
 
-  const [title, setTitle] = useState('');
-  const [tmdbId, setTmdbId] = useState<number | null>(null);
-  const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [lastAddedMovieId, setLastAddedMovieId] = useState<string | null>(null);
   const [askSeenMovieId, setAskSeenMovieId] = useState<string | null>(null);
 
   // Connections data (only when authenticated)
@@ -264,7 +55,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   });
   const { data: combinedData, loading: combinedLoading } = useQuery(COMBINED_LIST, {
     variables: { connectionId: selectedConnectionId },
-    skip: !selectedConnectionId,
+    skip: !selectedConnectionId || selectedConnectionId === 'solo',
     fetchPolicy: 'cache-and-network',
   });
 
@@ -300,6 +91,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   });
 
   const connections = connectionsData?.myConnections || [];
+
+  // Default to first connection's combined view if one exists
+  useEffect(() => {
+    if (connections.length > 0 && selectedConnectionId === null) {
+      setSelectedConnectionId(connections[0].id);
+    }
+  }, [connections]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
   const isSoloView = selectedConnectionId === 'solo';
@@ -308,28 +107,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const soloMovies: Movie[] = soloData?.soloMovies ?? [];
   const passedMovieIds: Set<string> = new Set(passedData?.passedMovieIds ?? []);
 
-  const debouncedTitle = useDebounce(title, 400);
+  const { data, loading: moviesLoading } = useQuery(GET_MOVIES, { pollInterval: 5000 });
 
-  const { data } = useQuery(GET_MOVIES, {
-    pollInterval: 5000,
-  });
-
-  const [searchTmdb] = useLazyQuery(SEARCH_TMDB, {
-    onCompleted: (d) => setTmdbOptions(d.searchTmdb || []),
-    onError: () => setTmdbOptions([]),
-  });
-
-  useEffect(() => {
-    if (debouncedTitle.trim().length >= 2) {
-      searchTmdb({ variables: { query: debouncedTitle } });
-    } else {
-      setTmdbOptions([]);
-    }
-  }, [debouncedTitle, searchTmdb]);
-
-  const [addMovie] = useMutation(ADD_MOVIE, {
-    refetchQueries: [{ query: GET_MOVIES }],
-  });
   const [markWatched] = useMutation(MARK_WATCHED, {
     refetchQueries: [{ query: GET_MOVIES }],
   });
@@ -353,11 +132,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   );
 
   const handleMarkWatched = async (id: string, movieTitle: string) => {
-    if (!window.confirm(`Mark "${movieTitle}" as done? It'll move to your watch history.`)) return;
+    const ok = await confirm({
+      title: 'Mark as done?',
+      message: `"${movieTitle}" will move to your watch history.`,
+      confirmText: 'Done',
+      confirmColor: 'success',
+    });
+    if (!ok) return;
     try {
       await markWatched({ variables: { id } });
     } catch (err: any) {
-      setErrorMessage(`Error marking movie as done: ${err.message}`);
+      showError(`Error marking movie as done: ${err.message}`);
     }
   };
 
@@ -369,53 +154,46 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         await setMovieTag({ variables: { movieId: id, tagSlug: 'seen' } });
       }
     } catch (err: any) {
-      setErrorMessage(`Error updating tag: ${err.message}`);
+      showError(`Error updating tag: ${err.message}`);
     }
   };
 
   const handleDelete = async (id: string, movieTitle: string) => {
-    if (!window.confirm(`Remove "${movieTitle}" from the list?`)) return;
+    const ok = await confirm({
+      title: 'Remove movie?',
+      message: `"${movieTitle}" will be permanently removed from the list.`,
+      confirmText: 'Remove',
+      confirmColor: 'danger',
+    });
+    if (!ok) return;
     try {
       await deleteMovie({ variables: { id } });
     } catch (err: any) {
-      setErrorMessage(`Error removing movie: ${err.message}`);
+      showError(`Error removing movie: ${err.message}`);
     }
   };
 
   const handleSeed = async () => {
-    if (!window.confirm('This will DELETE all existing movies and seed 30 new ones. Continue?'))
-      return;
+    const ok = await confirm({
+      title: 'Seed movies?',
+      message: 'This will DELETE all existing movies and seed 30 new ones.',
+      confirmText: 'Seed',
+      confirmColor: 'warning',
+    });
+    if (!ok) return;
     try {
       await seedMovies();
-      setSuccessMessage('Seeded 30 movies!');
-      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
-      setErrorMessage(`Seed failed: ${err.message}`);
+      showError(`Seed failed: ${err.message}`);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      setErrorMessage('Please enter a movie title.');
-      return;
-    }
-    try {
-      const { data: addData } = await addMovie({
-        variables: { title: title.trim(), tmdb_id: tmdbId },
-      });
-      setSuccessMessage('Added to the list!');
-      setLastAddedMovieId(addData?.addMovie?.id ?? null);
-      setTitle('');
-      setTmdbId(null);
-      setTmdbOptions([]);
-      setTimeout(() => {
-        setSuccessMessage('');
-        setLastAddedMovieId(null);
-      }, 5000);
-    } catch (error: any) {
-      setErrorMessage(`Error: ${error.message}`);
-    }
+  const handleSetInterest = (movieId: string, interested: boolean) => {
+    setMovieInterest({ variables: { movieId, interested } });
+  };
+
+  const handleSetSeenTag = async (movieId: string) => {
+    await setMovieTag({ variables: { movieId, tagSlug: 'seen' } });
   };
 
   // Column count for colSpan calculations
@@ -443,359 +221,58 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
             Movie List
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            {movies.length === 0
-              ? 'No movies yet — suggest one!'
-              : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              {movies.length === 0
+                ? 'No movies yet — suggest one!'
+                : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
+            </Typography>
+            {movies.length >= 2 && (
+              <ThisOrThatBanner
+                hasEloData={hasEloData}
+                isAuthenticated={isAuthenticated}
+                onShowThisOrThat={onShowThisOrThat}
+              />
+            )}
+          </Box>
         </Box>
 
-        {/* View selector — segmented control */}
+        {/* View selector */}
         {isAuthenticated && (connections.length > 0 || soloMovies.length > 0) && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              gap: 0.5,
-              mb: 3,
-            }}
-          >
-            <Button
-              variant={!isCombinedView && !isSoloView ? 'soft' : 'plain'}
-              color="neutral"
-              size="sm"
-              onClick={() => setSelectedConnectionId(null)}
-              sx={{
-                fontWeight: 600,
-                color: !isCombinedView && !isSoloView ? 'primary.400' : 'text.secondary',
-                '&:hover': { color: 'primary.300' },
-              }}
-            >
-              My List
-            </Button>
-            {connections.map((conn: any) => (
-              <Button
-                key={conn.id}
-                variant={selectedConnectionId === conn.id ? 'soft' : 'plain'}
-                color="neutral"
-                size="sm"
-                onClick={() => setSelectedConnectionId(conn.id)}
-                sx={{
-                  fontWeight: 600,
-                  color: selectedConnectionId === conn.id ? 'primary.400' : 'text.secondary',
-                  '&:hover': { color: 'primary.300' },
-                }}
-              >
-                {conn.user.display_name || conn.user.username} + Me
-              </Button>
-            ))}
-            {soloMovies.length > 0 && (
-              <Button
-                variant={isSoloView ? 'soft' : 'plain'}
-                color="neutral"
-                size="sm"
-                onClick={() => setSelectedConnectionId('solo')}
-                sx={{
-                  fontWeight: 600,
-                  color: isSoloView ? 'primary.400' : 'text.secondary',
-                  '&:hover': { color: 'primary.300' },
-                }}
-              >
-                Solo Queue
-              </Button>
-            )}
-          </Box>
+          <ViewSelector
+            connections={connections}
+            soloMovieCount={soloMovies.length}
+            selectedConnectionId={selectedConnectionId}
+            onSelect={setSelectedConnectionId}
+          />
         )}
 
-        {/* Pending connection request banner */}
-        {isAuthenticated && incomingPending.length > 0 && (
-          <Box
-            sx={{
-              mb: 3,
-              p: 1.5,
-              borderRadius: 'md',
-              bgcolor: 'warning.softBg',
-              border: '1px solid',
-              borderColor: 'warning.outlinedBorder',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-            }}
-          >
-            <Typography level="body-sm" sx={{ color: 'warning.softColor' }}>
-              {incomingPending.length === 1
-                ? `${incomingPending[0].user.display_name || incomingPending[0].user.username} wants to connect`
-                : `${incomingPending.length} pending connection requests`}
-            </Typography>
-            {onShowConnections && (
-              <Button
-                variant="soft"
-                color="warning"
-                size="sm"
-                onClick={onShowConnections}
-                sx={{ fontWeight: 700 }}
-              >
-                View
-              </Button>
-            )}
-          </Box>
-        )}
-
-        {/* New movies from connections — review banner */}
-        {isAuthenticated && !isCombinedView && !isSoloView && pendingMovies.length > 0 && (
-          <Sheet
-            variant="outlined"
-            sx={{
-              mb: 3,
-              p: 2,
-              borderRadius: 'md',
-              bgcolor: 'primary.softBg',
-              borderColor: 'primary.outlinedBorder',
-            }}
-          >
-            <Typography
-              level="title-sm"
-              sx={{ fontWeight: 700, mb: 1.5, color: 'primary.softColor' }}
-            >
-              New movies from your connections
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {pendingMovies.map((item: any) => (
-                <Box
-                  key={item.movie.id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    p: 1,
-                    borderRadius: 'sm',
-                    bgcolor: 'background.level1',
-                  }}
-                >
-                  <Box>
-                    <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                      {item.movie.title}
-                    </Typography>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                      added by {item.addedBy.display_name || item.addedBy.username}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                    {askSeenMovieId === item.movie.id ? (
-                      <>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mr: 0.5 }}>
-                          Seen it?
-                        </Typography>
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color="warning"
-                          onClick={async () => {
-                            setAskSeenMovieId(null);
-                            await setMovieInterest({
-                              variables: { movieId: item.movie.id, interested: true },
-                            });
-                            try {
-                              await setMovieTag({
-                                variables: { movieId: item.movie.id, tagSlug: 'seen' },
-                              });
-                            } catch {}
-                          }}
-                        >
-                          Yes
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="plain"
-                          color="neutral"
-                          onClick={() => {
-                            setAskSeenMovieId(null);
-                            setMovieInterest({
-                              variables: { movieId: item.movie.id, interested: true },
-                            });
-                          }}
-                        >
-                          No
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color="success"
-                          onClick={() => setAskSeenMovieId(item.movie.id)}
-                        >
-                          I'm in
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="plain"
-                          color="neutral"
-                          onClick={() =>
-                            setMovieInterest({
-                              variables: { movieId: item.movie.id, interested: false },
-                            })
-                          }
-                        >
-                          Pass
-                        </Button>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Sheet>
-        )}
-
-        {/* This or That indicator */}
-        {!isCombinedView && !isSoloView && movies.length >= 2 && (
-          <Box
-            sx={{
-              mb: 3,
-              p: 1.5,
-              borderRadius: 'md',
-              bgcolor: 'primary.softBg',
-              border: '1px solid',
-              borderColor: 'primary.outlinedBorder',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-            }}
-          >
-            {isAuthenticated ? (
-              <>
-                <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-                  {hasEloData
-                    ? 'Keep ranking movies!'
-                    : 'Rate movies to get your personal ranking.'}
-                </Typography>
-                {onShowThisOrThat && (
-                  <Button
-                    variant="soft"
-                    color="primary"
-                    size="sm"
-                    onClick={onShowThisOrThat}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    This or That
-                  </Button>
-                )}
-              </>
-            ) : (
-              <Typography level="body-sm" sx={{ color: 'primary.softColor' }}>
-                Sign in to rank movies with This or That
-              </Typography>
-            )}
-          </Box>
+        {/* Connection banners (personal view only) */}
+        {isAuthenticated && !isCombinedView && !isSoloView && (
+          <ConnectionBanners
+            incomingPending={incomingPending}
+            pendingMovies={pendingMovies}
+            askSeenMovieId={askSeenMovieId}
+            setAskSeenMovieId={setAskSeenMovieId}
+            onShowConnections={onShowConnections}
+            onSetInterest={handleSetInterest}
+            onSetSeenTag={handleSetSeenTag}
+          />
         )}
 
         {/* Add movie form */}
-        {isAuthenticated && (
-          <Box sx={{ mb: 4 }}>
-            <form onSubmit={handleSubmit}>
-              <Box sx={{ display: 'flex', gap: 1, maxWidth: 520, mx: 'auto' }}>
-                <Autocomplete
-                  freeSolo
-                  options={tmdbOptions}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string'
-                      ? option
-                      : option.release_year
-                        ? `${option.title} (${option.release_year})`
-                        : option.title
-                  }
-                  inputValue={title}
-                  onInputChange={(_, value) => {
-                    setTitle(value);
-                    if (!value) setTmdbId(null);
-                  }}
-                  onChange={(_, value) => {
-                    if (value && typeof value !== 'string') {
-                      setTitle(value.title);
-                      setTmdbId(value.tmdb_id);
-                    }
-                  }}
-                  renderOption={(props, option) => (
-                    <AutocompleteOption {...props} key={option.tmdb_id}>
-                      <ListItemContent>
-                        <strong>{option.title}</strong>
-                        {option.release_year && ` (${option.release_year})`}
-                      </ListItemContent>
-                    </AutocompleteOption>
-                  )}
-                  placeholder="Suggest a movie title..."
-                  sx={{
-                    flex: 1,
-                    bgcolor: 'background.surface',
-                    '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
-                  }}
-                />
-                <Button
-                  type="submit"
-                  color="primary"
-                  variant="solid"
-                  sx={{ fontWeight: 700, color: '#0d0f1a', px: 3 }}
-                >
-                  Add
-                </Button>
-              </Box>
-            </form>
-
-            {successMessage && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1.5,
-                  mt: 1.5,
-                }}
-              >
-                <Typography level="body-sm" sx={{ color: 'success.400', fontWeight: 600 }}>
-                  {successMessage}
-                </Typography>
-                {lastAddedMovieId && (
-                  <Button
-                    size="sm"
-                    variant="soft"
-                    color="neutral"
-                    onClick={async () => {
-                      try {
-                        await setMovieTag({
-                          variables: { movieId: lastAddedMovieId, tagSlug: 'seen' },
-                        });
-                        setLastAddedMovieId(null);
-                      } catch (err: any) {
-                        setErrorMessage(`Error: ${err.message}`);
-                      }
-                    }}
-                    sx={{ fontSize: '0.75rem', py: 0.25 }}
-                  >
-                    I've seen this
-                  </Button>
-                )}
-              </Box>
-            )}
-            {errorMessage && (
-              <Typography
-                level="body-sm"
-                sx={{ textAlign: 'center', mt: 1.5, color: 'danger.400', fontWeight: 600 }}
-              >
-                {errorMessage}
-              </Typography>
-            )}
-          </Box>
-        )}
+        {isAuthenticated && <AddMovieForm />}
 
         {/* TMDB match flow */}
-        {isAuthenticated && unmatchedMovies.length > 0 && (
+        {isAuthenticated && unmatchedMovies.length > 0 && !isCombinedView && !isSoloView && (
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Button
               variant="outlined"
@@ -849,7 +326,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       <table
                         style={{
                           width: '100%',
-                          minWidth: 480,
+                          minWidth: 360,
                           borderCollapse: 'collapse',
                           tableLayout: 'auto',
                         }}
@@ -952,187 +429,215 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 Your connections passed on these — watch them on your own!
               </Typography>
             </Box>
-            <Sheet
-              variant="outlined"
-              sx={{
-                borderRadius: 'md',
-                overflow: 'clip',
-                borderColor: 'var(--mn-border-vis)',
-              }}
-            >
-              <Box sx={{ overflowX: 'auto' }}>
-                <table
-                  style={{
-                    width: '100%',
-                    minWidth: 540,
-                    borderCollapse: 'collapse',
-                    tableLayout: 'auto',
-                  }}
-                >
-                  <tbody>
-                    {soloMovies.map((movie) => (
-                      <MovieRow
-                        key={movie.id}
-                        movie={movie}
-                        isAdmin={isAdmin}
-                        canMarkWatched={true}
-                        onMarkWatched={handleMarkWatched}
-                        onDelete={handleDelete}
-                        onToggleSeen={handleToggleSeen}
-                        isAuthenticated={isAuthenticated}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </Box>
-            </Sheet>
+
+            {/* Table — hidden on mobile */}
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <Sheet
+                variant="outlined"
+                sx={{
+                  borderRadius: 'md',
+                  overflow: 'clip',
+                  borderColor: 'var(--mn-border-vis)',
+                }}
+              >
+                <Box sx={{ overflowX: 'auto' }}>
+                  <table
+                    style={{
+                      width: '100%',
+                      minWidth: 540,
+                      borderCollapse: 'collapse',
+                      tableLayout: 'auto',
+                    }}
+                  >
+                    <tbody>
+                      {soloMovies.map((movie) => (
+                        <MovieRow
+                          key={movie.id}
+                          movie={movie}
+                          isAdmin={isAdmin}
+                          canMarkWatched={true}
+                          onMarkWatched={handleMarkWatched}
+                          onDelete={handleDelete}
+                          onToggleSeen={handleToggleSeen}
+                          isAuthenticated={isAuthenticated}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </Box>
+              </Sheet>
+            </Box>
+
+            {/* Cards — visible on mobile */}
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {soloMovies.map((movie, idx) => (
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  rank={idx + 1}
+                  isAdmin={isAdmin}
+                  canMarkWatched={true}
+                  onMarkWatched={handleMarkWatched}
+                  onDelete={handleDelete}
+                  onToggleSeen={handleToggleSeen}
+                  isAuthenticated={isAuthenticated}
+                />
+              ))}
+            </Box>
           </>
         )}
 
-        {/* Movie table (personal view) */}
+        {/* Movie list (personal view) */}
         {!isCombinedView && !isSoloView && (
-          <Sheet
-            variant="outlined"
-            sx={{
-              borderRadius: 'md',
-              overflow: 'clip',
-              borderColor: 'var(--mn-border-vis)',
-            }}
-          >
-            <Box sx={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  minWidth: 540,
-                  borderCollapse: 'collapse',
-                  tableLayout: 'auto',
+          <>
+            {/* Loading skeleton */}
+            {moviesLoading && !data && (
+              <Sheet
+                variant="outlined"
+                sx={{
+                  borderRadius: 'md',
+                  overflow: 'clip',
+                  borderColor: 'var(--mn-border-vis)',
                 }}
               >
-                <thead>
-                  <tr
-                    style={{
-                      background: 'var(--mn-bg-elevated)',
-                      borderBottom: '1px solid var(--mn-border-vis)',
-                    }}
+                <Box sx={{ p: 0 }}>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: '8px 16px',
+                        borderBottom: '1px solid var(--mn-border)',
+                      }}
+                    >
+                      <Skeleton
+                        variant="rectangular"
+                        sx={{ width: 28, height: 42, borderRadius: '3px', flexShrink: 0 }}
+                      />
+                      <Skeleton variant="text" sx={{ width: `${60 + (i % 3) * 15}%` }} />
+                    </Box>
+                  ))}
+                </Box>
+              </Sheet>
+            )}
+
+            {/* Table — hidden on mobile */}
+            {data && (
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <Sheet
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 'md',
+                    overflow: 'clip',
+                    borderColor: 'var(--mn-border-vis)',
+                  }}
+                >
+                  <Box sx={{ overflowX: 'auto' }}>
+                    <table
+                      style={{
+                        width: '100%',
+                        minWidth: 540,
+                        borderCollapse: 'collapse',
+                        tableLayout: 'auto',
+                      }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            background: 'var(--mn-bg-elevated)',
+                            borderBottom: '1px solid var(--mn-border-vis)',
+                          }}
+                        >
+                          {['Title', 'Suggested by', 'Added'].map((label) => (
+                            <th key={label} style={thStyle}>
+                              {label}
+                            </th>
+                          ))}
+                          <th style={{ ...thStyle, textAlign: 'center', padding: '10px 8px' }}>
+                            TMDB
+                          </th>
+                          {isAuthenticated && (
+                            <th style={{ ...thStyle, textAlign: 'center', padding: '10px 4px' }}>
+                              Seen
+                            </th>
+                          )}
+                          {isAuthenticated && (
+                            <th style={{ ...thStyle, textAlign: 'right', padding: '10px 12px' }} />
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {movies.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={colCount}
+                              style={{
+                                padding: '48px 16px',
+                                textAlign: 'center',
+                                color: 'var(--mn-text-muted)',
+                                fontSize: '0.875rem',
+                              }}
+                            >
+                              No movies yet. Be the first to suggest one!
+                            </td>
+                          </tr>
+                        ) : (
+                          movies.map((movie) => (
+                            <MovieRow
+                              key={movie.id}
+                              movie={movie}
+                              isAdmin={isAdmin}
+                              canMarkWatched={
+                                isAdmin ||
+                                (isAuthenticated && String(movie.requested_by) === String(user?.id))
+                              }
+                              onMarkWatched={handleMarkWatched}
+                              onDelete={handleDelete}
+                              onToggleSeen={handleToggleSeen}
+                              isAuthenticated={isAuthenticated}
+                            />
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </Box>
+                </Sheet>
+              </Box>
+            )}
+
+            {/* Cards — visible on mobile */}
+            {data && (
+              <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+                {movies.length === 0 ? (
+                  <Typography
+                    level="body-sm"
+                    sx={{ textAlign: 'center', color: 'text.tertiary', py: 6 }}
                   >
-                    <th
-                      style={{
-                        padding: '10px 16px',
-                        textAlign: 'left',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        color: 'var(--mn-text-muted)',
-                      }}
-                    >
-                      Title
-                    </th>
-                    <th
-                      style={{
-                        padding: '10px 16px',
-                        textAlign: 'left',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        color: 'var(--mn-text-muted)',
-                      }}
-                    >
-                      Suggested by
-                    </th>
-                    <th
-                      style={{
-                        padding: '10px 16px',
-                        textAlign: 'left',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        color: 'var(--mn-text-muted)',
-                      }}
-                    >
-                      Added
-                    </th>
-                    <th
-                      style={{
-                        padding: '10px 8px',
-                        textAlign: 'center',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        color: 'var(--mn-text-muted)',
-                      }}
-                    >
-                      TMDB
-                    </th>
-                    {isAuthenticated && (
-                      <th
-                        style={{
-                          padding: '10px 4px',
-                          textAlign: 'center',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.08em',
-                          color: 'var(--mn-text-muted)',
-                        }}
-                      >
-                        Seen
-                      </th>
-                    )}
-                    {isAuthenticated && (
-                      <th
-                        style={{
-                          padding: '10px 12px',
-                          textAlign: 'right',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.08em',
-                          color: 'var(--mn-text-muted)',
-                        }}
-                      />
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {movies.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={colCount}
-                        style={{
-                          padding: '48px 16px',
-                          textAlign: 'center',
-                          color: 'var(--mn-text-muted)',
-                          fontSize: '0.875rem',
-                        }}
-                      >
-                        No movies yet. Be the first to suggest one!
-                      </td>
-                    </tr>
-                  ) : (
-                    movies.map((movie) => (
-                      <MovieRow
-                        key={movie.id}
-                        movie={movie}
-                        isAdmin={isAdmin}
-                        canMarkWatched={
-                          isAdmin ||
-                          (isAuthenticated && String(movie.requested_by) === String(user?.id))
-                        }
-                        onMarkWatched={handleMarkWatched}
-                        onDelete={handleDelete}
-                        onToggleSeen={handleToggleSeen}
-                        isAuthenticated={isAuthenticated}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </Box>
-          </Sheet>
+                    No movies yet. Be the first to suggest one!
+                  </Typography>
+                ) : (
+                  movies.map((movie, idx) => (
+                    <MovieCard
+                      key={movie.id}
+                      movie={movie}
+                      rank={idx + 1}
+                      isAdmin={isAdmin}
+                      canMarkWatched={
+                        isAdmin ||
+                        (isAuthenticated && String(movie.requested_by) === String(user?.id))
+                      }
+                      onMarkWatched={handleMarkWatched}
+                      onDelete={handleDelete}
+                      onToggleSeen={handleToggleSeen}
+                      isAuthenticated={isAuthenticated}
+                    />
+                  ))
+                )}
+              </Box>
+            )}
+          </>
         )}
 
         {/* Seed button — admin only, test env only */}
@@ -1150,8 +655,20 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           </Box>
         )}
       </Box>
+
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
+};
+
+const thStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  textAlign: 'left',
+  fontSize: '0.7rem',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'var(--mn-text-muted)',
 };
 
 const combinedThStyle: React.CSSProperties = {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useLazyQuery, useMutation } from '@apollo/client';
-import { Box, Typography, Button, Sheet, Chip, Input, CircularProgress, Alert } from '@mui/joy';
+import { Box, Typography, Button, Sheet, Chip, Input, CircularProgress } from '@mui/joy';
 import {
   SEARCH_USERS,
   MY_CONNECTIONS,
@@ -9,12 +9,15 @@ import {
   RESPOND_TO_CONNECTION_REQUEST,
   REMOVE_CONNECTION,
 } from '../../graphql/queries';
+import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../hooks/useConfirm';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const CombinedList: React.FC = () => {
+  const { showSuccess, showError } = useToast();
+  const { confirm, dialogProps } = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [searchUsers, { loading: searchLoading }] = useLazyQuery(SEARCH_USERS, {
     fetchPolicy: 'network-only',
@@ -29,13 +32,13 @@ const CombinedList: React.FC = () => {
   const [sendRequest, { loading: sendingRequest }] = useMutation(SEND_CONNECTION_REQUEST, {
     onCompleted: (data) => {
       const status = data.sendConnectionRequest.status;
-      setSuccess(status === 'accepted' ? 'Connected! (mutual request)' : 'Request sent!');
+      showSuccess(status === 'accepted' ? 'Connected! (mutual request)' : 'Request sent!');
       setSearchQuery('');
       setSearchResults([]);
       refetchPending();
       refetchConnections();
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => showError(err.message),
   });
 
   const [respond] = useMutation(RESPOND_TO_CONNECTION_REQUEST, {
@@ -43,12 +46,12 @@ const CombinedList: React.FC = () => {
       refetchPending();
       refetchConnections();
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => showError(err.message),
   });
 
   const [removeConnection] = useMutation(REMOVE_CONNECTION, {
     onCompleted: () => refetchConnections(),
-    onError: (err) => setError(err.message),
+    onError: (err) => showError(err.message),
   });
 
   // Debounced search
@@ -62,17 +65,6 @@ const CombinedList: React.FC = () => {
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery, searchUsers]);
-
-  // Auto-clear alerts
-  useEffect(() => {
-    if (error || success) {
-      const timer = setTimeout(() => {
-        setError(null);
-        setSuccess(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, success]);
 
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
@@ -100,18 +92,6 @@ const CombinedList: React.FC = () => {
             Connect with friends to see combined movie rankings on the home page
           </Typography>
         </Box>
-
-        {/* Alerts */}
-        {error && (
-          <Alert color="danger" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert color="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
 
         {/* Search */}
         <Sheet
@@ -297,12 +277,14 @@ const CombinedList: React.FC = () => {
                   size="sm"
                   variant="plain"
                   color="danger"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        `Remove connection with ${conn.user.display_name || conn.user.username}?`,
-                      )
-                    ) {
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Remove connection?',
+                      message: `You will no longer see combined rankings with ${conn.user.display_name || conn.user.username}.`,
+                      confirmText: 'Remove',
+                      confirmColor: 'danger',
+                    });
+                    if (ok) {
                       removeConnection({ variables: { connectionId: conn.id } });
                     }
                   }}
@@ -315,6 +297,8 @@ const CombinedList: React.FC = () => {
           </Box>
         </Sheet>
       </Box>
+
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
 };
