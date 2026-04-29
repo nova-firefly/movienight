@@ -8,6 +8,7 @@ import { initializeDatabase } from './db';
 import pool from './db';
 import { verifyToken, getTokenFromHeader } from './auth';
 import { initScheduler } from './scheduler';
+import { initBackupScheduler } from './backup';
 
 const PORT = process.env.PORT || 4000;
 
@@ -59,6 +60,7 @@ async function startServer() {
 
   await initializeDatabase();
   await initScheduler();
+  initBackupScheduler();
 
   // Clean up expired password reset tokens every hour
   setInterval(

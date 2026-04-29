@@ -15,6 +15,7 @@ import { rescheduleKometa } from './scheduler';
 import { createList, syncList } from './mdblist';
 import { applyComparison, updateGlobalEloRank } from './elo';
 import { selectPair, MovieCandidate } from './pairSelection';
+import { runBackup } from './backup';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
@@ -1463,6 +1464,28 @@ export const resolvers = {
         success: true,
         message: 'Password has been reset successfully. You can now log in.',
       };
+    },
+    triggerBackup: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      if (!process.env.DB_BACKUP_PATH) {
+        throw new GraphQLError('DB_BACKUP_PATH is not configured', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      const filename = await runBackup();
+      await logAudit(
+        context.user.userId,
+        'DB_BACKUP',
+        'database',
+        filename,
+        null,
+        context.ipAddress ?? 'unknown',
+      );
+      return filename;
     },
     login: async (
       _: any,
