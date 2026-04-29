@@ -31,7 +31,10 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
       borderColor: 'divider',
       transition: 'border-color 0.2s, transform 0.15s, box-shadow 0.2s',
       opacity: disabled ? 0.5 : 1,
-      '&:focus, &:focus-visible': { outline: 'none' },
+      '&:focus, &:focus-visible, &:focus-within': {
+        outline: 'none',
+        borderColor: 'divider',
+      },
       '&:hover': disabled
         ? {}
         : {
@@ -153,7 +156,12 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
             fontWeight: 700,
             color: '#0d0f1a',
             fontSize: { xs: '0.75rem', sm: '0.875rem' },
-            '&:focus, &:focus-visible': { outline: 'none', outlineOffset: 0 },
+            '&:focus, &:focus-visible': {
+              outline: 'none',
+              outlineOffset: 0,
+              boxShadow: 'none',
+              '--joy-focus-thickness': '0px',
+            },
           }}
         >
           Pick This One
