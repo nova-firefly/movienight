@@ -3,9 +3,8 @@ jest.mock('../db', () => ({
   default: { query: jest.fn() },
 }));
 
-// Mock fs before importing scheduler
-jest.mock('fs', () => ({
-  promises: { writeFile: jest.fn() },
+jest.mock('../kometaExport', () => ({
+  runKometaExport: jest.fn(),
 }));
 
 import pool from '../db';
