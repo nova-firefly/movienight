@@ -4,6 +4,7 @@ import { Movie } from '../../models/Movies';
 
 interface MovieCardProps {
   movie: Movie;
+  rank?: number;
   isAdmin: boolean;
   canMarkWatched: boolean;
   onMarkWatched: (id: string, title: string) => void;
@@ -14,6 +15,7 @@ interface MovieCardProps {
 
 const MovieCard: React.FC<MovieCardProps> = ({
   movie,
+  rank,
   isAdmin,
   canMarkWatched,
   onMarkWatched,
@@ -37,6 +39,22 @@ const MovieCard: React.FC<MovieCardProps> = ({
       }}
     >
       <Box sx={{ display: 'flex', gap: 1.5 }}>
+        {/* Rank */}
+        {rank != null && (
+          <Typography
+            level="body-xs"
+            sx={{
+              fontWeight: 700,
+              color: rank <= 3 ? 'primary.400' : 'text.tertiary',
+              minWidth: 20,
+              textAlign: 'right',
+              pt: 0.5,
+              flexShrink: 0,
+            }}
+          >
+            {rank}
+          </Typography>
+        )}
         {/* Poster */}
         {movie.poster_url ? (
           <img

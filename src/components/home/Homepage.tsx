@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { Box, Button, Typography, Sheet, Chip, CircularProgress, Skeleton } from '@mui/joy';
 import {
@@ -91,6 +91,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   });
 
   const connections = connectionsData?.myConnections || [];
+
+  // Default to first connection's combined view if one exists
+  useEffect(() => {
+    if (connections.length > 0 && selectedConnectionId === null) {
+      setSelectedConnectionId(connections[0].id);
+    }
+  }, [connections]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
   const isSoloView = selectedConnectionId === 'solo';
@@ -253,7 +261,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         )}
 
         {/* Add movie form */}
-        {isAuthenticated && !isCombinedView && !isSoloView && <AddMovieForm />}
+        {isAuthenticated && <AddMovieForm />}
 
         {/* TMDB match flow */}
         {isAuthenticated && unmatchedMovies.length > 0 && !isCombinedView && !isSoloView && (
@@ -454,10 +462,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
             {/* Cards — visible on mobile */}
             <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
-              {soloMovies.map((movie) => (
+              {soloMovies.map((movie, idx) => (
                 <MovieCard
                   key={movie.id}
                   movie={movie}
+                  rank={idx + 1}
                   isAdmin={isAdmin}
                   canMarkWatched={true}
                   onMarkWatched={handleMarkWatched}
@@ -601,10 +610,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     No movies yet. Be the first to suggest one!
                   </Typography>
                 ) : (
-                  movies.map((movie) => (
+                  movies.map((movie, idx) => (
                     <MovieCard
                       key={movie.id}
                       movie={movie}
+                      rank={idx + 1}
                       isAdmin={isAdmin}
                       canMarkWatched={
                         isAdmin ||

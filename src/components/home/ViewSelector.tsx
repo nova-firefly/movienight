@@ -32,19 +32,6 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
         mb: 3,
       }}
     >
-      <Button
-        variant={!isCombinedView && !isSoloView ? 'soft' : 'plain'}
-        color="neutral"
-        size="sm"
-        onClick={() => onSelect(null)}
-        sx={{
-          fontWeight: 600,
-          color: !isCombinedView && !isSoloView ? 'primary.400' : 'text.secondary',
-          '&:hover': { color: 'primary.300' },
-        }}
-      >
-        My List
-      </Button>
       {connections.map((conn) => (
         <Button
           key={conn.id}
@@ -76,6 +63,19 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
           Solo Queue
         </Button>
       )}
+      <Button
+        variant={!isCombinedView && !isSoloView ? 'soft' : 'plain'}
+        color="neutral"
+        size="sm"
+        onClick={() => onSelect(null)}
+        sx={{
+          fontWeight: 600,
+          color: !isCombinedView && !isSoloView ? 'primary.400' : 'text.secondary',
+          '&:hover': { color: 'primary.300' },
+        }}
+      >
+        My Requested
+      </Button>
     </Box>
   );
 };
