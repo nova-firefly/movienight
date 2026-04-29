@@ -34,7 +34,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
       } else if (err.graphQLErrors?.length) {
         const code = err.graphQLErrors[0]?.extensions?.code;
         if (code === 'UNAUTHENTICATED') {
-          setError('Incorrect username or password.');
+          setError('Incorrect username/email or password.');
         } else if (code === 'FORBIDDEN') {
           setError('Your account has been disabled. Please contact an administrator.');
         } else {
@@ -59,7 +59,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
     e.preventDefault();
     setError('');
     if (!username || !password) {
-      setError('Please enter both username and password');
+      setError('Please enter your username or email and password');
       return;
     }
     try {
@@ -152,13 +152,13 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
           <form onSubmit={handleSubmit}>
             <FormControl sx={{ mb: 2 }}>
               <FormLabel sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
-                Username
+                Username or Email
               </FormLabel>
               <Input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                placeholder="Enter your username or email"
                 autoFocus
                 required
                 sx={{
