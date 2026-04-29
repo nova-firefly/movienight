@@ -35,6 +35,11 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
         outline: 'none',
         borderColor: 'divider',
       },
+      '& .Mui-focusVisible': {
+        outline: 'none',
+        boxShadow: 'none',
+        '--joy-focus-thickness': '0px',
+      },
       '&:hover': disabled
         ? {}
         : {
@@ -156,7 +161,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ movie, onPick, disa
             fontWeight: 700,
             color: '#0d0f1a',
             fontSize: { xs: '0.75rem', sm: '0.875rem' },
-            '&:focus, &:focus-visible': {
+            '&:focus, &:focus-visible, &.Mui-focusVisible': {
               outline: 'none',
               outlineOffset: 0,
               boxShadow: 'none',
