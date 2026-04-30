@@ -200,7 +200,8 @@ export const typeDefs = `#graphql
   }
 
   type KometaExportResult {
-    filePath: String!
+    filePath: String
+    yamlContent: String!
     triggered: Boolean!
     triggerError: String
     lists: [KometaListExportResult!]!

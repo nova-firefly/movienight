@@ -76,7 +76,8 @@ export const KometaExport: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [exportResult, setExportResult] = useState<
     | {
-        path: string;
+        path: string | null;
+        yamlContent: string;
         triggered: boolean;
         triggerError?: string;
         lists: ExportedList[];
@@ -108,7 +109,11 @@ export const KometaExport: React.FC = () => {
   }, [scheduleData]);
 
   const exportedLists: ExportedList[] = scheduleData?.kometaSchedule?.exportedLists ?? [];
-  const yaml = exportedLists.length > 0 ? generatePreviewYaml(exportedLists) : '';
+
+  // Show yamlContent from export result if available, otherwise generate preview from schedule data
+  const exportYaml =
+    exportResult && 'yamlContent' in exportResult ? exportResult.yamlContent : null;
+  const yaml = exportYaml || (exportedLists.length > 0 ? generatePreviewYaml(exportedLists) : '');
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(yaml);
@@ -130,8 +135,8 @@ export const KometaExport: React.FC = () => {
     setExportResult(null);
     try {
       const { data: result } = await exportKometa();
-      const { filePath, triggered, triggerError, lists } = result.exportKometa;
-      setExportResult({ path: filePath, triggered, triggerError, lists });
+      const { filePath, yamlContent, triggered, triggerError, lists } = result.exportKometa;
+      setExportResult({ path: filePath, yamlContent, triggered, triggerError, lists });
     } catch (err: any) {
       setExportResult({ error: err.message });
     }
@@ -182,8 +187,17 @@ export const KometaExport: React.FC = () => {
       <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
         Exports combined and solo movie lists to MDBList and writes a Kometa collection file.
         Combined lists are ranked by averaged Elo. Solo lists contain movies all connections passed
-        on. <strong>Write to Kometa</strong> syncs lists and writes to{' '}
-        <code>KOMETA_COLLECTIONS_PATH</code>.
+        on.{' '}
+        {isProd ? (
+          <>
+            <strong>Write to Kometa</strong> syncs lists and writes to{' '}
+            <code>KOMETA_COLLECTIONS_PATH</code>.
+          </>
+        ) : (
+          <>
+            <strong>Sync to MDBList</strong> creates/updates MDBList lists with a [DEV] prefix.
+          </>
+        )}
       </Typography>
 
       {exportResult && (
@@ -193,7 +207,10 @@ export const KometaExport: React.FC = () => {
           ) : (
             <Box>
               <Typography level="body-sm">
-                Written to {exportResult.path} — {exportResult.lists.length} list
+                {exportResult.path
+                  ? `Written to ${exportResult.path} — `
+                  : 'Lists synced to MDBList — '}
+                {exportResult.lists.length} list
                 {exportResult.lists.length !== 1 ? 's' : ''}
               </Typography>
               {exportResult.lists.map((l) => (
@@ -220,8 +237,8 @@ export const KometaExport: React.FC = () => {
       {!isProd && (
         <Alert color="warning" sx={{ mb: 2 }}>
           <Typography level="body-sm">
-            <strong>Dev/test environment:</strong> Direct write to Kometa and scheduled exports are
-            disabled to protect production systems.
+            <strong>Test mode:</strong> Lists created with [DEV] prefix. No file written, Kometa not
+            triggered. Scheduled exports remain disabled.
           </Typography>
         </Alert>
       )}
@@ -233,9 +250,8 @@ export const KometaExport: React.FC = () => {
           color="primary"
           loading={exporting}
           onClick={handleExport}
-          disabled={!isProd}
         >
-          Write to Kometa
+          {isProd ? 'Write to Kometa' : 'Sync to MDBList'}
         </Button>
         {yaml && (
           <>

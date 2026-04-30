@@ -341,8 +341,10 @@ export const resolvers = {
         });
       }
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
+      const env = isProduction() ? 'production' : 'development';
       const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists ORDER BY list_type, list_name',
+        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
+        [env],
       );
       const exportedLists = listsResult.rows.map((r: any) => ({
         name: r.list_name,
@@ -957,14 +959,9 @@ export const resolvers = {
         });
       }
 
-      if (!isProduction()) {
-        throw new GraphQLError('Kometa export is disabled outside of production', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
-
-      const collectionsPath = process.env.KOMETA_COLLECTIONS_PATH;
-      if (!collectionsPath) {
+      const prod = isProduction();
+      const collectionsPath = process.env.KOMETA_COLLECTIONS_PATH || null;
+      if (prod && !collectionsPath) {
         throw new GraphQLError('KOMETA_COLLECTIONS_PATH is not configured', {
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
         });
@@ -978,7 +975,15 @@ export const resolvers = {
         });
       }
 
-      const { filePath, lists } = await runKometaExport(collectionsPath, mdblistApiKey);
+      const namePrefix = prod ? '' : '[DEV] ';
+      const environment = prod ? 'production' : 'development';
+
+      const { filePath, yamlContent, lists } = await runKometaExport({
+        collectionsPath: prod ? collectionsPath : null,
+        mdblistApiKey,
+        namePrefix,
+        environment,
+      });
 
       if (lists.length === 0) {
         throw new GraphQLError(
@@ -989,10 +994,11 @@ export const resolvers = {
         );
       }
 
+      // Only trigger Kometa webhook in production
       let triggered = false;
       let triggerError: string | undefined;
       const triggerUrl = process.env.KOMETA_TRIGGER_URL;
-      if (triggerUrl) {
+      if (triggerUrl && prod) {
         try {
           await fetch(triggerUrl, {
             method: 'POST',
@@ -1018,11 +1024,18 @@ export const resolvers = {
           lists: lists.map((l) => ({ name: l.name, type: l.type, count: l.movieCount })),
           triggered,
           triggerError,
+          environment,
         },
         context.ipAddress ?? 'unknown',
       );
 
-      return { filePath, triggered, triggerError: triggerError ?? null, lists };
+      return {
+        filePath: filePath ?? null,
+        yamlContent,
+        triggered,
+        triggerError: triggerError ?? null,
+        lists,
+      };
     },
     updateKometaSchedule: async (
       _: any,
@@ -1087,8 +1100,10 @@ export const resolvers = {
 
       rescheduleKometa(row.enabled, row.frequency, row.daily_time);
 
+      const schedEnv = isProduction() ? 'production' : 'development';
       const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists ORDER BY list_type, list_name',
+        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
+        [schedEnv],
       );
 
       return {
@@ -1130,8 +1145,10 @@ export const resolvers = {
 
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
       const row = result.rows[0];
+      const apiKeyEnv = isProduction() ? 'production' : 'development';
       const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists ORDER BY list_type, list_name',
+        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
+        [apiKeyEnv],
       );
       return {
         enabled: row.enabled,

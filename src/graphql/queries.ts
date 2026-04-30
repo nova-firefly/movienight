@@ -216,6 +216,7 @@ export const EXPORT_KOMETA = gql`
   mutation ExportKometa {
     exportKometa {
       filePath
+      yamlContent
       triggered
       triggerError
       lists {

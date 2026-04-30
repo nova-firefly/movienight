@@ -10,8 +10,16 @@ export interface ExportListResult {
   mdblistUrl: string | null;
 }
 
+export interface ExportOptions {
+  collectionsPath: string | null; // null = skip file writing (dev mode)
+  mdblistApiKey: string;
+  namePrefix: string; // '' in prod, '[DEV] ' in dev
+  environment: string; // 'production' | 'development'
+}
+
 export interface ExportResult {
-  filePath: string;
+  filePath: string | null;
+  yamlContent: string;
   lists: ExportListResult[];
 }
 
@@ -146,16 +154,17 @@ async function getSoloTmdbIds(userId: number): Promise<number[]> {
   return result.rows.map((r: any) => r.tmdb_id);
 }
 
-/** Get or create an MDBList list for a given type/ref, persisting in kometa_mdblist_lists. */
+/** Get or create an MDBList list for a given type/ref/environment, persisting in kometa_mdblist_lists. */
 async function getOrCreateMdbList(
   apiKey: string,
   listType: string,
   refId: number,
   name: string,
+  environment: string,
 ): Promise<{ listId: number; listUrl: string }> {
   const existing = await pool.query(
-    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2',
-    [listType, refId],
+    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3',
+    [listType, refId, environment],
   );
 
   if (existing.rows.length > 0 && existing.rows[0].mdblist_list_id) {
@@ -168,11 +177,11 @@ async function getOrCreateMdbList(
   const listInfo = await createList(apiKey, name);
 
   await pool.query(
-    `INSERT INTO kometa_mdblist_lists (list_type, ref_id, list_name, mdblist_list_id, mdblist_list_url)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (list_type, ref_id) DO UPDATE
+    `INSERT INTO kometa_mdblist_lists (list_type, ref_id, list_name, mdblist_list_id, mdblist_list_url, environment)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (list_type, ref_id, environment) DO UPDATE
        SET mdblist_list_id = $4, mdblist_list_url = $5, list_name = $3, updated_at = NOW()`,
-    [listType, refId, name, listInfo.id, listInfo.url],
+    [listType, refId, name, listInfo.id, listInfo.url, environment],
   );
 
   return { listId: listInfo.id, listUrl: listInfo.url };
@@ -202,10 +211,8 @@ export function generateMultiCollectionYaml(lists: ExportListResult[]): string {
  * Main export function: builds combined + solo lists, syncs to MDBList, writes YAML.
  * Used by both the resolver and the scheduler.
  */
-export async function runKometaExport(
-  collectionsPath: string,
-  mdblistApiKey: string,
-): Promise<ExportResult> {
+export async function runKometaExport(options: ExportOptions): Promise<ExportResult> {
+  const { collectionsPath, mdblistApiKey, namePrefix, environment } = options;
   const lists: ExportListResult[] = [];
 
   // 1. Combined lists — one per accepted connection
@@ -213,12 +220,13 @@ export async function runKometaExport(
   for (const conn of connections) {
     const tmdbIds = await getCombinedTmdbIds(conn.userAId, conn.userBId);
     if (tmdbIds.length === 0) continue;
-    const name = `${conn.userAName} & ${conn.userBName}`;
+    const name = `${namePrefix}${conn.userAName} & ${conn.userBName}`;
     const { listId, listUrl } = await getOrCreateMdbList(
       mdblistApiKey,
       'combined',
       conn.connectionId,
       name,
+      environment,
     );
     await syncList(mdblistApiKey, listId, tmdbIds);
     lists.push({ name, type: 'combined', movieCount: tmdbIds.length, mdblistUrl: listUrl });
@@ -229,16 +237,25 @@ export async function runKometaExport(
   for (const user of users) {
     const tmdbIds = await getSoloTmdbIds(user.id);
     if (tmdbIds.length === 0) continue;
-    const name = `Just ${user.name}`;
-    const { listId, listUrl } = await getOrCreateMdbList(mdblistApiKey, 'solo', user.id, name);
+    const name = `${namePrefix}Just ${user.name}`;
+    const { listId, listUrl } = await getOrCreateMdbList(
+      mdblistApiKey,
+      'solo',
+      user.id,
+      name,
+      environment,
+    );
     await syncList(mdblistApiKey, listId, tmdbIds);
     lists.push({ name, type: 'solo', movieCount: tmdbIds.length, mdblistUrl: listUrl });
   }
 
-  // 3. Write YAML
-  const yaml = generateMultiCollectionYaml(lists);
-  const filePath = path.join(collectionsPath, 'movienight.yml');
-  await fs.promises.writeFile(filePath, yaml, 'utf8');
+  // 3. Write YAML (skipped when collectionsPath is null, e.g. dev mode)
+  const yamlContent = generateMultiCollectionYaml(lists);
+  let filePath: string | null = null;
+  if (collectionsPath) {
+    filePath = path.join(collectionsPath, 'movienight.yml');
+    await fs.promises.writeFile(filePath, yamlContent, 'utf8');
+  }
 
-  return { filePath, lists };
+  return { filePath, yamlContent, lists };
 }

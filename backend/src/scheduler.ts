@@ -23,7 +23,12 @@ async function runKometaExportScheduled(): Promise<void> {
       return;
     }
 
-    const { filePath, lists } = await runKometaExport(collectionsPath, mdblistApiKey);
+    const { filePath, lists } = await runKometaExport({
+      collectionsPath,
+      mdblistApiKey,
+      namePrefix: '',
+      environment: 'production',
+    });
 
     if (lists.length > 0) {
       await pool.query('UPDATE kometa_schedule SET last_run_at = NOW() WHERE id = 1');

@@ -16,7 +16,19 @@ jest.mock('fs', () => ({
   promises: { writeFile: mockWriteFile },
 }));
 
-import { runKometaExport, generateMultiCollectionYaml, ExportListResult } from '../kometaExport';
+import {
+  runKometaExport,
+  generateMultiCollectionYaml,
+  ExportListResult,
+  ExportOptions,
+} from '../kometaExport';
+
+const defaultOptions: ExportOptions = {
+  collectionsPath: '/tmp/kometa',
+  mdblistApiKey: 'test-key',
+  namePrefix: '',
+  environment: 'production',
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -101,7 +113,7 @@ describe('runKometaExport', () => {
     // getSoloTmdbIds for user 2 (empty)
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     expect(result.lists).toHaveLength(1);
     expect(result.lists[0].name).toBe('Alice & Bob');
@@ -113,6 +125,8 @@ describe('runKometaExport', () => {
       expect.stringContaining('"Alice & Bob":'),
       'utf8',
     );
+    expect(result.filePath).toBe('/tmp/kometa/movienight.yml');
+    expect(result.yamlContent).toContain('"Alice & Bob":');
   });
 
   it('exports solo list when all connections passed', async () => {
@@ -140,7 +154,7 @@ describe('runKometaExport', () => {
     // syncList
     mockSyncList.mockResolvedValueOnce(undefined);
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     expect(result.lists).toHaveLength(1);
     expect(result.lists[0].name).toBe('Just Alice');
@@ -177,7 +191,7 @@ describe('runKometaExport', () => {
     // getUsersWithConnections
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    await runKometaExport('/tmp/kometa', 'test-key');
+    await runKometaExport(defaultOptions);
 
     expect(mockCreateList).not.toHaveBeenCalled();
     expect(mockSyncList).toHaveBeenCalledWith('test-key', 42, [100]);
@@ -203,7 +217,7 @@ describe('runKometaExport', () => {
     // getUsersWithConnections
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     expect(result.lists).toHaveLength(0);
     expect(mockCreateList).not.toHaveBeenCalled();
@@ -241,7 +255,7 @@ describe('runKometaExport', () => {
     // getUsersWithConnections
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     // Alice should come first alphabetically
     expect(result.lists[0].name).toBe('Alice & Zara');
@@ -274,7 +288,7 @@ describe('runKometaExport', () => {
     mockSyncList.mockResolvedValueOnce(undefined);
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     expect(result.lists[0].name).toBe('alice & bob');
   });
@@ -323,7 +337,7 @@ describe('runKometaExport', () => {
     // getSoloTmdbIds for user 2 (empty)
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    const result = await runKometaExport('/tmp/kometa', 'test-key');
+    const result = await runKometaExport(defaultOptions);
 
     expect(result.lists).toHaveLength(2);
     expect(result.lists[0]).toEqual(
@@ -337,5 +351,148 @@ describe('runKometaExport', () => {
     const writtenYaml = mockWriteFile.mock.calls[0][1];
     expect(writtenYaml).toContain('"Alice & Bob":');
     expect(writtenYaml).toContain('"Just Alice":');
+  });
+
+  it('prepends namePrefix to list names in dev mode', async () => {
+    // getAcceptedConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    // getOrCreateMdbList
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockCreateList.mockResolvedValueOnce({
+      id: 1,
+      slug: 's',
+      url: 'https://mdblist.com/lists/u/s',
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockSyncList.mockResolvedValueOnce(undefined);
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 1, display_name: 'Alice', username: 'alice' }],
+    });
+    // getSoloTmdbIds for user 1
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 500 }] });
+    // getOrCreateMdbList for solo
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockCreateList.mockResolvedValueOnce({
+      id: 2,
+      slug: 's2',
+      url: 'https://mdblist.com/lists/u/s2',
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockSyncList.mockResolvedValueOnce(undefined);
+
+    const result = await runKometaExport({
+      ...defaultOptions,
+      collectionsPath: null,
+      namePrefix: '[DEV] ',
+      environment: 'development',
+    });
+
+    expect(result.lists[0].name).toBe('[DEV] Alice & Bob');
+    expect(result.lists[1].name).toBe('[DEV] Just Alice');
+    expect(mockCreateList).toHaveBeenCalledWith('test-key', '[DEV] Alice & Bob');
+    expect(mockCreateList).toHaveBeenCalledWith('test-key', '[DEV] Just Alice');
+  });
+
+  it('skips file write when collectionsPath is null', async () => {
+    // getAcceptedConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    // getOrCreateMdbList
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/u/ab' }],
+    });
+    mockSyncList.mockResolvedValueOnce(undefined);
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await runKometaExport({
+      ...defaultOptions,
+      collectionsPath: null,
+    });
+
+    expect(result.filePath).toBeNull();
+    expect(result.yamlContent).toContain('"Alice & Bob":');
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('passes environment to DB queries for isolation', async () => {
+    // getAcceptedConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    // getOrCreateMdbList: SELECT with environment
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockCreateList.mockResolvedValueOnce({
+      id: 99,
+      slug: 's',
+      url: 'https://mdblist.com/lists/u/s',
+    });
+    // INSERT with environment
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockSyncList.mockResolvedValueOnce(undefined);
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await runKometaExport({
+      ...defaultOptions,
+      collectionsPath: null,
+      namePrefix: '[DEV] ',
+      environment: 'development',
+    });
+
+    // getOrCreateMdbList SELECT should include environment
+    const selectCall = mockQuery.mock.calls.find(
+      (call: any[]) =>
+        typeof call[0] === 'string' && call[0].includes('kometa_mdblist_lists') && call[1],
+    );
+    expect(selectCall).toBeDefined();
+    expect(selectCall![1]).toContain('development');
+
+    // INSERT should include environment
+    const insertCall = mockQuery.mock.calls.find(
+      (call: any[]) => typeof call[0] === 'string' && call[0].includes('INSERT INTO'),
+    );
+    expect(insertCall).toBeDefined();
+    expect(insertCall![1]).toContain('development');
   });
 });
