@@ -302,11 +302,25 @@ export const GET_APP_INFO = gql`
     appInfo {
       isProduction
       plexAuthEnabled
+      plexClientId
+      tmdbApiKey
+      mdblistApiKey
       quickLoginUsers {
         label
         username
         password
       }
+    }
+  }
+`;
+
+export const UPDATE_APP_SETTING = gql`
+  mutation UpdateAppSetting($key: String!, $value: String) {
+    updateAppSetting(key: $key, value: $value) {
+      plexAuthEnabled
+      plexClientId
+      tmdbApiKey
+      mdblistApiKey
     }
   }
 `;

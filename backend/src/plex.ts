@@ -2,8 +2,8 @@ import crypto from 'crypto';
 
 const PLEX_API_BASE = 'https://plex.tv/api/v2';
 
-// Stable client ID — must be consistent across restarts for Plex to recognise the app.
-const PLEX_CLIENT_ID = process.env.PLEX_CLIENT_ID || `movienight-${crypto.randomUUID()}`;
+// Fallback client ID — used only when neither DB setting nor env var is set.
+const FALLBACK_CLIENT_ID = `movienight-${crypto.randomUUID()}`;
 
 export interface PlexPin {
   id: number;
@@ -19,24 +19,26 @@ export interface PlexUser {
   thumb: string;
 }
 
-export function getPlexClientId(): string {
-  return PLEX_CLIENT_ID;
+export function getPlexClientId(override?: string): string {
+  return override || process.env.PLEX_CLIENT_ID || FALLBACK_CLIENT_ID;
 }
 
-export function getPlexAuthUrl(code: string): string {
+export function getPlexAuthUrl(code: string, clientId?: string): string {
+  const id = getPlexClientId(clientId);
   const params = new URLSearchParams({
-    clientID: PLEX_CLIENT_ID,
+    clientID: id,
     code,
     'context[device][product]': 'MovieNight',
   });
   return `https://app.plex.tv/auth#?${params.toString()}`;
 }
 
-export async function createPlexPin(): Promise<PlexPin> {
+export async function createPlexPin(clientId?: string): Promise<PlexPin> {
+  const id = getPlexClientId(clientId);
   const response = await fetch(`${PLEX_API_BASE}/pins`, {
     method: 'POST',
     headers: {
-      'X-Plex-Client-Identifier': PLEX_CLIENT_ID,
+      'X-Plex-Client-Identifier': id,
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
@@ -48,10 +50,11 @@ export async function createPlexPin(): Promise<PlexPin> {
   return response.json() as Promise<PlexPin>;
 }
 
-export async function checkPlexPin(pinId: number): Promise<PlexPin> {
+export async function checkPlexPin(pinId: number, clientId?: string): Promise<PlexPin> {
+  const id = getPlexClientId(clientId);
   const response = await fetch(`${PLEX_API_BASE}/pins/${pinId}`, {
     headers: {
-      'X-Plex-Client-Identifier': PLEX_CLIENT_ID,
+      'X-Plex-Client-Identifier': id,
       Accept: 'application/json',
     },
   });
@@ -61,11 +64,12 @@ export async function checkPlexPin(pinId: number): Promise<PlexPin> {
   return response.json() as Promise<PlexPin>;
 }
 
-export async function getPlexUser(authToken: string): Promise<PlexUser> {
+export async function getPlexUser(authToken: string, clientId?: string): Promise<PlexUser> {
+  const id = getPlexClientId(clientId);
   const response = await fetch(`${PLEX_API_BASE}/user`, {
     headers: {
       'X-Plex-Token': authToken,
-      'X-Plex-Client-Identifier': PLEX_CLIENT_ID,
+      'X-Plex-Client-Identifier': id,
       Accept: 'application/json',
     },
   });
@@ -79,10 +83,11 @@ export async function waitForPlexAuth(
   pinId: number,
   timeoutMs = 120_000,
   intervalMs = 2_000,
+  clientId?: string,
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const pin = await checkPlexPin(pinId);
+    const pin = await checkPlexPin(pinId, clientId);
     if (pin.authToken) return pin.authToken;
     await new Promise((r) => setTimeout(r, intervalMs));
   }

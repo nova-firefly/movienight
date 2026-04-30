@@ -2,6 +2,7 @@ import {
   mockQuery,
   mockApplyComparison,
   mockUpdateGlobalEloRank,
+  mockGetSetting,
   authContext,
   adminContext,
   anonContext,
@@ -10,6 +11,10 @@ import { resolvers } from '../../resolvers';
 
 const { addMovie, matchMovie, markWatched, deleteMovie, recordComparison, resetMovieComparisons } =
   resolvers.Mutation;
+
+beforeEach(() => {
+  mockGetSetting.mockResolvedValue(null);
+});
 
 describe('Mutation.addMovie', () => {
   it('authenticated user can add a movie', async () => {

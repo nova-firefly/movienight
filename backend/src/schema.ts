@@ -88,6 +88,9 @@ export const typeDefs = `#graphql
     isProduction: Boolean!
     quickLoginUsers: [QuickLoginUser!]!
     plexAuthEnabled: Boolean!
+    plexClientId: String
+    tmdbApiKey: String
+    mdblistApiKey: String
   }
 
   type PlexPin {
@@ -240,6 +243,7 @@ export const typeDefs = `#graphql
     completePlexAuth(pinId: Int!): AuthPayload!
     linkPlexAccount(pinId: Int!): User!
     unlinkPlexAccount: User!
+    updateAppSetting(key: String!, value: String): AppInfo!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
     updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean, plex_id: String): User!
     deleteUser(id: ID!): Boolean!

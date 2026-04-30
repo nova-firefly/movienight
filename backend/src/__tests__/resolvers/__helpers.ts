@@ -53,6 +53,14 @@ jest.mock('../../pairSelection', () => ({
   selectPair: (...args: any[]) => mockSelectPair(...args),
 }));
 
+// Mock settings
+export const mockGetSetting = jest.fn();
+export const mockSetSetting = jest.fn();
+jest.mock('../../settings', () => ({
+  getSetting: (...args: any[]) => mockGetSetting(...args),
+  setSetting: (...args: any[]) => mockSetSetting(...args),
+}));
+
 // Mock plex
 export const mockCreatePlexPin = jest.fn();
 export const mockWaitForPlexAuth = jest.fn();

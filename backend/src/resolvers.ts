@@ -17,7 +17,10 @@ import { runKometaExport } from './kometaExport';
 import { applyComparison, updateGlobalEloRank } from './elo';
 import { selectPair, MovieCandidate } from './pairSelection';
 import { createPlexPin as createPin, waitForPlexAuth, getPlexUser, getPlexAuthUrl } from './plex';
+import { getSetting, setSetting } from './settings';
 import crypto from 'crypto';
+
+const ALLOWED_SETTINGS = ['plex_client_id', 'tmdb_api_key', 'mdblist_api_key'] as const;
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, plex_id, plex_username, plex_thumb, created_at, updated_at';
@@ -127,7 +130,7 @@ setInterval(
 // ── TMDB metadata: fetch from API and persist to DB ──────────────────────────
 
 async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<void> {
-  const apiKey = process.env.TMDB_API_KEY;
+  const apiKey = (await getSetting('tmdb_api_key')) || process.env.TMDB_API_KEY;
   if (!apiKey) return;
 
   try {
@@ -166,31 +169,41 @@ async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<v
 
 export const resolvers = {
   Query: {
-    appInfo: () => ({
-      isProduction: isProduction(),
-      plexAuthEnabled: !!process.env.PLEX_CLIENT_ID,
-      quickLoginUsers: isProduction()
-        ? []
-        : [
-            {
-              label: 'Admin',
-              username: 'admin',
-              password: process.env.ADMIN_PASSWORD || 'admin123',
-            },
-            {
-              label: 'Test User',
-              username: process.env.TEST_USER_USERNAME || 'testuser',
-              password: process.env.TEST_USER_PASSWORD || 'testpass',
-            },
-          ],
-    }),
+    appInfo: async (_: any, __: any, context: any) => {
+      const plexClientId =
+        (await getSetting('plex_client_id')) || process.env.PLEX_CLIENT_ID || null;
+      const tmdbApiKey = (await getSetting('tmdb_api_key')) || process.env.TMDB_API_KEY || null;
+      const mdblistApiKey =
+        (await getSetting('mdblist_api_key')) || process.env.MDBLIST_API_KEY || null;
+      return {
+        isProduction: isProduction(),
+        plexAuthEnabled: !!plexClientId,
+        plexClientId: context.user?.isAdmin ? plexClientId : null,
+        tmdbApiKey: context.user?.isAdmin ? tmdbApiKey : null,
+        mdblistApiKey: context.user?.isAdmin ? mdblistApiKey : null,
+        quickLoginUsers: isProduction()
+          ? []
+          : [
+              {
+                label: 'Admin',
+                username: 'admin',
+                password: process.env.ADMIN_PASSWORD || 'admin123',
+              },
+              {
+                label: 'Test User',
+                username: process.env.TEST_USER_USERNAME || 'testuser',
+                password: process.env.TEST_USER_PASSWORD || 'testpass',
+              },
+            ],
+      };
+    },
     searchTmdb: async (_: any, { query }: { query: string }, context: any) => {
       if (!context.user) {
         throw new GraphQLError('Not authenticated', {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      const apiKey = process.env.TMDB_API_KEY;
+      const apiKey = (await getSetting('tmdb_api_key')) || process.env.TMDB_API_KEY;
       if (!apiKey) {
         throw new GraphQLError('TMDB API key not configured', {
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
@@ -361,11 +374,15 @@ export const resolvers = {
           frequency: 'daily',
           dailyTime: '03:00',
           lastRunAt: null,
-          mdblistApiKeySet: !!process.env.MDBLIST_API_KEY,
+          mdblistApiKeySet: !!(
+            (await getSetting('mdblist_api_key')) || process.env.MDBLIST_API_KEY
+          ),
           exportedLists,
         };
       }
       const row = result.rows[0];
+      const mdblistSettingKey =
+        row.mdblist_api_key || (await getSetting('mdblist_api_key')) || process.env.MDBLIST_API_KEY;
       return {
         enabled: row.enabled,
         frequency: row.frequency,
@@ -375,7 +392,7 @@ export const resolvers = {
             ? row.last_run_at.toISOString()
             : new Date(row.last_run_at).toISOString()
           : null,
-        mdblistApiKeySet: !!(row.mdblist_api_key || process.env.MDBLIST_API_KEY),
+        mdblistApiKeySet: !!mdblistSettingKey,
         exportedLists,
       };
     },
@@ -971,7 +988,10 @@ export const resolvers = {
       }
 
       const schedRow = await pool.query('SELECT mdblist_api_key FROM kometa_schedule WHERE id = 1');
-      const mdblistApiKey = schedRow.rows[0]?.mdblist_api_key || process.env.MDBLIST_API_KEY;
+      const mdblistApiKey =
+        schedRow.rows[0]?.mdblist_api_key ||
+        (await getSetting('mdblist_api_key')) ||
+        process.env.MDBLIST_API_KEY;
       if (!mdblistApiKey) {
         throw new GraphQLError('MDBList API key is not configured', {
           extensions: { code: 'BAD_USER_INPUT' },
@@ -1118,7 +1138,11 @@ export const resolvers = {
             ? row.last_run_at.toISOString()
             : new Date(row.last_run_at).toISOString()
           : null,
-        mdblistApiKeySet: !!(row.mdblist_api_key || process.env.MDBLIST_API_KEY),
+        mdblistApiKeySet: !!(
+          row.mdblist_api_key ||
+          (await getSetting('mdblist_api_key')) ||
+          process.env.MDBLIST_API_KEY
+        ),
         exportedLists: listsResult.rows.map((r: any) => ({
           name: r.list_name,
           type: r.list_type,
@@ -1249,7 +1273,7 @@ export const resolvers = {
         errors.push('No films found — check that the URL is a public Letterboxd list');
       }
 
-      const tmdbApiKey = process.env.TMDB_API_KEY;
+      const tmdbApiKey = (await getSetting('tmdb_api_key')) || process.env.TMDB_API_KEY;
       async function lookupTmdbId(title: string, year: number | null): Promise<number | null> {
         if (!tmdbApiKey) return null;
         try {
@@ -1531,11 +1555,12 @@ export const resolvers = {
     // ── Plex authentication ───────────────────────────────────────────────────
 
     createPlexPin: async () => {
-      const pin = await createPin();
+      const plexClientId = (await getSetting('plex_client_id')) || undefined;
+      const pin = await createPin(plexClientId);
       return {
         pinId: pin.id,
         code: pin.code,
-        authUrl: getPlexAuthUrl(pin.code),
+        authUrl: getPlexAuthUrl(pin.code, plexClientId),
       };
     },
 
@@ -1554,9 +1579,10 @@ export const resolvers = {
         });
       }
 
+      const plexClientId = (await getSetting('plex_client_id')) || undefined;
       let authToken: string;
       try {
-        authToken = await waitForPlexAuth(pinId);
+        authToken = await waitForPlexAuth(pinId, undefined, undefined, plexClientId);
       } catch {
         await logLoginHistory(null, context.ipAddress, context.userAgent, false);
         throw new GraphQLError('Plex authentication timed out or failed', {
@@ -1564,7 +1590,7 @@ export const resolvers = {
         });
       }
 
-      const plexUser = await getPlexUser(authToken);
+      const plexUser = await getPlexUser(authToken, plexClientId);
       const plexId = String(plexUser.id);
 
       // 1. Check if a user is already linked to this Plex account
@@ -1676,16 +1702,17 @@ export const resolvers = {
         });
       }
 
+      const plexClientId = (await getSetting('plex_client_id')) || undefined;
       let authToken: string;
       try {
-        authToken = await waitForPlexAuth(pinId);
+        authToken = await waitForPlexAuth(pinId, undefined, undefined, plexClientId);
       } catch {
         throw new GraphQLError('Plex authentication timed out or failed', {
           extensions: { code: 'BAD_USER_INPUT' },
         });
       }
 
-      const plexUser = await getPlexUser(authToken);
+      const plexUser = await getPlexUser(authToken, plexClientId);
       const plexId = String(plexUser.id);
 
       // Check if this Plex account is already linked to another user
@@ -1737,6 +1764,39 @@ export const resolvers = {
       );
 
       return result.rows[0];
+    },
+
+    // ── App settings ──────────────────────────────────────────────────────────
+
+    updateAppSetting: async (
+      _: any,
+      { key, value }: { key: string; value?: string | null },
+      context: any,
+    ) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      if (!ALLOWED_SETTINGS.includes(key as any)) {
+        throw new GraphQLError(`Unknown setting: ${key}`, {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      await setSetting(key, value || null);
+
+      await logAudit(
+        context.user.userId,
+        'SETTING_UPDATE',
+        'setting',
+        key,
+        { cleared: !value },
+        context.ipAddress,
+      );
+
+      // Return updated appInfo
+      return resolvers.Query.appInfo(null, null, context);
     },
 
     createUser: async (_: any, args: CreateUserInput, context: any) => {

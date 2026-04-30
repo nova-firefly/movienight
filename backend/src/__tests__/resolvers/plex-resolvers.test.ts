@@ -6,12 +6,16 @@ import {
   mockWaitForPlexAuth,
   mockGetPlexUser,
   mockGetPlexAuthUrl,
+  mockGetSetting,
+  mockSetSetting,
   authContext,
+  adminContext,
   anonContext,
 } from './__helpers';
 import { resolvers } from '../../resolvers';
 
-const { createPlexPin, completePlexAuth, linkPlexAccount, unlinkPlexAccount } = resolvers.Mutation;
+const { createPlexPin, completePlexAuth, linkPlexAccount, unlinkPlexAccount, updateAppSetting } =
+  resolvers.Mutation;
 
 const plexUser = {
   id: 42,
@@ -38,6 +42,9 @@ const dbUser = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default: no DB settings, fall back to env vars
+  mockGetSetting.mockResolvedValue(null);
+  mockSetSetting.mockResolvedValue(undefined);
 });
 
 describe('Mutation.createPlexPin', () => {
@@ -195,5 +202,59 @@ describe('Mutation.unlinkPlexAccount', () => {
 
   it('throws UNAUTHENTICATED for anonymous user', async () => {
     await expect(unlinkPlexAccount(null, {}, anonContext())).rejects.toThrow('Not authenticated');
+  });
+});
+
+describe('Mutation.updateAppSetting', () => {
+  it('saves an allowed setting and returns appInfo', async () => {
+    const ctx = adminContext();
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // logAudit
+
+    const result = await (updateAppSetting as any)(
+      null,
+      { key: 'plex_client_id', value: 'my-client-id' },
+      ctx,
+    );
+    expect(mockSetSetting).toHaveBeenCalledWith('plex_client_id', 'my-client-id');
+    expect(result).toHaveProperty('isProduction');
+    expect(result).toHaveProperty('plexAuthEnabled');
+  });
+
+  it('clears a setting when value is empty', async () => {
+    const ctx = adminContext();
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // logAudit
+
+    await (updateAppSetting as any)(null, { key: 'tmdb_api_key', value: '' }, ctx);
+    expect(mockSetSetting).toHaveBeenCalledWith('tmdb_api_key', null);
+  });
+
+  it('throws FORBIDDEN for non-admin', async () => {
+    const ctx = authContext();
+    await expect(
+      (updateAppSetting as any)(null, { key: 'plex_client_id', value: 'x' }, ctx),
+    ).rejects.toThrow('Not authorized');
+  });
+
+  it('throws FORBIDDEN for anonymous', async () => {
+    await expect(
+      (updateAppSetting as any)(null, { key: 'plex_client_id', value: 'x' }, anonContext()),
+    ).rejects.toThrow('Not authorized');
+  });
+
+  it('throws BAD_USER_INPUT for unknown setting key', async () => {
+    const ctx = adminContext();
+    await expect(
+      (updateAppSetting as any)(null, { key: 'unknown_key', value: 'x' }, ctx),
+    ).rejects.toThrow('Unknown setting');
+  });
+
+  it('accepts all three allowed keys', async () => {
+    const ctx = adminContext();
+    for (const key of ['plex_client_id', 'tmdb_api_key', 'mdblist_api_key']) {
+      mockSetSetting.mockClear();
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // logAudit
+      await (updateAppSetting as any)(null, { key, value: 'test-value' }, ctx);
+      expect(mockSetSetting).toHaveBeenCalledWith(key, 'test-value');
+    }
   });
 });
