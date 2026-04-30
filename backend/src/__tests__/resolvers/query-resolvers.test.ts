@@ -2,6 +2,7 @@ import {
   mockQuery,
   mockSelectPair,
   mockFetch,
+  mockGetSetting,
   authContext,
   adminContext,
   anonContext,
@@ -10,24 +11,53 @@ import { resolvers } from '../../resolvers';
 
 const Query = resolvers.Query;
 
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetSetting.mockResolvedValue(null);
+});
+
 describe('Query.appInfo', () => {
   const origEnv = process.env.NODE_ENV;
   afterEach(() => {
     process.env.NODE_ENV = origEnv;
   });
 
-  it('non-production: returns isProduction=false with quickLoginUsers', () => {
+  beforeEach(() => {
+    mockGetSetting.mockResolvedValue(null);
+  });
+
+  it('non-production: returns isProduction=false with quickLoginUsers', async () => {
     process.env.NODE_ENV = 'development';
-    const result = Query.appInfo();
+    const result = await Query.appInfo(null, null, anonContext());
     expect(result.isProduction).toBe(false);
     expect(result.quickLoginUsers.length).toBeGreaterThan(0);
   });
 
-  it('production: returns isProduction=true with empty quickLoginUsers', () => {
+  it('production: returns isProduction=true with empty quickLoginUsers', async () => {
     process.env.NODE_ENV = 'production';
-    const result = Query.appInfo();
+    const result = await Query.appInfo(null, null, anonContext());
     expect(result.isProduction).toBe(true);
     expect(result.quickLoginUsers).toEqual([]);
+  });
+
+  it('exposes API keys only to admins', async () => {
+    mockGetSetting.mockImplementation((key: string) => {
+      if (key === 'plex_client_id') return Promise.resolve('test-plex-id');
+      if (key === 'tmdb_api_key') return Promise.resolve('test-tmdb-key');
+      if (key === 'mdblist_api_key') return Promise.resolve('test-mdblist-key');
+      return Promise.resolve(null);
+    });
+
+    const adminResult = await Query.appInfo(null, null, adminContext());
+    expect(adminResult.plexClientId).toBe('test-plex-id');
+    expect(adminResult.tmdbApiKey).toBe('test-tmdb-key');
+    expect(adminResult.mdblistApiKey).toBe('test-mdblist-key');
+
+    const anonResult = await Query.appInfo(null, null, anonContext());
+    expect(anonResult.plexClientId).toBeNull();
+    expect(anonResult.tmdbApiKey).toBeNull();
+    expect(anonResult.mdblistApiKey).toBeNull();
+    expect(anonResult.plexAuthEnabled).toBe(true); // still enabled for auth flow
   });
 });
 

@@ -3,6 +3,7 @@ import {
   mockWriteFile,
   mockFetch,
   mockRescheduleKometa,
+  mockGetSetting,
   adminContext,
   authContext,
 } from './__helpers';
@@ -19,6 +20,7 @@ const { exportKometa, updateKometaSchedule, setMdblistApiKey } = resolvers.Mutat
 
 beforeEach(() => {
   mockRunKometaExport.mockReset();
+  mockGetSetting.mockResolvedValue(null);
 });
 
 describe('Mutation.exportKometa', () => {

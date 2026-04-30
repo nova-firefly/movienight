@@ -28,6 +28,9 @@ export const typeDefs = `#graphql
     is_admin: Boolean!
     is_active: Boolean!
     last_login_at: String
+    plex_id: String
+    plex_username: String
+    plex_thumb: String
     created_at: String!
     updated_at: String!
   }
@@ -84,6 +87,16 @@ export const typeDefs = `#graphql
   type AppInfo {
     isProduction: Boolean!
     quickLoginUsers: [QuickLoginUser!]!
+    plexAuthEnabled: Boolean!
+    plexClientId: String
+    tmdbApiKey: String
+    mdblistApiKey: String
+  }
+
+  type PlexPin {
+    pinId: Int!
+    code: String!
+    authUrl: String!
   }
 
   type ThisOrThatMovie {
@@ -226,8 +239,13 @@ export const typeDefs = `#graphql
     setMdblistApiKey(apiKey: String!): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
     login(username: String!, password: String!): AuthPayload!
+    createPlexPin: PlexPin!
+    completePlexAuth(pinId: Int!): AuthPayload!
+    linkPlexAccount(pinId: Int!): User!
+    unlinkPlexAccount: User!
+    updateAppSetting(key: String!, value: String): AppInfo!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
-    updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
+    updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean, plex_id: String): User!
     deleteUser(id: ID!): Boolean!
     seedMovies: Int!
     backfillTmdbData: Int!

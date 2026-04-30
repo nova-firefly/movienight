@@ -6,6 +6,9 @@ export interface User {
   is_admin: boolean;
   is_active: boolean;
   last_login_at?: Date | null;
+  plex_id?: string | null;
+  plex_username?: string | null;
+  plex_thumb?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -31,6 +34,7 @@ export interface UpdateUserInput {
   display_name?: string;
   is_admin?: boolean;
   is_active?: boolean;
+  plex_id?: string | null;
 }
 
 export interface LoginInput {

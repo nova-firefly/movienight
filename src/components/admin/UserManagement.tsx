@@ -50,6 +50,7 @@ export const UserManagement: React.FC = () => {
     password: '',
     is_admin: false,
     is_active: true,
+    plex_id: '',
   });
   const [error, setError] = useState('');
 
@@ -86,6 +87,7 @@ export const UserManagement: React.FC = () => {
         password: '',
         is_admin: user.is_admin,
         is_active: user.is_active,
+        plex_id: user.plex_id || '',
       });
     } else {
       setEditingUser(null);
@@ -96,6 +98,7 @@ export const UserManagement: React.FC = () => {
         password: '',
         is_admin: false,
         is_active: true,
+        plex_id: '',
       });
     }
     setError('');
@@ -112,6 +115,7 @@ export const UserManagement: React.FC = () => {
       password: '',
       is_admin: false,
       is_active: true,
+      plex_id: '',
     });
     setError('');
   };
@@ -129,6 +133,8 @@ export const UserManagement: React.FC = () => {
         if (formData.password) variables.password = formData.password;
         if (formData.is_admin !== editingUser.is_admin) variables.is_admin = formData.is_admin;
         if (formData.is_active !== editingUser.is_active) variables.is_active = formData.is_active;
+        if (formData.plex_id !== (editingUser.plex_id || ''))
+          variables.plex_id = formData.plex_id || null;
         await updateUser({ variables });
       } else {
         if (!formData.password) {
@@ -204,6 +210,7 @@ export const UserManagement: React.FC = () => {
                   <th style={thStyle}>Username</th>
                   <th style={thStyle}>Display Name</th>
                   <th style={thStyle}>Email</th>
+                  <th style={thStyle}>Plex</th>
                   <th style={{ ...thStyle, width: 70 }}>Admin</th>
                   <th style={{ ...thStyle, width: 100 }}>Status</th>
                   <th style={{ ...thStyle, width: 110 }}>Last Login</th>
@@ -245,6 +252,17 @@ export const UserManagement: React.FC = () => {
                       <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
                         {user.email}
                       </Typography>
+                    </td>
+                    <td>
+                      {user.plex_username ? (
+                        <Typography level="body-xs" sx={{ color: '#e5a00d' }}>
+                          {user.plex_username}
+                        </Typography>
+                      ) : (
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                          —
+                        </Typography>
+                      )}
                     </td>
                     <td>
                       {user.is_admin && (
@@ -341,6 +359,11 @@ export const UserManagement: React.FC = () => {
                 <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                   {user.email}
                 </Typography>
+                {user.plex_username && (
+                  <Typography level="body-xs" sx={{ color: '#e5a00d', mt: 0.25 }}>
+                    Plex: {user.plex_username}
+                  </Typography>
+                )}
                 <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                   Last login:{' '}
                   {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
@@ -448,6 +471,21 @@ export const UserManagement: React.FC = () => {
                 sx={{ bgcolor: 'background.surface' }}
               />
             </FormControl>
+
+            {editingUser && (
+              <FormControl sx={{ mb: 2 }}>
+                <FormLabel sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary' }}>
+                  Plex ID{' '}
+                  <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave blank to unlink)</span>
+                </FormLabel>
+                <Input
+                  value={formData.plex_id}
+                  onChange={(e) => setFormData({ ...formData, plex_id: e.target.value })}
+                  placeholder="Plex account ID"
+                  sx={{ bgcolor: 'background.surface' }}
+                />
+              </FormControl>
+            )}
 
             <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
               <Checkbox

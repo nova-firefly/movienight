@@ -1,7 +1,18 @@
-import { mockQuery, mockFetch, adminContext, authContext, anonContext } from './__helpers';
+import {
+  mockQuery,
+  mockFetch,
+  mockGetSetting,
+  adminContext,
+  authContext,
+  anonContext,
+} from './__helpers';
 import { resolvers } from '../../resolvers';
 
 const { importFromLetterboxd } = resolvers.Mutation;
+
+beforeEach(() => {
+  mockGetSetting.mockResolvedValue(null);
+});
 
 describe('Mutation.importFromLetterboxd', () => {
   describe('authorization', () => {
