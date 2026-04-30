@@ -3,14 +3,23 @@ import {
   mockWriteFile,
   mockFetch,
   mockRescheduleKometa,
-  mockCreateList,
-  mockSyncList,
   adminContext,
   authContext,
 } from './__helpers';
+
+// Mock the shared kometaExport module
+const mockRunKometaExport = jest.fn();
+jest.mock('../../kometaExport', () => ({
+  runKometaExport: (...args: any[]) => mockRunKometaExport(...args),
+}));
+
 import { resolvers } from '../../resolvers';
 
 const { exportKometa, updateKometaSchedule, setMdblistApiKey } = resolvers.Mutation;
+
+beforeEach(() => {
+  mockRunKometaExport.mockReset();
+});
 
 describe('Mutation.exportKometa', () => {
   const origEnv = { ...process.env };
@@ -26,14 +35,7 @@ describe('Mutation.exportKometa', () => {
     await expect(exportKometa(null, {}, authContext())).rejects.toThrow('Not authorized');
   });
 
-  it('non-production throws FORBIDDEN', async () => {
-    process.env.NODE_ENV = 'development';
-    await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
-      'Kometa export is disabled outside of production',
-    );
-  });
-
-  it('missing KOMETA_COLLECTIONS_PATH throws INTERNAL_SERVER_ERROR', async () => {
+  it('production + missing KOMETA_COLLECTIONS_PATH throws INTERNAL_SERVER_ERROR', async () => {
     process.env.NODE_ENV = 'production';
     delete process.env.KOMETA_COLLECTIONS_PATH;
     await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
@@ -45,194 +47,98 @@ describe('Mutation.exportKometa', () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     delete process.env.MDBLIST_API_KEY;
-    // Movies query
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'Movie', tmdb_id: 100, elo_rank: 1000 }],
-    });
     // kometa_schedule SELECT (no DB API key either)
     mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: null, mdblist_list_url: null, mdblist_api_key: null }],
+      rows: [{ mdblist_api_key: null }],
     });
     await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
       'MDBList API key is not configured',
     );
   });
 
-  it('no TMDB-matched movies throws BAD_USER_INPUT', async () => {
+  it('throws when no exportable lists are found', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     process.env.MDBLIST_API_KEY = 'test-key';
+    delete process.env.KOMETA_TRIGGER_URL;
+    // kometa_schedule SELECT
     mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'A', tmdb_id: null, elo_rank: null }],
+      rows: [{ mdblist_api_key: null }],
+    });
+    // runKometaExport returns empty lists
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: '/tmp/kometa/movienight.yml',
+      yamlContent: 'collections:\n',
+      lists: [],
     });
     await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
-      'No movies with TMDB IDs to export',
+      'No exportable lists found',
     );
   });
 
-  it('filters out tmdb_id=0', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
-    process.env.MDBLIST_API_KEY = 'test-key';
-    mockQuery.mockResolvedValueOnce({
-      rows: [
-        { title: 'Bad', tmdb_id: 0, elo_rank: 1000 },
-        { title: 'Null', tmdb_id: null, elo_rank: 900 },
-      ],
-    });
-    await expect(exportKometa(null, {}, adminContext())).rejects.toThrow(
-      'No movies with TMDB IDs to export',
-    );
-  });
-
-  it('creates MDBList list on first export and writes YAML with mdblist_list', async () => {
+  it('calls runKometaExport with production options and returns lists', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     process.env.MDBLIST_API_KEY = 'test-key';
     delete process.env.KOMETA_TRIGGER_URL;
 
-    // Movies query
+    // kometa_schedule SELECT
     mockQuery.mockResolvedValueOnce({
-      rows: [
-        { title: 'Inception', tmdb_id: 27205, elo_rank: 1050 },
-        { title: 'Dune', tmdb_id: 438631, elo_rank: 1020 },
+      rows: [{ mdblist_api_key: null }],
+    });
+    // runKometaExport
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: '/tmp/kometa/movienight.yml',
+      yamlContent: '## yaml content',
+      lists: [
+        {
+          name: 'Alice & Bob',
+          type: 'combined',
+          movieCount: 3,
+          mdblistUrl: 'https://mdblist.com/lists/u/ab',
+        },
+        {
+          name: 'Just Alice',
+          type: 'solo',
+          movieCount: 1,
+          mdblistUrl: 'https://mdblist.com/lists/u/ja',
+        },
       ],
     });
-    // kometa_schedule SELECT (no existing list)
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: null, mdblist_list_url: null }],
-    });
-    // createList result
-    mockCreateList.mockResolvedValueOnce({
-      id: 42,
-      slug: 'movienight-watchlist',
-      url: 'https://mdblist.com/lists/testuser/movienight-watchlist',
-    });
-    // UPDATE mdblist_list_id/url
-    mockQuery.mockResolvedValueOnce({ rows: [] });
-    // syncList
-    mockSyncList.mockResolvedValueOnce(undefined);
-    // writeFile
-    mockWriteFile.mockResolvedValue(undefined);
-    // logAudit
+    // audit log
     mockQuery.mockResolvedValue({ rows: [] });
 
     const result = await exportKometa(null, {}, adminContext());
-    expect(result.filePath).toContain('movienight.yml');
-    expect(mockCreateList).toHaveBeenCalledWith('test-key', 'MovieNight Watchlist');
-    expect(mockSyncList).toHaveBeenCalledWith('test-key', 42, [27205, 438631]);
-    expect(mockWriteFile).toHaveBeenCalledWith(
-      expect.stringContaining('movienight.yml'),
-      expect.stringContaining(
-        'mdblist_list: https://mdblist.com/lists/testuser/movienight-watchlist',
-      ),
-      'utf8',
-    );
-    // YAML should contain collection_order: custom
-    const writtenYaml = mockWriteFile.mock.calls[0][1];
-    expect(writtenYaml).toContain('collection_order: custom');
-    expect(writtenYaml).not.toContain('tmdb_movie');
+    expect(result.filePath).toBe('/tmp/kometa/movienight.yml');
+    expect(result.yamlContent).toBe('## yaml content');
+    expect(result.lists).toHaveLength(2);
+    expect(result.lists[0].name).toBe('Alice & Bob');
+    expect(result.lists[1].name).toBe('Just Alice');
+    expect(result.triggered).toBe(false);
+    expect(mockRunKometaExport).toHaveBeenCalledWith({
+      collectionsPath: '/tmp/kometa',
+      mdblistApiKey: 'test-key',
+      namePrefix: '',
+      environment: 'production',
+    });
   });
 
-  it('reuses existing MDBList list on subsequent exports', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
-    process.env.MDBLIST_API_KEY = 'test-key';
-    delete process.env.KOMETA_TRIGGER_URL;
-
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'Movie', tmdb_id: 100, elo_rank: 1000 }],
-    });
-    // kometa_schedule SELECT (existing list)
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/user/list' }],
-    });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await exportKometa(null, {}, adminContext());
-    expect(mockCreateList).not.toHaveBeenCalled();
-    expect(mockSyncList).toHaveBeenCalledWith('test-key', 42, [100]);
-  });
-
-  it('sanitizes collection name to prevent YAML injection', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
-    process.env.MDBLIST_API_KEY = 'test-key';
-    delete process.env.KOMETA_TRIGGER_URL;
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
-    });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 1, mdblist_list_url: 'https://mdblist.com/lists/u/l' }],
-    });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await exportKometa(null, { collectionName: 'Evil: {inject}\nmalicious: true' }, adminContext());
-    const writtenYaml = mockWriteFile.mock.calls[0][1];
-    expect(writtenYaml).not.toContain('{inject}');
-    expect(writtenYaml).not.toContain('malicious: true');
-    expect(writtenYaml).toContain('Evil inject');
-  });
-
-  it('uses default name when sanitized collectionName is empty', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
-    process.env.MDBLIST_API_KEY = 'test-key';
-    delete process.env.KOMETA_TRIGGER_URL;
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
-    });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 1, mdblist_list_url: 'https://mdblist.com/lists/u/l' }],
-    });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await exportKometa(null, { collectionName: ':::' }, adminContext());
-    const writtenYaml = mockWriteFile.mock.calls[0][1];
-    expect(writtenYaml).toContain('MovieNight Watchlist');
-  });
-
-  it('truncates collection name exceeding 100 characters', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
-    process.env.MDBLIST_API_KEY = 'test-key';
-    delete process.env.KOMETA_TRIGGER_URL;
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'Movie', tmdb_id: 1, elo_rank: 1000 }],
-    });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 1, mdblist_list_url: 'https://mdblist.com/lists/u/l' }],
-    });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    const longName = 'A'.repeat(150);
-    await exportKometa(null, { collectionName: longName }, adminContext());
-    const writtenYaml = mockWriteFile.mock.calls[0][1];
-    expect(writtenYaml).toContain('A'.repeat(100));
-    expect(writtenYaml).not.toContain('A'.repeat(101));
-  });
-
-  it('triggers webhook when KOMETA_TRIGGER_URL is set', async () => {
+  it('triggers webhook when KOMETA_TRIGGER_URL is set in production', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     process.env.MDBLIST_API_KEY = 'test-key';
     process.env.KOMETA_TRIGGER_URL = 'http://kometa:5000/run';
+
     mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'A', tmdb_id: 100, elo_rank: 1000 }],
+      rows: [{ mdblist_api_key: null }],
     });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 1, mdblist_list_url: 'https://mdblist.com/lists/u/l' }],
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: '/tmp/kometa/movienight.yml',
+      yamlContent: '## yaml',
+      lists: [
+        { name: 'A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://example.com' },
+      ],
     });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
     mockFetch.mockResolvedValueOnce({ ok: true });
     mockQuery.mockResolvedValue({ rows: [] });
 
@@ -249,20 +155,100 @@ describe('Mutation.exportKometa', () => {
     process.env.KOMETA_COLLECTIONS_PATH = '/tmp/kometa';
     process.env.MDBLIST_API_KEY = 'test-key';
     process.env.KOMETA_TRIGGER_URL = 'http://kometa:5000/run';
+
     mockQuery.mockResolvedValueOnce({
-      rows: [{ title: 'A', tmdb_id: 100, elo_rank: 1000 }],
+      rows: [{ mdblist_api_key: null }],
     });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ mdblist_list_id: 1, mdblist_list_url: 'https://mdblist.com/lists/u/l' }],
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: '/tmp/kometa/movienight.yml',
+      yamlContent: '## yaml',
+      lists: [
+        { name: 'A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://example.com' },
+      ],
     });
-    mockSyncList.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
     mockFetch.mockRejectedValueOnce(new Error('Connection refused'));
     mockQuery.mockResolvedValue({ rows: [] });
 
     const result = await exportKometa(null, {}, adminContext());
     expect(result.triggered).toBe(false);
     expect(result.triggerError).toBe('Connection refused');
+  });
+
+  it('dev mode: exports with [DEV] prefix and no file write', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.MDBLIST_API_KEY = 'test-key';
+    delete process.env.KOMETA_COLLECTIONS_PATH;
+
+    // kometa_schedule SELECT
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_api_key: null }],
+    });
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## dev yaml',
+      lists: [
+        {
+          name: '[DEV] Alice & Bob',
+          type: 'combined',
+          movieCount: 2,
+          mdblistUrl: 'https://mdblist.com/lists/u/dev-ab',
+        },
+      ],
+    });
+    // audit log
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    const result = await exportKometa(null, {}, adminContext());
+    expect(result.filePath).toBeNull();
+    expect(result.yamlContent).toBe('## dev yaml');
+    expect(result.lists[0].name).toBe('[DEV] Alice & Bob');
+    expect(result.triggered).toBe(false);
+    expect(mockRunKometaExport).toHaveBeenCalledWith({
+      collectionsPath: null,
+      mdblistApiKey: 'test-key',
+      namePrefix: '[DEV] ',
+      environment: 'development',
+    });
+  });
+
+  it('dev mode: does not throw when KOMETA_COLLECTIONS_PATH is missing', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.MDBLIST_API_KEY = 'test-key';
+    delete process.env.KOMETA_COLLECTIONS_PATH;
+
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] });
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## yaml',
+      lists: [
+        { name: '[DEV] A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://x.com' },
+      ],
+    });
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    // Should not throw
+    const result = await exportKometa(null, {}, adminContext());
+    expect(result.filePath).toBeNull();
+  });
+
+  it('dev mode: never triggers webhook even if KOMETA_TRIGGER_URL is set', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.MDBLIST_API_KEY = 'test-key';
+    process.env.KOMETA_TRIGGER_URL = 'http://kometa:5000/run';
+
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] });
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## yaml',
+      lists: [
+        { name: '[DEV] A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://x.com' },
+      ],
+    });
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    const result = await exportKometa(null, {}, adminContext());
+    expect(result.triggered).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
@@ -307,12 +293,12 @@ describe('Mutation.updateKometaSchedule', () => {
             enabled: true,
             frequency: 'hourly',
             daily_time: '03:00',
-            collection_name: null,
             last_run_at: null,
-            mdblist_list_url: null,
+            mdblist_api_key: null,
           },
         ],
-      }); // SELECT updated
+      }) // SELECT updated
+      .mockResolvedValueOnce({ rows: [] }); // kometa_mdblist_lists SELECT
     const result = await updateKometaSchedule(
       null,
       { enabled: true, frequency: 'hourly' },
@@ -320,7 +306,7 @@ describe('Mutation.updateKometaSchedule', () => {
     );
     expect(result.enabled).toBe(true);
     expect(result.frequency).toBe('hourly');
-    expect(result.mdblistListUrl).toBeNull();
+    expect(result.exportedLists).toEqual([]);
     expect(mockRescheduleKometa).toHaveBeenCalledWith(true, 'hourly', '03:00');
   });
 });
@@ -347,17 +333,17 @@ describe('Mutation.setMdblistApiKey', () => {
             enabled: false,
             frequency: 'daily',
             daily_time: '03:00',
-            collection_name: null,
             last_run_at: null,
-            mdblist_list_url: null,
             mdblist_api_key: 'new-key',
           },
         ],
-      });
+      }) // SELECT kometa_schedule
+      .mockResolvedValueOnce({ rows: [] }); // kometa_mdblist_lists SELECT
 
     const result = await setMdblistApiKey(null, { apiKey: 'new-key' }, adminContext());
     expect(result.mdblistApiKeySet).toBe(true);
     expect(result.enabled).toBe(false);
+    expect(result.exportedLists).toEqual([]);
     expect(mockQuery).toHaveBeenCalledWith(
       'UPDATE kometa_schedule SET mdblist_api_key = $1, updated_at = NOW() WHERE id = 1',
       ['new-key'],
@@ -365,19 +351,20 @@ describe('Mutation.setMdblistApiKey', () => {
   });
 
   it('trims whitespace from API key', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
-      rows: [
-        {
-          enabled: false,
-          frequency: 'daily',
-          daily_time: '03:00',
-          collection_name: null,
-          last_run_at: null,
-          mdblist_list_url: null,
-          mdblist_api_key: 'trimmed',
-        },
-      ],
-    });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            enabled: false,
+            frequency: 'daily',
+            daily_time: '03:00',
+            last_run_at: null,
+            mdblist_api_key: 'trimmed',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // kometa_mdblist_lists SELECT
 
     await setMdblistApiKey(null, { apiKey: '  trimmed  ' }, adminContext());
     expect(mockQuery).toHaveBeenCalledWith(

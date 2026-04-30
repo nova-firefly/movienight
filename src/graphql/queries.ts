@@ -213,11 +213,18 @@ export const DELETE_USER = gql`
 `;
 
 export const EXPORT_KOMETA = gql`
-  mutation ExportKometa($collectionName: String) {
-    exportKometa(collectionName: $collectionName) {
+  mutation ExportKometa {
+    exportKometa {
       filePath
+      yamlContent
       triggered
       triggerError
+      lists {
+        name
+        type
+        movieCount
+        mdblistUrl
+      }
     }
   }
 `;
@@ -269,10 +276,14 @@ export const GET_KOMETA_SCHEDULE = gql`
       enabled
       frequency
       dailyTime
-      collectionName
       lastRunAt
-      mdblistListUrl
       mdblistApiKeySet
+      exportedLists {
+        name
+        type
+        movieCount
+        mdblistUrl
+      }
     }
   }
 `;
@@ -299,22 +310,11 @@ export const SET_MDBLIST_API_KEY = gql`
 `;
 
 export const UPDATE_KOMETA_SCHEDULE = gql`
-  mutation UpdateKometaSchedule(
-    $enabled: Boolean
-    $frequency: String
-    $dailyTime: String
-    $collectionName: String
-  ) {
-    updateKometaSchedule(
-      enabled: $enabled
-      frequency: $frequency
-      dailyTime: $dailyTime
-      collectionName: $collectionName
-    ) {
+  mutation UpdateKometaSchedule($enabled: Boolean, $frequency: String, $dailyTime: String) {
+    updateKometaSchedule(enabled: $enabled, frequency: $frequency, dailyTime: $dailyTime) {
       enabled
       frequency
       dailyTime
-      collectionName
       lastRunAt
     }
   }

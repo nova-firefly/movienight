@@ -244,14 +244,17 @@ describe('Query.kometaSchedule', () => {
           enabled: true,
           frequency: 'daily',
           daily_time: '03:00',
-          collection_name: null,
           last_run_at: null,
+          mdblist_api_key: null,
         },
       ],
     });
+    // kometa_mdblist_lists query
+    mockQuery.mockResolvedValueOnce({ rows: [] });
     const result = await Query.kometaSchedule(null, null, adminContext());
     expect(result.enabled).toBe(true);
     expect(result.frequency).toBe('daily');
+    expect(result.exportedLists).toEqual([]);
   });
 
   it('non-admin throws FORBIDDEN', async () => {

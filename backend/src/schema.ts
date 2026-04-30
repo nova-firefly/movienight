@@ -59,14 +59,20 @@ export const typeDefs = `#graphql
     created_at: String!
   }
 
+  type KometaListExportResult {
+    name: String!
+    type: String!
+    movieCount: Int!
+    mdblistUrl: String
+  }
+
   type KometaSchedule {
     enabled: Boolean!
     frequency: String!
     dailyTime: String!
-    collectionName: String
     lastRunAt: String
-    mdblistListUrl: String
     mdblistApiKeySet: Boolean!
+    exportedLists: [KometaListExportResult!]!
   }
 
   type QuickLoginUser {
@@ -194,9 +200,11 @@ export const typeDefs = `#graphql
   }
 
   type KometaExportResult {
-    filePath: String!
+    filePath: String
+    yamlContent: String!
     triggered: Boolean!
     triggerError: String
+    lists: [KometaListExportResult!]!
   }
 
   type PasswordResetResult {
@@ -213,8 +221,8 @@ export const typeDefs = `#graphql
     deleteMovie(id: ID!): Boolean!
     recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!
     resetMovieComparisons(movieId: ID!): Boolean!
-    exportKometa(collectionName: String): KometaExportResult!
-    updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String, collectionName: String): KometaSchedule!
+    exportKometa: KometaExportResult!
+    updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String): KometaSchedule!
     setMdblistApiKey(apiKey: String!): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!
     login(username: String!, password: String!): AuthPayload!
