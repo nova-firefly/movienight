@@ -241,7 +241,7 @@ export const typeDefs = `#graphql
     linkPlexAccount(pinId: Int!): User!
     unlinkPlexAccount: User!
     createUser(username: String!, email: String!, password: String!, display_name: String, is_admin: Boolean, is_active: Boolean): User!
-    updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean): User!
+    updateUser(id: ID!, username: String, email: String, password: String, display_name: String, is_admin: Boolean, is_active: Boolean, plex_id: String): User!
     deleteUser(id: ID!): Boolean!
     seedMovies: Int!
     backfillTmdbData: Int!

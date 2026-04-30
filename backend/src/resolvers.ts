@@ -1828,6 +1828,11 @@ export const resolvers = {
         values.push(args.is_active);
         changes.is_active = args.is_active;
       }
+      if (args.plex_id !== undefined) {
+        updates.push(`plex_id = $${paramCount++}`);
+        values.push(args.plex_id || null);
+        changes.plex_id = args.plex_id || null;
+      }
 
       updates.push(`updated_at = CURRENT_TIMESTAMP`);
       values.push(args.id);

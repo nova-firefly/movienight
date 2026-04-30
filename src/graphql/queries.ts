@@ -188,6 +188,7 @@ export const UPDATE_USER = gql`
     $display_name: String
     $is_admin: Boolean
     $is_active: Boolean
+    $plex_id: String
   ) {
     updateUser(
       id: $id
@@ -197,6 +198,7 @@ export const UPDATE_USER = gql`
       display_name: $display_name
       is_admin: $is_admin
       is_active: $is_active
+      plex_id: $plex_id
     ) {
       id
       username
@@ -204,6 +206,8 @@ export const UPDATE_USER = gql`
       display_name
       is_admin
       is_active
+      plex_id
+      plex_username
       last_login_at
       created_at
       updated_at

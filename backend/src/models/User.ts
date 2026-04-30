@@ -34,6 +34,7 @@ export interface UpdateUserInput {
   display_name?: string;
   is_admin?: boolean;
   is_active?: boolean;
+  plex_id?: string | null;
 }
 
 export interface LoginInput {
