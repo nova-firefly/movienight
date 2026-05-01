@@ -55,7 +55,6 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [askSeenMovieId, setAskSeenMovieId] = useState<string | null>(null);
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<string[]>([]);
 
   const handleMovieAdded = useCallback((id: string) => {
@@ -298,8 +297,6 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           <ConnectionBanners
             incomingPending={incomingPending}
             pendingMovies={pendingMovies}
-            askSeenMovieId={askSeenMovieId}
-            setAskSeenMovieId={setAskSeenMovieId}
             onShowConnections={onShowConnections}
             onSetInterest={handleSetInterest}
             onSetSeenTag={handleSetSeenTag}
