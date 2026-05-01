@@ -293,7 +293,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {isAuthenticated && <AddMovieForm onMovieAdded={handleMovieAdded} />}
 
         {/* Recently added — highlighted cards */}
-        {recentlyAddedMovies.length > 0 && !isCombinedView && !isSoloView && (
+        {recentlyAddedMovies.length > 0 && (
           <Box sx={{ mb: 3 }}>
             <Typography
               level="body-xs"
