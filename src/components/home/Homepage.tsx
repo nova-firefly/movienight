@@ -406,6 +406,26 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       </Button>
                     </Tooltip>
 
+                    {/* Undo */}
+                    <Tooltip title="Undo — remove from list" arrow>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        color="danger"
+                        onClick={async () => {
+                          try {
+                            await deleteMovie({ variables: { id: movie.id } });
+                            setRecentlyAddedIds((prev) => prev.filter((rid) => rid !== movie.id));
+                          } catch (err: any) {
+                            showError(`Error: ${err.message}`);
+                          }
+                        }}
+                        sx={{ fontSize: '0.75rem', flexShrink: 0 }}
+                      >
+                        Undo
+                      </Button>
+                    </Tooltip>
+
                     {/* Dismiss */}
                     <IconButton
                       size="sm"
