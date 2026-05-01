@@ -60,7 +60,7 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
             '&:hover': { color: 'primary.300' },
           }}
         >
-          Solo Queue
+          Watch Alone
         </Button>
       )}
       <Button
