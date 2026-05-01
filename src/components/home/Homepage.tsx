@@ -148,6 +148,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   // Check if the current user has any personal Elo data
   const hasEloData = isAuthenticated && allMovies.some((m) => m.elo_rank != null);
 
+  // "My Suggestions" view: only movies the current user suggested
+  const isMySuggestionsView = !isCombinedView && !isSoloView;
+  const myMovies = isMySuggestionsView
+    ? movies.filter((m) => user && String(m.requested_by) === String(user.id))
+    : movies;
+
   const unmatchedMovies = movies.filter(
     (m) => !m.tmdb_id && (isAdmin || (user && String(m.requested_by) === String(user.id))),
   );
@@ -252,9 +258,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             }}
           >
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-              {movies.length === 0
-                ? 'No movies yet — suggest one!'
-                : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
+              {isMySuggestionsView
+                ? myMovies.length === 0
+                  ? 'No movies yet — suggest one!'
+                  : `${myMovies.length} movie${myMovies.length !== 1 ? 's' : ''} you've suggested`
+                : movies.length === 0
+                  ? 'No movies yet — suggest one!'
+                  : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
             </Typography>
             {movies.length >= 2 && (
               <ThisOrThatBanner
@@ -274,6 +284,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             selectedConnectionId={selectedConnectionId}
             onSelect={setSelectedConnectionId}
           />
+        )}
+
+        {/* My Suggestions subtitle */}
+        {isAuthenticated && isMySuggestionsView && (
+          <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 2 }}>
+            Movies you've suggested for the group
+          </Typography>
         )}
 
         {/* Connection banners (personal view only) */}
@@ -542,9 +559,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                     {r.movie.title}
                                   </Typography>
                                   {!r.bothRated && (
-                                    <Chip size="sm" variant="soft" color="neutral">
-                                      partial
-                                    </Chip>
+                                    <Tooltip
+                                      title="Only one of you has ranked this movie in This or That"
+                                      arrow
+                                    >
+                                      <Chip size="sm" variant="soft" color="neutral">
+                                        Needs ranking
+                                      </Chip>
+                                    </Tooltip>
                                   )}
                                 </Box>
                               </td>
@@ -743,7 +765,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                         </tr>
                       </thead>
                       <tbody>
-                        {movies.length === 0 ? (
+                        {myMovies.length === 0 ? (
                           <tr>
                             <td
                               colSpan={colCount}
@@ -754,11 +776,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                 fontSize: '0.875rem',
                               }}
                             >
-                              No movies yet. Be the first to suggest one!
+                              {isAuthenticated
+                                ? "You haven't suggested any movies yet. Use the search bar above to add one!"
+                                : 'No movies yet. Be the first to suggest one!'}
                             </td>
                           </tr>
                         ) : (
-                          movies.map((movie) => (
+                          myMovies.map((movie) => (
                             <MovieRow
                               key={movie.id}
                               movie={movie}
@@ -784,15 +808,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {/* Cards — visible on mobile */}
             {data && (
               <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
-                {movies.length === 0 ? (
+                {myMovies.length === 0 ? (
                   <Typography
                     level="body-sm"
                     sx={{ textAlign: 'center', color: 'text.tertiary', py: 6 }}
                   >
-                    No movies yet. Be the first to suggest one!
+                    {isAuthenticated
+                      ? "You haven't suggested any movies yet. Use the search bar above to add one!"
+                      : 'No movies yet. Be the first to suggest one!'}
                   </Typography>
                 ) : (
-                  movies.map((movie, idx) => (
+                  myMovies.map((movie, idx) => (
                     <MovieCard
                       key={movie.id}
                       movie={movie}

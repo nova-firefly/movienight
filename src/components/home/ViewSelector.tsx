@@ -74,7 +74,7 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
           '&:hover': { color: 'primary.300' },
         }}
       >
-        My Requested
+        My Suggestions
       </Button>
     </Box>
   );
