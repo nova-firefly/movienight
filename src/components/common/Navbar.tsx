@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
+import { Box, Button, Typography, IconButton, Divider, Badge } from '@mui/joy';
+import { useQuery } from '@apollo/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { NEW_MOVIES_FROM_CONNECTIONS } from '../../graphql/queries';
 import { getGravatarUrl } from '../../utils/gravatar';
 
 type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
@@ -27,24 +29,50 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
+    skip: !isAuthenticated,
+    pollInterval: 10000,
+  });
+  const pendingCount = pendingMoviesData?.newMoviesFromConnections?.length ?? 0;
+
   const navItems = (
     <>
-      <Button
-        variant={currentView === 'movies' ? 'soft' : 'plain'}
-        color="neutral"
+      <Badge
+        badgeContent={pendingCount}
+        invisible={pendingCount === 0}
         size="sm"
-        onClick={() => {
-          onShowMovies();
-          setMobileOpen(false);
-        }}
+        color="primary"
         sx={{
-          fontWeight: 600,
-          color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
-          '&:hover': { color: 'primary.300' },
+          '& .MuiBadge-badge': {
+            fontWeight: 700,
+            fontSize: '0.65rem',
+            minWidth: 16,
+            height: 16,
+            animation: pendingCount > 0 ? 'pulse-badge 2s ease-in-out infinite' : 'none',
+            '@keyframes pulse-badge': {
+              '0%, 100%': { transform: 'scale(1) translate(50%, -50%)' },
+              '50%': { transform: 'scale(1.15) translate(50%, -50%)' },
+            },
+          },
         }}
       >
-        Movies
-      </Button>
+        <Button
+          variant={currentView === 'movies' ? 'soft' : 'plain'}
+          color="neutral"
+          size="sm"
+          onClick={() => {
+            onShowMovies();
+            setMobileOpen(false);
+          }}
+          sx={{
+            fontWeight: 600,
+            color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
+            '&:hover': { color: 'primary.300' },
+          }}
+        >
+          Movies
+        </Button>
+      </Badge>
       {isAuthenticated && (
         <Button
           variant={currentView === 'this-or-that' ? 'soft' : 'plain'}

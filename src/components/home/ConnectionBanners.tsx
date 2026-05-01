@@ -94,7 +94,8 @@ const ConnectionBanners: React.FC<ConnectionBannersProps> = ({
             borderRadius: 'md',
             bgcolor: 'primary.softBg',
             borderColor: 'primary.400',
-            borderWidth: 1.5,
+            borderWidth: 2,
+            boxShadow: '0 0 0 1px rgba(var(--joy-palette-primary-mainChannel) / 0.15)',
           }}
         >
           <Box
@@ -102,7 +103,7 @@ const ConnectionBanners: React.FC<ConnectionBannersProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              mb: 1.5,
+              mb: 0.5,
             }}
           >
             <Typography level="title-sm" sx={{ fontWeight: 700, color: 'primary.softColor' }}>
@@ -112,6 +113,9 @@ const ConnectionBanners: React.FC<ConnectionBannersProps> = ({
               {pendingMovies.length}
             </Chip>
           </Box>
+          <Typography level="body-xs" sx={{ color: 'primary.300', mb: 1.5 }}>
+            Respond to each movie to add it to your shared queue or watch alone
+          </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {pendingMovies.map((item: any) => {
               const movieId = item.movie.id;
