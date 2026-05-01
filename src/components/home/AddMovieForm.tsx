@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLazyQuery, useMutation } from '@apollo/client';
 import { Box, Button, Autocomplete, AutocompleteOption, ListItemContent } from '@mui/joy';
-import { SEARCH_TMDB, ADD_MOVIE, SET_MOVIE_TAG, GET_MOVIES } from '../../graphql/queries';
+import { SEARCH_TMDB, ADD_MOVIE, GET_MOVIES } from '../../graphql/queries';
 import { useToast } from '../../contexts/ToastContext';
 import { useDebounce } from '../../utils/useDebounce';
 
@@ -12,12 +12,15 @@ type TmdbOption = {
   overview: string | null;
 };
 
-const AddMovieForm: React.FC = () => {
+interface AddMovieFormProps {
+  onMovieAdded?: (id: string) => void;
+}
+
+const AddMovieForm: React.FC<AddMovieFormProps> = ({ onMovieAdded }) => {
   const { showSuccess, showError } = useToast();
   const [title, setTitle] = useState('');
   const [tmdbId, setTmdbId] = useState<number | null>(null);
   const [tmdbOptions, setTmdbOptions] = useState<TmdbOption[]>([]);
-  const [lastAddedMovieId, setLastAddedMovieId] = useState<string | null>(null);
 
   const debouncedTitle = useDebounce(title, 400);
 
@@ -38,10 +41,6 @@ const AddMovieForm: React.FC = () => {
     refetchQueries: [{ query: GET_MOVIES }],
   });
 
-  const [setMovieTag] = useMutation(SET_MOVIE_TAG, {
-    refetchQueries: [{ query: GET_MOVIES }],
-  });
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -53,23 +52,13 @@ const AddMovieForm: React.FC = () => {
         variables: { title: title.trim(), tmdb_id: tmdbId },
       });
       showSuccess('Added to the list!');
-      setLastAddedMovieId(addData?.addMovie?.id ?? null);
+      const newId = addData?.addMovie?.id;
+      if (newId && onMovieAdded) onMovieAdded(newId);
       setTitle('');
       setTmdbId(null);
       setTmdbOptions([]);
-      setTimeout(() => setLastAddedMovieId(null), 5000);
     } catch (error: any) {
       showError(`Error: ${error.message}`);
-    }
-  };
-
-  const handleMarkSeen = async () => {
-    if (!lastAddedMovieId) return;
-    try {
-      await setMovieTag({ variables: { movieId: lastAddedMovieId, tagSlug: 'seen' } });
-      setLastAddedMovieId(null);
-    } catch (err: any) {
-      showError(`Error: ${err.message}`);
     }
   };
 
@@ -127,28 +116,6 @@ const AddMovieForm: React.FC = () => {
           </Button>
         </Box>
       </form>
-
-      {lastAddedMovieId && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1.5,
-            mt: 1.5,
-          }}
-        >
-          <Button
-            size="sm"
-            variant="soft"
-            color="neutral"
-            onClick={handleMarkSeen}
-            sx={{ fontSize: '0.75rem', py: 0.25 }}
-          >
-            I've seen this
-          </Button>
-        </Box>
-      )}
     </Box>
   );
 };

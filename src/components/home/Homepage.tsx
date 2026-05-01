@@ -1,6 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { Box, Button, Typography, Sheet, Chip, CircularProgress, Skeleton } from '@mui/joy';
+import {
+  Box,
+  Button,
+  Typography,
+  Sheet,
+  Chip,
+  CircularProgress,
+  Skeleton,
+  IconButton,
+  Tooltip,
+} from '@mui/joy';
 import {
   GET_MOVIES,
   DELETE_MOVIE,
@@ -46,6 +56,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [askSeenMovieId, setAskSeenMovieId] = useState<string | null>(null);
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<string[]>([]);
+
+  const handleMovieAdded = useCallback((id: string) => {
+    setRecentlyAddedIds((prev) => [id, ...prev]);
+  }, []);
 
   // Connections data (only when authenticated)
   const { data: connectionsData } = useQuery(MY_CONNECTIONS, { skip: !isAuthenticated });
@@ -122,7 +137,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const isProd = appInfoData?.appInfo?.isProduction ?? true;
 
   const allMovies: Movie[] = data?.movies ?? [];
-  const movies = allMovies.filter((m) => !passedMovieIds.has(String(m.id)));
+  const recentlyAddedSet = new Set(recentlyAddedIds);
+  const recentlyAddedMovies = recentlyAddedIds
+    .map((id) => allMovies.find((m) => String(m.id) === id))
+    .filter((m): m is Movie => m != null);
+  const movies = allMovies.filter(
+    (m) => !passedMovieIds.has(String(m.id)) && !recentlyAddedSet.has(String(m.id)),
+  );
 
   // Check if the current user has any personal Elo data
   const hasEloData = isAuthenticated && allMovies.some((m) => m.elo_rank != null);
@@ -269,7 +290,160 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         )}
 
         {/* Add movie form */}
-        {isAuthenticated && <AddMovieForm />}
+        {isAuthenticated && <AddMovieForm onMovieAdded={handleMovieAdded} />}
+
+        {/* Recently added — highlighted cards */}
+        {recentlyAddedMovies.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              level="body-xs"
+              sx={{
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontWeight: 700,
+                color: 'text.tertiary',
+                mb: 1,
+              }}
+            >
+              Just added
+            </Typography>
+            {recentlyAddedMovies.map((movie) => {
+              const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
+              const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
+              const seenCount = seenByUsers.length;
+              const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
+              return (
+                <Sheet
+                  key={movie.id}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 'md',
+                    mb: 1,
+                    p: 1.5,
+                    borderColor: 'primary.400',
+                    borderWidth: 1.5,
+                    bgcolor: 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    {/* Poster */}
+                    {movie.poster_url ? (
+                      <img
+                        src={movie.poster_url}
+                        alt=""
+                        style={{
+                          width: 40,
+                          height: 60,
+                          objectFit: 'cover',
+                          borderRadius: 4,
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 60,
+                          bgcolor: 'background.level2',
+                          borderRadius: '4px',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+
+                    {/* Details */}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                        {movie.title}
+                        {movie.tmdb_id && (
+                          <a
+                            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: 'var(--joy-palette-primary-500)',
+                              fontSize: '0.7rem',
+                              marginLeft: 4,
+                            }}
+                          >
+                            ↗
+                          </a>
+                        )}
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        Added to the queue
+                      </Typography>
+                    </Box>
+
+                    {/* Seen toggle */}
+                    <Tooltip
+                      title={
+                        seenCount > 0
+                          ? `Seen by: ${seenNames.join(', ')}`
+                          : isSeen
+                            ? 'Remove "Seen it"'
+                            : "I've seen this"
+                      }
+                      arrow
+                    >
+                      <Button
+                        size="sm"
+                        variant={isSeen ? 'soft' : 'outlined'}
+                        color={isSeen ? 'warning' : 'neutral'}
+                        onClick={() => handleToggleSeen(movie.id, isSeen)}
+                        sx={{ fontSize: '0.75rem', flexShrink: 0 }}
+                      >
+                        {isSeen ? 'Seen' : "I've seen this"}
+                        {seenCount > 0 && !isSeen && (
+                          <Typography
+                            component="span"
+                            level="body-xs"
+                            sx={{ ml: 0.5, fontWeight: 700 }}
+                          >
+                            ({seenCount})
+                          </Typography>
+                        )}
+                      </Button>
+                    </Tooltip>
+
+                    {/* Undo */}
+                    <Tooltip title="Undo — remove from list" arrow>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        color="danger"
+                        onClick={async () => {
+                          try {
+                            await deleteMovie({ variables: { id: movie.id } });
+                            setRecentlyAddedIds((prev) => prev.filter((rid) => rid !== movie.id));
+                          } catch (err: any) {
+                            showError(`Error: ${err.message}`);
+                          }
+                        }}
+                        sx={{ fontSize: '0.75rem', flexShrink: 0 }}
+                      >
+                        Undo
+                      </Button>
+                    </Tooltip>
+
+                    {/* Dismiss */}
+                    <IconButton
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() =>
+                        setRecentlyAddedIds((prev) => prev.filter((id) => id !== movie.id))
+                      }
+                      sx={{ opacity: 0.4, '&:hover': { opacity: 1 }, flexShrink: 0 }}
+                    >
+                      ✕
+                    </IconButton>
+                  </Box>
+                </Sheet>
+              );
+            })}
+          </Box>
+        )}
 
         {/* TMDB match flow */}
         {isAuthenticated && unmatchedMovies.length > 0 && !isCombinedView && !isSoloView && (
