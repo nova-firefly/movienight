@@ -1711,11 +1711,22 @@ export const resolvers = {
       await pool.query('DELETE FROM user_movie_elo');
       await pool.query('DELETE FROM movies');
 
-      // Insert seed movies and fetch TMDB metadata
-      for (const movie of SEED_MOVIES) {
+      // Fetch active users to distribute movies among them
+      const activeUsers = await pool.query(
+        'SELECT id FROM users WHERE is_active = true ORDER BY id',
+      );
+      const userIds = activeUsers.rows.map((u: any) => u.id);
+      if (userIds.length === 0) {
+        userIds.push(context.user.userId);
+      }
+
+      // Insert seed movies, round-robin across active users
+      for (let i = 0; i < SEED_MOVIES.length; i++) {
+        const movie = SEED_MOVIES[i];
+        const requestedBy = userIds[i % userIds.length];
         const ins = await pool.query(
           'INSERT INTO movies (title, requested_by, rank, tmdb_id) VALUES ($1, $2, 0, $3) RETURNING id',
-          [movie.title, context.user.userId, movie.tmdb_id],
+          [movie.title, requestedBy, movie.tmdb_id],
         );
         // Fire-and-forget TMDB fetch for each seeded movie
         fetchAndStoreTmdbData(ins.rows[0].id, movie.tmdb_id).catch(() => {});
