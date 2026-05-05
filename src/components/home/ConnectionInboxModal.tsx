@@ -2,6 +2,20 @@ import React, { useState } from 'react';
 import { Modal, ModalDialog, ModalClose, Box, Button, Typography, Sheet, Chip } from '@mui/joy';
 import { useToast } from '../../contexts/ToastContext';
 
+const formatRelativeDate = (iso: string): string => {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 interface ConnectionInboxModalProps {
   open: boolean;
   onClose: () => void;
@@ -121,13 +135,86 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                       }}
                     >
                       {/* Movie info */}
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                          {item.movie.title}
-                        </Typography>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                          added by {addedByName}
-                        </Typography>
+                      <Box sx={{ display: 'flex', gap: 1.25, minWidth: 0 }}>
+                        {/* Poster */}
+                        {item.movie.poster_url ? (
+                          <img
+                            src={item.movie.poster_url}
+                            alt=""
+                            style={{
+                              width: 52,
+                              height: 78,
+                              objectFit: 'cover',
+                              borderRadius: 4,
+                              flexShrink: 0,
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 52,
+                              height: 78,
+                              bgcolor: 'background.level2',
+                              borderRadius: '4px',
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+
+                        {/* Title + meta */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                            {item.movie.title}
+                            {item.movie.tmdb_id && (
+                              <a
+                                href={`https://www.themoviedb.org/movie/${item.movie.tmdb_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: 'var(--joy-palette-primary-500)',
+                                  fontSize: '0.7rem',
+                                  marginLeft: 4,
+                                  textDecoration: 'none',
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </Typography>
+                          <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
+                            added by {addedByName} · {formatRelativeDate(item.movie.date_submitted)}
+                          </Typography>
+
+                          {/* Tags row */}
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
+                            {(() => {
+                              const seenTags = (item.movie.userTags ?? []).filter(
+                                (t: any) => t.tag.slug === 'seen',
+                              );
+                              const seenNames = seenTags.map(
+                                (t: any) => t.user.display_name || t.user.username,
+                              );
+                              if (seenTags.length > 0) {
+                                return (
+                                  <Chip size="sm" variant="soft" color="warning">
+                                    Seen by {seenNames.join(', ')}
+                                  </Chip>
+                                );
+                              }
+                              return (
+                                <Chip size="sm" variant="soft" color="neutral">
+                                  Not yet seen by group
+                                </Chip>
+                              );
+                            })()}
+                            {!item.movie.tmdb_id && (
+                              <Chip size="sm" variant="soft" color="neutral">
+                                No TMDB match
+                              </Chip>
+                            )}
+                          </Box>
+                        </Box>
                       </Box>
 
                       {/* 4-button response grid */}
