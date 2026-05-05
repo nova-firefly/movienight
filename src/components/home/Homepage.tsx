@@ -33,6 +33,7 @@ import MovieCard from './MovieCard';
 import AddMovieForm from './AddMovieForm';
 import ViewSelector from './ViewSelector';
 import ConnectionBanners from './ConnectionBanners';
+import ConnectionInboxModal from './ConnectionInboxModal';
 import ThisOrThatBanner from './ThisOrThatBanner';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { Movie } from '../../models/Movies';
@@ -54,6 +55,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const isAdmin = user?.is_admin ?? false;
 
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<string[]>([]);
 
@@ -272,6 +274,31 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 onShowThisOrThat={onShowThisOrThat}
               />
             )}
+            {isAuthenticated && pendingMovies.length > 0 && (
+              <Chip
+                variant="solid"
+                color="primary"
+                size="sm"
+                onClick={() => setInboxOpen(true)}
+                sx={{
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.7rem',
+                  animation: 'cta-pulse 2s ease-in-out infinite',
+                  '@keyframes cta-pulse': {
+                    '0%, 100%': {
+                      boxShadow: '0 0 0 0 rgba(var(--joy-palette-primary-mainChannel) / 0.5)',
+                    },
+                    '50%': {
+                      boxShadow: '0 0 0 6px rgba(var(--joy-palette-primary-mainChannel) / 0)',
+                    },
+                  },
+                }}
+              >
+                ▸ Review {pendingMovies.length} new
+                {pendingMovies.length === 1 ? ' suggestion' : ' suggestions'}
+              </Chip>
+            )}
           </Box>
         </Box>
 
@@ -296,10 +323,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {isAuthenticated && !isCombinedView && !isSoloView && (
           <ConnectionBanners
             incomingPending={incomingPending}
-            pendingMovies={pendingMovies}
             onShowConnections={onShowConnections}
-            onSetInterest={handleSetInterest}
-            onSetSeenTag={handleSetSeenTag}
           />
         )}
 
@@ -852,6 +876,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           </Box>
         )}
       </Box>
+
+      <ConnectionInboxModal
+        open={inboxOpen}
+        onClose={() => setInboxOpen(false)}
+        pendingMovies={pendingMovies}
+        onSetInterest={handleSetInterest}
+        onSetSeenTag={handleSetSeenTag}
+      />
 
       <ConfirmDialog {...dialogProps} />
     </Box>
