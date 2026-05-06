@@ -177,8 +177,9 @@ const ThisOrThat: React.FC = () => {
           >
             This or That
           </Typography>
-          <Typography level="body-xs" sx={{ color: 'text.secondary', mb: { xs: 1, sm: 1.5 } }}>
-            Pick which movie you'd rather watch
+          <Typography level="body-sm" sx={{ color: 'neutral.400', mb: { xs: 1, sm: 1.5 } }}>
+            Pick which movie you'd rather watch. Your choices build a personal ranking that combines
+            with your connections' picks.
           </Typography>
         </Box>
 
@@ -324,6 +325,14 @@ const ThisOrThat: React.FC = () => {
 
         {tab === 'rankings' && (
           <>
+            <Typography
+              level="body-sm"
+              sx={{ textAlign: 'center', color: 'neutral.400', mb: { xs: 1.5, sm: 2 } }}
+            >
+              Your personal ranking based on your This or That picks. Connect with friends to
+              combine rankings.
+            </Typography>
+
             {rankingsLoading && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
