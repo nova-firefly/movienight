@@ -11,6 +11,7 @@ interface MovieCardProps {
   onDelete: (id: string, title: string) => void;
   onToggleSeen: (id: string, currentlySeen: boolean) => void;
   isAuthenticated: boolean;
+  isRecentlyAdded?: boolean;
 }
 
 const MovieCard: React.FC<MovieCardProps> = ({
@@ -22,6 +23,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
   onDelete,
   onToggleSeen,
   isAuthenticated,
+  isRecentlyAdded = false,
 }) => {
   const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
@@ -35,7 +37,11 @@ const MovieCard: React.FC<MovieCardProps> = ({
         borderRadius: 'md',
         mb: 1,
         p: 1.5,
-        borderColor: 'var(--mn-border-vis)',
+        borderColor: isRecentlyAdded ? 'primary.400' : 'var(--mn-border-vis)',
+        borderWidth: isRecentlyAdded ? 1.5 : 1,
+        bgcolor: isRecentlyAdded
+          ? 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)'
+          : undefined,
       }}
     >
       <Box sx={{ display: 'flex', gap: 1.5 }}>

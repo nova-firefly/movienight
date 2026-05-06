@@ -43,7 +43,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
   ) => {
     const message = interested
       ? `Added to your queue with ${addedByName}!`
-      : 'Moved to Watch Alone';
+      : `You passed on this one — ${addedByName} can still watch it solo.`;
 
     setResponded((prev) => ({ ...prev, [movieId]: message }));
     showSuccess(message);

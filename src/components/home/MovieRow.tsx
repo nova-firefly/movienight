@@ -10,6 +10,7 @@ export interface MovieRowProps {
   onDelete: (id: string, title: string) => void;
   onToggleSeen: (id: string, currentlySeen: boolean) => void;
   isAuthenticated: boolean;
+  isRecentlyAdded?: boolean;
 }
 
 const MovieRow: React.FC<MovieRowProps> = ({
@@ -20,6 +21,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
   onDelete,
   onToggleSeen,
   isAuthenticated,
+  isRecentlyAdded = false,
 }) => {
   const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
@@ -27,7 +29,16 @@ const MovieRow: React.FC<MovieRowProps> = ({
   const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
 
   return (
-    <tr>
+    <tr
+      style={
+        isRecentlyAdded
+          ? {
+              background: 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)',
+              boxShadow: 'inset 3px 0 0 var(--joy-palette-primary-400)',
+            }
+          : undefined
+      }
+    >
       {/* Title */}
       <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

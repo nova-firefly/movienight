@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -118,12 +118,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const connections = connectionsData?.myConnections || [];
 
-  // Default to first connection's combined view if one exists
-  useEffect(() => {
-    if (connections.length > 0 && selectedConnectionId === null) {
-      setSelectedConnectionId(connections[0].id);
-    }
-  }, [connections]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Default view is "My Suggestions" (selectedConnectionId === null).
+  // Users can switch to a connection's combined view via the ViewSelector tabs.
 
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
@@ -152,9 +148,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const recentlyAddedMovies = recentlyAddedIds
     .map((id) => allMovies.find((m) => String(m.id) === id))
     .filter((m): m is Movie => m != null);
-  const movies = allMovies.filter(
-    (m) => !passedMovieIds.has(String(m.id)) && !recentlyAddedSet.has(String(m.id)),
-  );
+  // Keep just-added movies in the main list — their data-rank is at the bottom of
+  // the queue (MAX(rank)+1) and the user should see that. They also appear in the
+  // highlighted "Just added" strip above for quick post-add actions.
+  const movies = allMovies.filter((m) => !passedMovieIds.has(String(m.id)));
 
   // Check if the current user has any personal Elo data
   const hasEloData = isAuthenticated && allMovies.some((m) => m.elo_rank != null);
@@ -293,33 +290,45 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 onShowThisOrThat={onShowThisOrThat}
               />
             )}
-            {isAuthenticated && pendingMovies.length > 0 && (
-              <Chip
-                variant="solid"
-                color="primary"
-                size="sm"
-                onClick={() => setInboxOpen(true)}
-                sx={{
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.7rem',
-                  animation: 'cta-pulse 2s ease-in-out infinite',
-                  '@keyframes cta-pulse': {
-                    '0%, 100%': {
-                      boxShadow: '0 0 0 0 rgba(var(--joy-palette-primary-mainChannel) / 0.5)',
-                    },
-                    '50%': {
-                      boxShadow: '0 0 0 6px rgba(var(--joy-palette-primary-mainChannel) / 0)',
-                    },
-                  },
-                }}
-              >
-                ▸ Review {pendingMovies.length} new
-                {pendingMovies.length === 1 ? ' suggestion' : ' suggestions'}
-              </Chip>
-            )}
           </Box>
         </Box>
+
+        {/* Connection inbox — single primary CTA above the queue */}
+        {isAuthenticated && pendingMovies.length > 0 && (
+          <Sheet
+            variant="soft"
+            color="primary"
+            sx={{
+              mb: 2.5,
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: 'md',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography level="title-sm" sx={{ fontWeight: 700 }}>
+                {pendingMovies.length} new suggestion{pendingMovies.length === 1 ? '' : 's'} from
+                your connections
+              </Typography>
+              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                Tell them if you're in for the watch.
+              </Typography>
+            </Box>
+            <Button
+              variant="solid"
+              color="primary"
+              size="sm"
+              onClick={() => setInboxOpen(true)}
+              sx={{ fontWeight: 700, color: '#0d0f1a', flexShrink: 0 }}
+            >
+              Review now
+            </Button>
+          </Sheet>
+        )}
 
         {/* View selector */}
         {isAuthenticated && (connections.length > 0 || soloMovies.length > 0) && (
@@ -346,8 +355,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           />
         )}
 
-        {/* First-login onboarding card */}
-        {showOnboardingCard && <OnboardingCard onDismiss={handleDismissOnboarding} />}
+        {/* First-login onboarding card — already on Movies, so no Watch button on card */}
+        {showOnboardingCard && (
+          <OnboardingCard
+            onDismiss={handleDismissOnboarding}
+            onShowConnections={onShowConnections}
+            onShowThisOrThat={onShowThisOrThat}
+          />
+        )}
 
         {/* Add movie form */}
         {isAuthenticated && <AddMovieForm onMovieAdded={handleMovieAdded} />}
@@ -553,7 +568,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     </Typography>
                     {onShowThisOrThat && (
                       <Button variant="soft" color="primary" size="sm" onClick={onShowThisOrThat}>
-                        Start comparing
+                        Rank movies
                       </Button>
                     )}
                   </Box>
@@ -691,7 +706,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                               size="sm"
                               onClick={onShowThisOrThat}
                             >
-                              Go to This or That
+                              Keep ranking
                             </Button>
                           )}
                         </Sheet>
@@ -882,6 +897,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                               onDelete={handleDelete}
                               onToggleSeen={handleToggleSeen}
                               isAuthenticated={isAuthenticated}
+                              isRecentlyAdded={recentlyAddedSet.has(String(movie.id))}
                             />
                           ))
                         )}
@@ -919,6 +935,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       onDelete={handleDelete}
                       onToggleSeen={handleToggleSeen}
                       isAuthenticated={isAuthenticated}
+                      isRecentlyAdded={recentlyAddedSet.has(String(movie.id))}
                     />
                   ))
                 )}

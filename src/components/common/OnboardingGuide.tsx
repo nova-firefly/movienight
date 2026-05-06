@@ -13,63 +13,100 @@ import {
 
 export const ONBOARDING_DISMISSED_KEY = 'onboarding_dismissed';
 
+interface StepActions {
+  onShowConnections?: () => void;
+  onShowThisOrThat?: () => void;
+  onShowMovies?: () => void;
+}
+
 interface Step {
   emoji: string;
   title: string;
   description: string;
+  actionLabel?: string;
+  actionKey?: 'connect' | 'rank' | 'watch';
 }
 
 const STEPS: Step[] = [
   {
     emoji: '🎬',
     title: 'Suggest',
-    description: 'Add movies you want to watch.',
+    description: 'Use the search bar on the home page to add movies you want to watch.',
   },
   {
     emoji: '🤝',
     title: 'Connect',
     description: "Link up with friends. They'll see your picks and you'll see theirs.",
+    actionLabel: 'Manage connections',
+    actionKey: 'connect',
   },
   {
     emoji: '⚖️',
     title: 'Rank',
     description: 'Compare movies in This or That to build your preference list.',
+    actionLabel: 'Open This or That',
+    actionKey: 'rank',
   },
   {
     emoji: '🍿',
     title: 'Watch',
-    description: 'The top-ranked movie you both agree on wins.',
+    description: 'Pick a connection on the Movies page to see your combined rankings.',
+    actionLabel: 'See combined rankings',
+    actionKey: 'watch',
   },
 ];
 
-const StepList: React.FC = () => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-    {STEPS.map((s, i) => (
-      <Box key={s.title} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-        <Box
-          sx={{
-            fontSize: '1.5rem',
-            lineHeight: 1.2,
-            flexShrink: 0,
-            width: 28,
-            textAlign: 'center',
-          }}
-          aria-hidden
-        >
-          {s.emoji}
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography level="title-sm" sx={{ fontWeight: 700 }}>
-            {i + 1}. {s.title}
-          </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            {s.description}
-          </Typography>
-        </Box>
-      </Box>
-    ))}
-  </Box>
-);
+const StepList: React.FC<StepActions> = ({ onShowConnections, onShowThisOrThat, onShowMovies }) => {
+  const handlerFor = (key?: Step['actionKey']) => {
+    if (key === 'connect') return onShowConnections;
+    if (key === 'rank') return onShowThisOrThat;
+    if (key === 'watch') return onShowMovies;
+    return undefined;
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {STEPS.map((s, i) => {
+        const handler = handlerFor(s.actionKey);
+        return (
+          <Box key={s.title} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box
+              sx={{
+                fontSize: '1.5rem',
+                lineHeight: 1.2,
+                flexShrink: 0,
+                width: 28,
+                textAlign: 'center',
+              }}
+              aria-hidden
+            >
+              {s.emoji}
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography level="title-sm" sx={{ fontWeight: 700 }}>
+                {i + 1}. {s.title}
+              </Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                {s.description}
+              </Typography>
+              {s.actionLabel && handler && (
+                <Button
+                  size="sm"
+                  variant="soft"
+                  color="primary"
+                  onClick={handler}
+                  sx={{ mt: 0.75, fontWeight: 600, fontSize: '0.75rem' }}
+                >
+                  {s.actionLabel} →
+                </Button>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
 
 const ExtraTips: React.FC = () => (
   <Box>
@@ -109,11 +146,16 @@ const ExtraTips: React.FC = () => (
   </Box>
 );
 
-interface OnboardingCardProps {
+interface OnboardingCardProps extends StepActions {
   onDismiss: () => void;
 }
 
-export const OnboardingCard: React.FC<OnboardingCardProps> = ({ onDismiss }) => (
+export const OnboardingCard: React.FC<OnboardingCardProps> = ({
+  onDismiss,
+  onShowConnections,
+  onShowThisOrThat,
+  onShowMovies,
+}) => (
   <Sheet
     variant="outlined"
     sx={{
@@ -150,7 +192,11 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({ onDismiss }) => 
     <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
       Here's how it works:
     </Typography>
-    <StepList />
+    <StepList
+      onShowConnections={onShowConnections}
+      onShowThisOrThat={onShowThisOrThat}
+      onShowMovies={onShowMovies}
+    />
     <Box sx={{ mt: 2.5, display: 'flex', justifyContent: 'flex-end' }}>
       <Button
         variant="solid"
@@ -165,12 +211,18 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({ onDismiss }) => 
   </Sheet>
 );
 
-interface OnboardingModalProps {
+interface OnboardingModalProps extends StepActions {
   open: boolean;
   onClose: () => void;
 }
 
-export const OnboardingModal: React.FC<OnboardingModalProps> = ({ open, onClose }) => (
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({
+  open,
+  onClose,
+  onShowConnections,
+  onShowThisOrThat,
+  onShowMovies,
+}) => (
   <Modal open={open} onClose={onClose}>
     <ModalDialog
       sx={{
@@ -188,7 +240,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ open, onClose 
       <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
         The four-step loop:
       </Typography>
-      <StepList />
+      <StepList
+        onShowConnections={onShowConnections}
+        onShowThisOrThat={onShowThisOrThat}
+        onShowMovies={onShowMovies}
+      />
       <Divider sx={{ my: 2.5 }} />
       <ExtraTips />
     </ModalDialog>
