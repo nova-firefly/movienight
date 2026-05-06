@@ -15,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import ConfirmDialog from '../common/ConfirmDialog';
+import Poster from '../common/Poster';
 import WatchHistoryCard from './WatchHistoryCard';
 
 const PAGE_SIZE = 25;
@@ -152,29 +153,7 @@ const WatchHistory: React.FC = () => {
                           <tr key={movie.id}>
                             <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {movie.poster_url ? (
-                                  <img
-                                    src={movie.poster_url}
-                                    alt=""
-                                    style={{
-                                      width: 28,
-                                      height: 42,
-                                      objectFit: 'cover',
-                                      borderRadius: 3,
-                                      flexShrink: 0,
-                                    }}
-                                  />
-                                ) : (
-                                  <Box
-                                    sx={{
-                                      width: 28,
-                                      height: 42,
-                                      bgcolor: 'background.level2',
-                                      borderRadius: '3px',
-                                      flexShrink: 0,
-                                    }}
-                                  />
-                                )}
+                                <Poster url={movie.poster_url} size="xs" />
                                 <Typography
                                   level="body-sm"
                                   sx={{ fontWeight: 600, color: 'text.primary' }}
