@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, IconButton, Divider, Badge } from '@mui/joy';
-import { useQuery } from '@apollo/client';
+import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
-import { NEW_MOVIES_FROM_CONNECTIONS } from '../../graphql/queries';
 import { getGravatarUrl } from '../../utils/gravatar';
 import { OnboardingModal } from './OnboardingGuide';
 
@@ -31,50 +29,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
-    skip: !isAuthenticated,
-    pollInterval: 10000,
-  });
-  const pendingCount = pendingMoviesData?.newMoviesFromConnections?.length ?? 0;
-
   const navItems = (
     <>
-      <Badge
-        badgeContent={pendingCount}
-        invisible={pendingCount === 0}
+      <Button
+        variant={currentView === 'movies' ? 'soft' : 'plain'}
+        color="neutral"
         size="sm"
-        color="primary"
+        onClick={() => {
+          onShowMovies();
+          setMobileOpen(false);
+        }}
         sx={{
-          '& .MuiBadge-badge': {
-            fontWeight: 700,
-            fontSize: '0.65rem',
-            minWidth: 16,
-            height: 16,
-            animation: pendingCount > 0 ? 'pulse-badge 2s ease-in-out infinite' : 'none',
-            '@keyframes pulse-badge': {
-              '0%, 100%': { transform: 'scale(1) translate(50%, -50%)' },
-              '50%': { transform: 'scale(1.15) translate(50%, -50%)' },
-            },
-          },
+          fontWeight: 600,
+          color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
+          '&:hover': { color: 'primary.300' },
         }}
       >
-        <Button
-          variant={currentView === 'movies' ? 'soft' : 'plain'}
-          color="neutral"
-          size="sm"
-          onClick={() => {
-            onShowMovies();
-            setMobileOpen(false);
-          }}
-          sx={{
-            fontWeight: 600,
-            color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
-            '&:hover': { color: 'primary.300' },
-          }}
-        >
-          Movies
-        </Button>
-      </Badge>
+        Movies
+      </Button>
       {isAuthenticated && (
         <Button
           variant={currentView === 'this-or-that' ? 'soft' : 'plain'}
@@ -285,7 +257,25 @@ export const Navbar: React.FC<NavbarProps> = ({
         </Box>
       </Box>
 
-      <OnboardingModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <OnboardingModal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onShowConnections={() => {
+          setHelpOpen(false);
+          onShowCombinedList();
+          setMobileOpen(false);
+        }}
+        onShowThisOrThat={() => {
+          setHelpOpen(false);
+          onShowThisOrThat();
+          setMobileOpen(false);
+        }}
+        onShowMovies={() => {
+          setHelpOpen(false);
+          onShowMovies();
+          setMobileOpen(false);
+        }}
+      />
 
       {/* Mobile drawer */}
       {mobileOpen && (
