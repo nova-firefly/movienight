@@ -286,7 +286,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                           onClick={() => handleResponse(movieId, false, false, addedByName)}
                           sx={{ fontWeight: 500 }}
                         >
-                          Pass — watch alone
+                          Pass — I don't want to watch
                         </Button>
                       </Box>
                     </Box>
