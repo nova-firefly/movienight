@@ -4,6 +4,7 @@ import { useQuery } from '@apollo/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { NEW_MOVIES_FROM_CONNECTIONS } from '../../graphql/queries';
 import { getGravatarUrl } from '../../utils/gravatar';
+import { OnboardingModal } from './OnboardingGuide';
 
 type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
 
@@ -28,6 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
     skip: !isAuthenticated,
@@ -229,6 +231,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </Typography>
                 </Box>
               </Box>
+              <IconButton
+                variant="plain"
+                color="neutral"
+                size="sm"
+                aria-label="How MovieNight works"
+                onClick={() => setHelpOpen(true)}
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '1rem',
+                  color: 'text.secondary',
+                  '&:hover': { color: 'primary.300' },
+                }}
+              >
+                ?
+              </IconButton>
               <Button
                 variant="outlined"
                 color="neutral"
@@ -267,6 +284,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </IconButton>
         </Box>
       </Box>
+
+      <OnboardingModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Mobile drawer */}
       {mobileOpen && (

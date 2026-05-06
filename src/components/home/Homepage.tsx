@@ -36,6 +36,7 @@ import ConnectionBanners from './ConnectionBanners';
 import ConnectionInboxModal from './ConnectionInboxModal';
 import ThisOrThatBanner from './ThisOrThatBanner';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
 import { Movie } from '../../models/Movies';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -58,6 +59,15 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const [inboxOpen, setInboxOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<string[]>([]);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () =>
+      typeof window !== 'undefined' && localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true',
+  );
+
+  const handleDismissOnboarding = useCallback(() => {
+    localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
+    setOnboardingDismissed(true);
+  }, []);
 
   const handleMovieAdded = useCallback((id: string) => {
     setRecentlyAddedIds((prev) => [id, ...prev]);
@@ -148,6 +158,15 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   // Check if the current user has any personal Elo data
   const hasEloData = isAuthenticated && allMovies.some((m) => m.elo_rank != null);
+
+  // First-login onboarding: show until dismissed, and only when the user looks new
+  // (no suggestions of their own and no ranking activity yet)
+  const userHasSuggestedMovie =
+    isAuthenticated && user
+      ? allMovies.some((m) => String(m.requested_by) === String(user.id))
+      : false;
+  const showOnboardingCard =
+    isAuthenticated && !onboardingDismissed && !userHasSuggestedMovie && !hasEloData;
 
   // "My Suggestions" view: only movies the current user suggested
   const isMySuggestionsView = !isCombinedView && !isSoloView;
@@ -326,6 +345,9 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             onShowConnections={onShowConnections}
           />
         )}
+
+        {/* First-login onboarding card */}
+        {showOnboardingCard && <OnboardingCard onDismiss={handleDismissOnboarding} />}
 
         {/* Add movie form */}
         {isAuthenticated && <AddMovieForm onMovieAdded={handleMovieAdded} />}
