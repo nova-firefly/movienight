@@ -217,47 +217,76 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                         </Box>
                       </Box>
 
-                      {/* 4-button response grid */}
-                      <Box
-                        sx={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: 0.75,
-                        }}
-                      >
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color="success"
-                          onClick={() => handleResponse(movieId, true, false, addedByName)}
-                          sx={{ fontWeight: 600 }}
+                      {/* 3-button asymmetric: two "in" variants + full-width pass */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 0.75,
+                          }}
                         >
-                          Count me in!
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color="warning"
-                          onClick={() => handleResponse(movieId, true, true, addedByName)}
-                          sx={{ fontWeight: 600 }}
-                        >
-                          Rewatch? Yes!
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="solid"
+                            color="success"
+                            onClick={() => handleResponse(movieId, true, false, addedByName)}
+                            sx={{
+                              flexDirection: 'column',
+                              alignItems: 'stretch',
+                              py: 0.75,
+                              fontWeight: 700,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            <span>Add to queue</span>
+                            <Typography
+                              level="body-xs"
+                              sx={{
+                                color: 'inherit',
+                                opacity: 0.85,
+                                fontWeight: 500,
+                                mt: 0.25,
+                              }}
+                            >
+                              I haven't seen it
+                            </Typography>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="soft"
+                            color="warning"
+                            onClick={() => handleResponse(movieId, true, true, addedByName)}
+                            sx={{
+                              flexDirection: 'column',
+                              alignItems: 'stretch',
+                              py: 0.75,
+                              fontWeight: 700,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            <span>Add as rewatch</span>
+                            <Typography
+                              level="body-xs"
+                              sx={{
+                                color: 'inherit',
+                                opacity: 0.85,
+                                fontWeight: 500,
+                                mt: 0.25,
+                              }}
+                            >
+                              I've seen it before
+                            </Typography>
+                          </Button>
+                        </Box>
                         <Button
                           size="sm"
                           variant="plain"
                           color="neutral"
                           onClick={() => handleResponse(movieId, false, false, addedByName)}
+                          sx={{ fontWeight: 500 }}
                         >
-                          Not for me
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="plain"
-                          color="neutral"
-                          onClick={() => handleResponse(movieId, false, true, addedByName)}
-                        >
-                          Seen it, pass
+                          Pass — watch alone
                         </Button>
                       </Box>
                     </Box>
