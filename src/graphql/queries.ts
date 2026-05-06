@@ -516,6 +516,19 @@ export const NEW_MOVIES_FROM_CONNECTIONS = gql`
         title
         tmdb_id
         date_submitted
+        poster_url
+        userTags {
+          tag {
+            slug
+            label
+          }
+          user {
+            id
+            username
+            display_name
+          }
+          value
+        }
       }
       addedBy {
         id
