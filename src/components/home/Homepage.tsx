@@ -10,6 +10,8 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
+  Select,
+  Option,
 } from '@mui/joy';
 import {
   GET_MOVIES,
@@ -611,188 +613,197 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   }
                   return (
                     <>
-                      <Box
+                      <Sheet
+                        variant="outlined"
                         sx={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                          gap: 0.5,
-                          mb: 2,
+                          borderRadius: 'md',
+                          overflow: 'clip',
+                          borderColor: 'var(--mn-border-vis)',
                         }}
                       >
-                        {filterChips.map((f) => (
-                          <Chip
-                            key={f.key}
-                            size="sm"
-                            variant={combinedSeenFilter === f.key ? 'soft' : 'plain'}
-                            color={combinedSeenFilter === f.key ? 'primary' : 'neutral'}
-                            onClick={() => setCombinedSeenFilter(f.key)}
-                            sx={{ cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600 }}
-                          >
-                            {f.label}
-                          </Chip>
-                        ))}
-                      </Box>
-                      {filteredRankings.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                          <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-                            No movies match this filter.
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <>
-                          <Sheet
-                            variant="outlined"
-                            sx={{
-                              borderRadius: 'md',
-                              overflow: 'clip',
-                              borderColor: 'var(--mn-border-vis)',
+                        <Box sx={{ overflowX: 'auto' }}>
+                          <table
+                            style={{
+                              width: '100%',
+                              minWidth: 360,
+                              borderCollapse: 'collapse',
+                              tableLayout: 'auto',
                             }}
                           >
-                            <Box sx={{ overflowX: 'auto' }}>
-                              <table
+                            <thead>
+                              <tr
                                 style={{
-                                  width: '100%',
-                                  minWidth: 360,
-                                  borderCollapse: 'collapse',
-                                  tableLayout: 'auto',
+                                  background: 'var(--mn-bg-elevated)',
+                                  borderBottom: '1px solid var(--mn-border-vis)',
                                 }}
                               >
-                                <thead>
-                                  <tr
-                                    style={{
-                                      background: 'var(--mn-bg-elevated)',
-                                      borderBottom: '1px solid var(--mn-border-vis)',
+                                <th style={combinedThStyle}>#</th>
+                                <th style={{ ...combinedThStyle, textAlign: 'left' }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1,
+                                      flexWrap: 'wrap',
                                     }}
                                   >
-                                    <th style={combinedThStyle}>#</th>
-                                    <th style={{ ...combinedThStyle, textAlign: 'left' }}>Title</th>
-                                    <th style={combinedThStyle}>You</th>
-                                    <th style={combinedThStyle}>
-                                      {combinedData.combinedList.connection.user.display_name ||
-                                        combinedData.combinedList.connection.user.username}
-                                    </th>
-                                    <th style={combinedThStyle}>Combined</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {filteredRankings.map((r: any, idx: number) => (
-                                    <tr key={r.movie.id}>
-                                      <td
-                                        style={{
-                                          ...combinedTdStyle,
-                                          textAlign: 'center',
-                                          width: 48,
+                                    <span>Title</span>
+                                    <Select
+                                      size="sm"
+                                      value={combinedSeenFilter}
+                                      onChange={(_, val) => val && setCombinedSeenFilter(val)}
+                                      sx={{
+                                        minHeight: 24,
+                                        py: 0,
+                                        fontSize: '0.7rem',
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        letterSpacing: 'normal',
+                                      }}
+                                    >
+                                      {filterChips.map((f) => (
+                                        <Option key={f.key} value={f.key}>
+                                          {f.label}
+                                        </Option>
+                                      ))}
+                                    </Select>
+                                  </Box>
+                                </th>
+                                <th style={combinedThStyle}>You</th>
+                                <th style={combinedThStyle}>
+                                  {combinedData.combinedList.connection.user.display_name ||
+                                    combinedData.combinedList.connection.user.username}
+                                </th>
+                                <th style={combinedThStyle}>Combined</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredRankings.length === 0 ? (
+                                <tr>
+                                  <td
+                                    colSpan={5}
+                                    style={{
+                                      ...combinedTdStyle,
+                                      textAlign: 'center',
+                                      color: 'var(--mn-text-muted)',
+                                      fontSize: '0.875rem',
+                                      padding: '32px 16px',
+                                    }}
+                                  >
+                                    No movies match this filter.
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredRankings.map((r: any, idx: number) => (
+                                  <tr key={r.movie.id}>
+                                    <td
+                                      style={{
+                                        ...combinedTdStyle,
+                                        textAlign: 'center',
+                                        width: 48,
+                                      }}
+                                    >
+                                      <Typography
+                                        level="body-xs"
+                                        sx={{
+                                          fontWeight: 700,
+                                          color: idx < 3 ? 'primary.400' : 'text.tertiary',
                                         }}
                                       >
-                                        <Typography
-                                          level="body-xs"
-                                          sx={{
-                                            fontWeight: 700,
-                                            color: idx < 3 ? 'primary.400' : 'text.tertiary',
-                                          }}
-                                        >
-                                          {idx + 1}
+                                        {idx + 1}
+                                      </Typography>
+                                    </td>
+                                    <td style={combinedTdStyle}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                                          {r.movie.title}
                                         </Typography>
-                                      </td>
-                                      <td style={combinedTdStyle}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                          <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                                            {r.movie.title}
-                                          </Typography>
-                                          {!r.bothRated && (
-                                            <Tooltip
-                                              title="Only one of you has ranked this movie in This or That"
-                                              arrow
-                                            >
-                                              <Chip size="sm" variant="soft" color="neutral">
-                                                Needs ranking
-                                              </Chip>
-                                            </Tooltip>
-                                          )}
-                                        </Box>
-                                      </td>
-                                      <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
-                                        {r.userAElo != null ? (
-                                          <Chip
-                                            size="sm"
-                                            variant="soft"
-                                            color={r.userAElo >= 1000 ? 'success' : 'warning'}
+                                        {!r.bothRated && (
+                                          <Tooltip
+                                            title="Only one of you has ranked this movie in This or That"
+                                            arrow
                                           >
-                                            {Math.round(r.userAElo)}
-                                          </Chip>
-                                        ) : (
-                                          <Typography
-                                            level="body-xs"
-                                            sx={{ color: 'text.tertiary' }}
-                                          >
-                                            --
-                                          </Typography>
+                                            <Chip size="sm" variant="soft" color="neutral">
+                                              Needs ranking
+                                            </Chip>
+                                          </Tooltip>
                                         )}
-                                      </td>
-                                      <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
-                                        {r.userBElo != null ? (
-                                          <Chip
-                                            size="sm"
-                                            variant="soft"
-                                            color={r.userBElo >= 1000 ? 'success' : 'warning'}
-                                          >
-                                            {Math.round(r.userBElo)}
-                                          </Chip>
-                                        ) : (
-                                          <Typography
-                                            level="body-xs"
-                                            sx={{ color: 'text.tertiary' }}
-                                          >
-                                            --
-                                          </Typography>
-                                        )}
-                                      </td>
-                                      <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
-                                        <Chip size="sm" variant="solid" color="primary">
-                                          {Math.round(r.combinedElo)}
+                                      </Box>
+                                    </td>
+                                    <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                      {r.userAElo != null ? (
+                                        <Chip
+                                          size="sm"
+                                          variant="soft"
+                                          color={r.userAElo >= 1000 ? 'success' : 'warning'}
+                                        >
+                                          {Math.round(r.userAElo)}
                                         </Chip>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </Box>
-                          </Sheet>
+                                      ) : (
+                                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                          --
+                                        </Typography>
+                                      )}
+                                    </td>
+                                    <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                      {r.userBElo != null ? (
+                                        <Chip
+                                          size="sm"
+                                          variant="soft"
+                                          color={r.userBElo >= 1000 ? 'success' : 'warning'}
+                                        >
+                                          {Math.round(r.userBElo)}
+                                        </Chip>
+                                      ) : (
+                                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                          --
+                                        </Typography>
+                                      )}
+                                    </td>
+                                    <td style={{ ...combinedTdStyle, textAlign: 'center' }}>
+                                      <Chip size="sm" variant="solid" color="primary">
+                                        {Math.round(r.combinedElo)}
+                                      </Chip>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </Box>
+                      </Sheet>
 
-                          {/* Sparse data CTA */}
-                          {(() => {
-                            const rankings = combinedData.combinedList.rankings;
-                            const needsRanking = rankings.filter((r: any) => !r.bothRated).length;
-                            return needsRanking > rankings.length / 2 ? (
-                              <Sheet
+                      {/* Sparse data CTA */}
+                      {(() => {
+                        const rankings = combinedData.combinedList.rankings;
+                        const needsRanking = rankings.filter((r: any) => !r.bothRated).length;
+                        return needsRanking > rankings.length / 2 ? (
+                          <Sheet
+                            variant="soft"
+                            color="warning"
+                            sx={{
+                              mt: 2,
+                              p: 2,
+                              borderRadius: 'md',
+                              textAlign: 'center',
+                            }}
+                          >
+                            <Typography level="body-sm" sx={{ fontWeight: 600, mb: 1 }}>
+                              Rankings work best when you've both compared more movies
+                            </Typography>
+                            {onShowThisOrThat && (
+                              <Button
                                 variant="soft"
-                                color="warning"
-                                sx={{
-                                  mt: 2,
-                                  p: 2,
-                                  borderRadius: 'md',
-                                  textAlign: 'center',
-                                }}
+                                color="primary"
+                                size="sm"
+                                onClick={onShowThisOrThat}
                               >
-                                <Typography level="body-sm" sx={{ fontWeight: 600, mb: 1 }}>
-                                  Rankings work best when you've both compared more movies
-                                </Typography>
-                                {onShowThisOrThat && (
-                                  <Button
-                                    variant="soft"
-                                    color="primary"
-                                    size="sm"
-                                    onClick={onShowThisOrThat}
-                                  >
-                                    Keep ranking
-                                  </Button>
-                                )}
-                              </Sheet>
-                            ) : null;
-                          })()}
-                        </>
-                      )}
+                                Keep ranking
+                              </Button>
+                            )}
+                          </Sheet>
+                        ) : null;
+                      })()}
                     </>
                   );
                 })()}
