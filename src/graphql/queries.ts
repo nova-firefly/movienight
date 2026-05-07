@@ -462,6 +462,14 @@ export const COMBINED_LIST = gql`
           title
           tmdb_id
           elo_rank
+          userTags {
+            tag {
+              slug
+            }
+            user {
+              id
+            }
+          }
         }
         userAElo
         userBElo
