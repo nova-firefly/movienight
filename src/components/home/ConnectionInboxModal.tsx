@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalDialog, ModalClose, Box, Button, Typography, Sheet, Chip } from '@mui/joy';
 import { useToast } from '../../contexts/ToastContext';
+import Poster from '../common/Poster';
 
 const formatRelativeDate = (iso: string): string => {
   const then = new Date(iso).getTime();
@@ -137,29 +138,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                       {/* Movie info */}
                       <Box sx={{ display: 'flex', gap: 1.25, minWidth: 0 }}>
                         {/* Poster */}
-                        {item.movie.poster_url ? (
-                          <img
-                            src={item.movie.poster_url}
-                            alt=""
-                            style={{
-                              width: 52,
-                              height: 78,
-                              objectFit: 'cover',
-                              borderRadius: 4,
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 52,
-                              height: 78,
-                              bgcolor: 'background.level2',
-                              borderRadius: '4px',
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
+                        <Poster url={item.movie.poster_url} size="md" />
 
                         {/* Title + meta */}
                         <Box sx={{ flex: 1, minWidth: 0 }}>

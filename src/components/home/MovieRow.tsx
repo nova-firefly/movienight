@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/joy';
 import { Movie } from '../../models/Movies';
+import Poster from '../common/Poster';
 
 export interface MovieRowProps {
   movie: Movie;
@@ -42,29 +43,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
       {/* Title */}
       <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {movie.poster_url ? (
-            <img
-              src={movie.poster_url}
-              alt=""
-              style={{
-                width: 28,
-                height: 42,
-                objectFit: 'cover',
-                borderRadius: 3,
-                flexShrink: 0,
-              }}
-            />
-          ) : (
-            <Box
-              sx={{
-                width: 28,
-                height: 42,
-                bgcolor: 'background.level2',
-                borderRadius: '3px',
-                flexShrink: 0,
-              }}
-            />
-          )}
+          <Poster url={movie.poster_url} size="xs" />
           <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
             {movie.title}
           </Typography>

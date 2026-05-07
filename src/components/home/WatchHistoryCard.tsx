@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
+import Poster from '../common/Poster';
 
 interface WatchHistoryCardProps {
   movie: any;
@@ -19,29 +20,7 @@ const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({ movie, canUnwatch, 
   >
     <Box sx={{ display: 'flex', gap: 1.5 }}>
       {/* Poster */}
-      {movie.poster_url ? (
-        <img
-          src={movie.poster_url}
-          alt=""
-          style={{
-            width: 40,
-            height: 60,
-            objectFit: 'cover',
-            borderRadius: 4,
-            flexShrink: 0,
-          }}
-        />
-      ) : (
-        <Box
-          sx={{
-            width: 40,
-            height: 60,
-            bgcolor: 'background.level2',
-            borderRadius: '4px',
-            flexShrink: 0,
-          }}
-        />
-      )}
+      <Poster url={movie.poster_url} size="sm" />
 
       {/* Details */}
       <Box sx={{ flex: 1, minWidth: 0 }}>

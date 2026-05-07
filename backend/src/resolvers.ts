@@ -462,7 +462,7 @@ export const resolvers = {
 
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                m.elo_rank,
+                m.elo_rank, m.poster_path,
                 u.username AS user_username, u.display_name AS user_display_name,
                 ume.elo_rating, ume.comparison_count
          FROM user_movie_elo ume
@@ -568,7 +568,7 @@ export const resolvers = {
 
       const result = await pool.query(
         `SELECT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id, m.watched_at,
-                m.elo_rank,
+                m.elo_rank, m.poster_path,
                 u.username AS user_username, u.display_name AS user_display_name,
                 ume_a.elo_rating AS user_a_elo,
                 ume_b.elo_rating AS user_b_elo,
@@ -618,7 +618,7 @@ export const resolvers = {
 
       const result = await pool.query(
         `SELECT DISTINCT m.id, m.title, m.requested_by, m.date_submitted, m.rank, m.tmdb_id,
-                m.watched_at, m.elo_rank,
+                m.watched_at, m.elo_rank, m.poster_path,
                 u.id AS adder_id, u.username AS adder_username, u.display_name AS adder_display_name
          FROM movies m
          JOIN users u ON m.requested_by = u.id
