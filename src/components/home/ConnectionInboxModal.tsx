@@ -63,12 +63,15 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
 
   return (
     <Modal open={open} onClose={onClose}>
-      <ModalDialog sx={{ maxWidth: 600, width: '100%', p: { xs: 2, sm: 3 } }}>
-        <ModalClose />
+      <ModalDialog
+        aria-labelledby="connection-inbox-title"
+        sx={{ maxWidth: 600, width: '100%', p: { xs: 2, sm: 3 } }}
+      >
+        <ModalClose aria-label="Close connection inbox" />
 
         <Box sx={{ mb: 2, pr: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Typography level="title-md" sx={{ fontWeight: 700 }}>
+            <Typography id="connection-inbox-title" level="title-md" sx={{ fontWeight: 700 }}>
               Suggestions from your connections
             </Typography>
             {remaining > 0 && (

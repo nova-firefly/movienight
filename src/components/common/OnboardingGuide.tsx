@@ -233,7 +233,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         borderColor: 'var(--mn-border-vis)',
       }}
     >
-      <ModalClose />
+      <ModalClose aria-label="Close onboarding guide" />
       <Typography level="title-lg" sx={{ fontWeight: 800, mb: 0.5 }}>
         How MovieNight works
       </Typography>

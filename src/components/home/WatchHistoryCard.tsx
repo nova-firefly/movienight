@@ -31,6 +31,7 @@ const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({ movie, canUnwatch, 
               href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
               style={{
                 color: 'var(--joy-palette-primary-500)',
                 fontSize: '0.7rem',
@@ -70,9 +71,10 @@ const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({ movie, canUnwatch, 
               color="primary"
               variant="soft"
               onClick={() => onUnwatch(movie.id, movie.title)}
+              aria-label={`Watch "${movie.title}" again`}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
-              ↩
+              <span aria-hidden="true">↩</span>
             </IconButton>
           </Tooltip>
         </Box>

@@ -64,3 +64,18 @@ code {
   background: rgba(245, 197, 24, 0.25);
   color: var(--mn-text-primary);
 }
+
+/* ── Focus visibility for native HTML controls ────────────────────────────
+   Joy components handle their own focus styles via `--joy-focusVisible`.
+   This rule covers raw <a>, <button>, <input>, <select>, <textarea> elements
+   so keyboard users always get a clear focus indicator. */
+a:focus-visible,
+button:focus-visible,
+[role='button']:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--mn-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

@@ -74,6 +74,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
                 href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
                 style={{
                   color: 'var(--joy-palette-primary-500)',
                   fontSize: '0.7rem',
@@ -129,18 +130,22 @@ const MovieCard: React.FC<MovieCardProps> = ({
             >
               <IconButton
                 size="sm"
-                variant="plain"
+                variant={isSeen ? 'soft' : 'plain'}
                 color={isSeen ? 'warning' : 'neutral'}
                 onClick={() => onToggleSeen(movie.id, isSeen)}
+                aria-label={
+                  isSeen ? `Remove "Seen it" from ${movie.title}` : `Mark ${movie.title} as seen`
+                }
+                aria-pressed={isSeen}
                 sx={{
-                  opacity: isSeen ? 0.9 : 0.35,
+                  opacity: isSeen ? 0.95 : 0.5,
                   '&:hover': { opacity: 1 },
                   fontSize: '0.85rem',
                   minWidth: 36,
                   minHeight: 36,
                 }}
               >
-                {isSeen ? '👁' : '👁‍🗨'}
+                <span aria-hidden="true">{isSeen ? '👁' : '👁‍🗨'}</span>
                 {seenCount > 0 && (
                   <Typography
                     component="span"
@@ -159,9 +164,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
               color="success"
               variant="soft"
               onClick={() => onMarkWatched(movie.id, movie.title)}
+              aria-label={`Mark "${movie.title}" as done`}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
-              ✓
+              <span aria-hidden="true">✓</span>
             </IconButton>
           )}
           {isAdmin && (
@@ -170,9 +176,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
               color="danger"
               variant="soft"
               onClick={() => onDelete(movie.id, movie.title)}
+              aria-label={`Remove "${movie.title}"`}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </IconButton>
           )}
         </Box>

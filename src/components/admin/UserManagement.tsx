@@ -190,6 +190,7 @@ export const UserManagement: React.FC = () => {
           <Box sx={{ overflowX: 'auto' }}>
             <Table
               stickyHeader
+              aria-label="User accounts"
               sx={{
                 '--TableCell-headBackground': 'var(--mn-bg-elevated)',
                 '--TableRow-hoverBackground': 'var(--mn-bg-hover)',
@@ -200,15 +201,31 @@ export const UserManagement: React.FC = () => {
             >
               <thead>
                 <tr>
-                  <th style={{ ...thStyle, width: 44 }} />
-                  <th style={thStyle}>Username</th>
-                  <th style={thStyle}>Display Name</th>
-                  <th style={thStyle}>Email</th>
-                  <th style={{ ...thStyle, width: 70 }}>Admin</th>
-                  <th style={{ ...thStyle, width: 100 }}>Status</th>
-                  <th style={{ ...thStyle, width: 110 }}>Last Login</th>
-                  <th style={{ ...thStyle, width: 100 }}>Created</th>
-                  <th style={{ ...thStyle, width: 110, textAlign: 'right' }}>Actions</th>
+                  <th scope="col" aria-label="Avatar" style={{ ...thStyle, width: 44 }} />
+                  <th scope="col" style={thStyle}>
+                    Username
+                  </th>
+                  <th scope="col" style={thStyle}>
+                    Display Name
+                  </th>
+                  <th scope="col" style={thStyle}>
+                    Email
+                  </th>
+                  <th scope="col" style={{ ...thStyle, width: 70 }}>
+                    Admin
+                  </th>
+                  <th scope="col" style={{ ...thStyle, width: 100 }}>
+                    Status
+                  </th>
+                  <th scope="col" style={{ ...thStyle, width: 110 }}>
+                    Last Login
+                  </th>
+                  <th scope="col" style={{ ...thStyle, width: 100 }}>
+                    Created
+                  </th>
+                  <th scope="col" style={{ ...thStyle, width: 110, textAlign: 'right' }}>
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -285,9 +302,10 @@ export const UserManagement: React.FC = () => {
                           variant="plain"
                           color="danger"
                           onClick={() => handleDelete(user.id)}
+                          aria-label={`Delete user ${user.username}`}
                           sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
                         >
-                          ✕
+                          <span aria-hidden="true">✕</span>
                         </IconButton>
                       </Box>
                     </td>
@@ -373,9 +391,10 @@ export const UserManagement: React.FC = () => {
                 variant="soft"
                 color="danger"
                 onClick={() => handleDelete(user.id)}
+                aria-label={`Delete user ${user.username}`}
                 sx={{ minWidth: 44, minHeight: 44 }}
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </IconButton>
             </Box>
           </Sheet>
