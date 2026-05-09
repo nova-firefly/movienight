@@ -124,6 +124,21 @@ const theme = extendTheme({
         root: {
           borderRadius: '6px',
           fontWeight: 600,
+          '&:focus-visible': {
+            outline: '2px solid var(--joy-palette-focusVisible)',
+            outlineOffset: '2px',
+          },
+        },
+      },
+    },
+    JoyIconButton: {
+      styleOverrides: {
+        root: {
+          '&:focus-visible': {
+            outline: '2px solid var(--joy-palette-focusVisible)',
+            outlineOffset: '2px',
+            opacity: 1,
+          },
         },
       },
     },

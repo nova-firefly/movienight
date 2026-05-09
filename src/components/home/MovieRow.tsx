@@ -14,6 +14,45 @@ export interface MovieRowProps {
   isRecentlyAdded?: boolean;
 }
 
+const cellStyle: React.CSSProperties = {
+  verticalAlign: 'middle',
+  padding: '8px 16px',
+};
+
+const cellStyleNarrow: React.CSSProperties = {
+  verticalAlign: 'middle',
+  padding: '12px 16px',
+};
+
+const cellStyleNoWrap: React.CSSProperties = {
+  ...cellStyleNarrow,
+  whiteSpace: 'nowrap',
+};
+
+const cellStyleCenter: React.CSSProperties = {
+  verticalAlign: 'middle',
+  padding: '12px 8px',
+  textAlign: 'center',
+};
+
+const cellStyleSeen: React.CSSProperties = {
+  verticalAlign: 'middle',
+  padding: '0 4px',
+  textAlign: 'center',
+};
+
+const cellStyleActions: React.CSSProperties = {
+  verticalAlign: 'middle',
+  padding: '0 12px',
+  textAlign: 'right',
+  whiteSpace: 'nowrap',
+};
+
+const recentlyAddedRowStyle: React.CSSProperties = {
+  background: 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)',
+  boxShadow: 'inset 3px 0 0 var(--joy-palette-primary-400)',
+};
+
 const MovieRow: React.FC<MovieRowProps> = ({
   movie,
   isAdmin,
@@ -28,20 +67,18 @@ const MovieRow: React.FC<MovieRowProps> = ({
   const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
   const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
+  const seenLabel = isSeen ? `Remove "Seen it" from ${movie.title}` : `Mark ${movie.title} as seen`;
+  const seenTooltip =
+    seenCount > 0
+      ? `Seen by: ${seenNames.join(', ')}`
+      : isSeen
+        ? 'Remove "Seen it"'
+        : "I've seen this";
 
   return (
-    <tr
-      style={
-        isRecentlyAdded
-          ? {
-              background: 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)',
-              boxShadow: 'inset 3px 0 0 var(--joy-palette-primary-400)',
-            }
-          : undefined
-      }
-    >
+    <tr style={isRecentlyAdded ? recentlyAddedRowStyle : undefined}>
       {/* Title */}
-      <td style={{ verticalAlign: 'middle', padding: '8px 16px' }}>
+      <td style={cellStyle}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Poster url={movie.poster_url} size="xs" />
           <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -51,14 +88,14 @@ const MovieRow: React.FC<MovieRowProps> = ({
       </td>
 
       {/* Suggested by */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 16px' }}>
+      <td style={cellStyleNarrow}>
         <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
           {movie.requester}
         </Chip>
       </td>
 
       {/* Date */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 16px', whiteSpace: 'nowrap' }}>
+      <td style={cellStyleNoWrap}>
         <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
           {new Date(movie.date_submitted).toLocaleDateString(undefined, {
             year: 'numeric',
@@ -69,12 +106,13 @@ const MovieRow: React.FC<MovieRowProps> = ({
       </td>
 
       {/* TMDB */}
-      <td style={{ verticalAlign: 'middle', padding: '12px 8px', textAlign: 'center' }}>
+      <td style={cellStyleCenter}>
         {movie.tmdb_id ? (
           <a
             href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
             style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
           >
             ↗
@@ -84,36 +122,29 @@ const MovieRow: React.FC<MovieRowProps> = ({
 
       {/* Seen it */}
       {isAuthenticated && (
-        <td style={{ verticalAlign: 'middle', padding: '0 4px', textAlign: 'center' }}>
-          <Tooltip
-            title={
-              seenCount > 0
-                ? `Seen by: ${seenNames.join(', ')}`
-                : isSeen
-                  ? 'Remove "Seen it"'
-                  : "I've seen this"
-            }
-            placement="top"
-            arrow
-          >
+        <td style={cellStyleSeen}>
+          <Tooltip title={seenTooltip} placement="top" arrow>
             <IconButton
               size="sm"
-              variant="plain"
+              variant={isSeen ? 'soft' : 'plain'}
               color={isSeen ? 'warning' : 'neutral'}
               onClick={() => onToggleSeen(movie.id, isSeen)}
+              aria-label={seenLabel}
+              aria-pressed={isSeen}
               sx={{
-                opacity: isSeen ? 0.9 : 0.35,
+                opacity: isSeen ? 0.95 : 0.5,
                 transition: 'opacity 0.15s',
                 '&:hover': { opacity: 1 },
                 fontSize: '0.85rem',
               }}
             >
-              {isSeen ? '👁' : '👁‍🗨'}
+              <span aria-hidden="true">{isSeen ? '👁' : '👁‍🗨'}</span>
               {seenCount > 0 && (
                 <Typography
                   component="span"
                   level="body-xs"
                   sx={{ ml: 0.25, fontWeight: 700, fontSize: '0.6rem' }}
+                  aria-label={`Seen by ${seenCount}`}
                 >
                   {seenCount}
                 </Typography>
@@ -125,20 +156,14 @@ const MovieRow: React.FC<MovieRowProps> = ({
 
       {/* Actions */}
       {(canMarkWatched || isAdmin) && (
-        <td
-          style={{
-            verticalAlign: 'middle',
-            padding: '0 12px',
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <td style={cellStyleActions}>
           {canMarkWatched && (
             <IconButton
               size="sm"
               color="success"
               variant="plain"
               onClick={() => onMarkWatched(movie.id, movie.title)}
+              aria-label={`Mark "${movie.title}" as done`}
               title={`Mark "${movie.title}" as done`}
               sx={{
                 opacity: 0.5,
@@ -147,7 +172,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
                 mr: isAdmin ? 0.5 : 0,
               }}
             >
-              ✓
+              <span aria-hidden="true">✓</span>
             </IconButton>
           )}
           {isAdmin && (
@@ -156,6 +181,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
               color="danger"
               variant="plain"
               onClick={() => onDelete(movie.id, movie.title)}
+              aria-label={`Remove "${movie.title}"`}
               title={`Remove "${movie.title}"`}
               sx={{
                 opacity: 0.5,
@@ -163,7 +189,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
                 '&:hover': { opacity: 1 },
               }}
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </IconButton>
           )}
         </td>

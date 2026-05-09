@@ -111,6 +111,36 @@ src/components/
 - **Frontend state** — auth state lives in `AuthContext`; movie/user data comes from Apollo cache.
 - **Env vars** — frontend uses `REACT_APP_*`; backend uses bare names.
 
+## UI style guide
+
+### Terminology
+
+| Action                         | Verb / button text             | Notes                                              |
+| ------------------------------ | ------------------------------ | -------------------------------------------------- |
+| Mark a queued movie watched    | **Done** (confirm: `Done`)     | Confirmation: "Mark as done?" / moves to history.  |
+| Requeue a watched movie        | **Watch again**                | Confirmation: "Watch again?" / moves to queue end. |
+| Tag a movie as previously seen | **Seen it** / "I've seen this" | Per-user `seen` tag.                               |
+| Remove from queue (admin)      | **Remove**                     | Destructive — uses danger confirmation.            |
+
+Avoid `Requeue`, `Mark watched`, `Mark complete` as user-facing copy.
+
+### Confirmation severity (`useConfirm` / `ConfirmDialog`)
+
+| Severity | `confirmColor` | When to use                                                                                                           |
+| -------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Danger   | `'danger'`     | Permanent destructive actions: delete movie/user, remove connection, seed (deletes existing data), reset comparisons. |
+| Warning  | `'warning'`    | Recoverable but disruptive actions.                                                                                   |
+| Neutral  | `'primary'`    | Reversible state changes (e.g. requeue from history).                                                                 |
+| Success  | `'success'`    | Affirmative completion (e.g. mark a movie as done).                                                                   |
+
+Danger and warning confirmations render a leading icon for severity reinforcement.
+
+### Styling
+
+- Prefer MUI `sx` + theme tokens for Joy components.
+- Use CSS variables (`--mn-*` from `index.css`) only for raw HTML elements (`<table>`, `<th>`, `<td>`, `<a>`) and global styles.
+- Keep table cell/header styles in module-level `React.CSSProperties` constants — avoid per-element inline literals.
+
 ## Database schema (current)
 
 | Table             | Notable columns                                                                                                                                       |

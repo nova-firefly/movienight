@@ -70,7 +70,7 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
   return (
     <Modal open onClose={onClose}>
       <ModalDialog sx={{ maxWidth: 460, width: '100%', p: 3 }}>
-        <ModalClose />
+        <ModalClose aria-label="Close TMDB match flow" />
 
         {!current ? (
           <>

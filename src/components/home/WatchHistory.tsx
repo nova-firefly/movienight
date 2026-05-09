@@ -45,7 +45,7 @@ const WatchHistory: React.FC = () => {
     const ok = await confirm({
       title: 'Watch again?',
       message: `"${title}" will go back to the end of the queue.`,
-      confirmText: 'Requeue',
+      confirmText: 'Watch again',
       confirmColor: 'primary',
     });
     if (!ok) return;
@@ -102,6 +102,7 @@ const WatchHistory: React.FC = () => {
               >
                 <Box sx={{ overflowX: 'auto' }}>
                   <table
+                    aria-label="Watched movies history"
                     style={{
                       width: '100%',
                       minWidth: 480,
@@ -119,6 +120,7 @@ const WatchHistory: React.FC = () => {
                         {['Title', 'Suggested by', 'Watched'].map((label) => (
                           <th
                             key={label}
+                            scope="col"
                             style={{
                               padding: '10px 16px',
                               textAlign: 'left',
@@ -133,6 +135,8 @@ const WatchHistory: React.FC = () => {
                           </th>
                         ))}
                         <th
+                          scope="col"
+                          aria-label="Actions"
                           style={{
                             padding: '10px 12px',
                             textAlign: 'right',
@@ -165,6 +169,7 @@ const WatchHistory: React.FC = () => {
                                     href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
                                     style={{
                                       color: 'var(--joy-palette-primary-500)',
                                       fontSize: '0.75rem',
@@ -216,6 +221,7 @@ const WatchHistory: React.FC = () => {
                                     color="primary"
                                     variant="plain"
                                     onClick={() => handleUnwatch(movie.id, movie.title)}
+                                    aria-label={`Watch "${movie.title}" again`}
                                     sx={{
                                       opacity: 0.5,
                                       transition: 'opacity 0.15s',
@@ -223,7 +229,7 @@ const WatchHistory: React.FC = () => {
                                       fontSize: '0.8rem',
                                     }}
                                   >
-                                    ↩
+                                    <span aria-hidden="true">↩</span>
                                   </IconButton>
                                 </Tooltip>
                               )}

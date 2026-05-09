@@ -228,7 +228,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
       title: 'Seed movies?',
       message: 'This will DELETE all existing movies and seed 30 new ones.',
       confirmText: 'Seed',
-      confirmColor: 'warning',
+      confirmColor: 'danger',
     });
     if (!ok) return;
     try {
@@ -602,6 +602,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       >
                         <Box sx={{ overflowX: 'auto' }}>
                           <table
+                            aria-label="Combined movie rankings"
                             style={{
                               width: '100%',
                               minWidth: 360,
@@ -616,7 +617,9 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                   borderBottom: '1px solid var(--mn-border-vis)',
                                 }}
                               >
-                                <th style={combinedThStyle}>#</th>
+                                <th style={combinedThStyle} scope="col">
+                                  #
+                                </th>
                                 <th style={{ ...combinedThStyle, textAlign: 'left' }}>
                                   <Box
                                     sx={{
@@ -812,6 +815,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               >
                 <Box sx={{ overflowX: 'auto' }}>
                   <table
+                    aria-label="Solo movies"
                     style={{
                       width: '100%',
                       minWidth: 540,
@@ -906,6 +910,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 >
                   <Box sx={{ overflowX: 'auto' }}>
                     <table
+                      aria-label={isMySuggestionsView ? 'My suggested movies' : 'Movie queue'}
                       style={{
                         width: '100%',
                         minWidth: 540,
@@ -921,20 +926,30 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                           }}
                         >
                           {['Title', 'Suggested by', 'Added'].map((label) => (
-                            <th key={label} style={thStyle}>
+                            <th key={label} scope="col" style={thStyle}>
                               {label}
                             </th>
                           ))}
-                          <th style={{ ...thStyle, textAlign: 'center', padding: '10px 8px' }}>
+                          <th
+                            scope="col"
+                            style={{ ...thStyle, textAlign: 'center', padding: '10px 8px' }}
+                          >
                             TMDB
                           </th>
                           {isAuthenticated && (
-                            <th style={{ ...thStyle, textAlign: 'center', padding: '10px 4px' }}>
+                            <th
+                              scope="col"
+                              style={{ ...thStyle, textAlign: 'center', padding: '10px 4px' }}
+                            >
                               Seen
                             </th>
                           )}
                           {isAuthenticated && (
-                            <th style={{ ...thStyle, textAlign: 'right', padding: '10px 12px' }} />
+                            <th
+                              scope="col"
+                              aria-label="Actions"
+                              style={{ ...thStyle, textAlign: 'right', padding: '10px 12px' }}
+                            />
                           )}
                         </tr>
                       </thead>
