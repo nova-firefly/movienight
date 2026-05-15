@@ -309,11 +309,42 @@ export const GET_APP_INFO = gql`
   query GetAppInfo {
     appInfo {
       isProduction
+      vapidPublicKey
       quickLoginUsers {
         label
         username
         password
       }
+    }
+  }
+`;
+
+export const GET_NOTIFICATION_PREFERENCES = gql`
+  query GetNotificationPreferences {
+    notificationPreferences {
+      eventType
+      enabled
+    }
+  }
+`;
+
+export const SUBSCRIBE_PUSH = gql`
+  mutation SubscribePush($subscription: PushSubscriptionInput!) {
+    subscribePush(subscription: $subscription)
+  }
+`;
+
+export const UNSUBSCRIBE_PUSH = gql`
+  mutation UnsubscribePush($endpoint: String!) {
+    unsubscribePush(endpoint: $endpoint)
+  }
+`;
+
+export const UPDATE_NOTIFICATION_PREFERENCE = gql`
+  mutation UpdateNotificationPreference($eventType: String!, $enabled: Boolean!) {
+    updateNotificationPreference(eventType: $eventType, enabled: $enabled) {
+      eventType
+      enabled
     }
   }
 `;

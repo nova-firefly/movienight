@@ -61,6 +61,7 @@ loginHistory(userId: ID, limit: Int): [LoginHistory!]!  # admin only, max 500
 kometaSchedule: KometaSchedule                     # admin only
 tags: [Tag!]!                                          # all tag definitions (public)
 watchedMovies(limit: Int, offset: Int): [Movie!]!      # requires auth, watched history
+notificationPreferences: [NotificationPreference!]!    # requires auth; merges defaults with stored prefs
 
 # Mutations
 addMovie(title: String!, tmdb_id: Int): Movie!         # requires auth
@@ -76,6 +77,9 @@ updateKometaSchedule(...): KometaSchedule!             # admin + production only
 importFromLetterboxd(url: String!): ImportResult!      # admin only
 login(username: String!, password: String!): AuthPayload!
 createUser / updateUser / deleteUser                   # admin only
+subscribePush(subscription: PushSubscriptionInput!): Boolean!    # requires auth; upsert on endpoint
+unsubscribePush(endpoint: String!): Boolean!                     # requires auth; scoped to user
+updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!  # requires auth
 ```
 
 All GraphQL operations are defined in `src/graphql/queries.ts`.
@@ -143,19 +147,21 @@ Danger and warning confirmations render a leading icon for severity reinforcemen
 
 ## Database schema (current)
 
-| Table             | Notable columns                                                                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `movies`          | id, title, requester (text), requested_by (FK→users), date_submitted, rank (NUMERIC 20,10), tmdb_id (nullable int), watched_at (nullable timestamptz) |
-| `users`           | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                          |
-| `audit_logs`      | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at                                                     |
-| `login_history`   | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at                                                                                 |
-| `kometa_schedule` | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at                                                                          |
-| `tags`            | id, slug (unique, varchar 50), label (varchar 100), value_type ('boolean'\|'number'\|'text'), created_at                                              |
-| `movie_user_tags` | id, movie_id (FK→movies), user_id (FK→users), tag_id (FK→tags), value (nullable text), created_at, updated_at — UNIQUE(movie_id, user_id, tag_id)     |
+| Table                           | Notable columns                                                                                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `movies`                        | id, title, requester (text), requested_by (FK→users), date_submitted, rank (NUMERIC 20,10), tmdb_id (nullable int), watched_at (nullable timestamptz) |
+| `users`                         | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                          |
+| `audit_logs`                    | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at                                                     |
+| `login_history`                 | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at                                                                                 |
+| `kometa_schedule`               | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at                                                                          |
+| `tags`                          | id, slug (unique, varchar 50), label (varchar 100), value_type ('boolean'\|'number'\|'text'), created_at                                              |
+| `movie_user_tags`               | id, movie_id (FK→movies), user_id (FK→users), tag_id (FK→tags), value (nullable text), created_at, updated_at — UNIQUE(movie_id, user_id, tag_id)     |
+| `push_subscriptions`            | id, user_id (FK→users CASCADE), endpoint (TEXT UNIQUE), p256dh, auth, user_agent, created_at, last_used_at, failure_count                             |
+| `user_notification_preferences` | id, user_id (FK→users CASCADE), event_type (varchar 64), enabled (bool default true), created_at, updated_at — UNIQUE(user_id, event_type)            |
 
 ## Audit log actions
 
-`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_DELETE`, `MOVIE_REORDER`, `MOVIE_TMDB_MATCH`, `MOVIE_INTEREST_SET`, `MOVIE_TAG_SET`, `MOVIE_TAG_REMOVE`, `MOVIE_UNWATCH`, `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `MDBLIST_SYNC`, `MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`
+`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_DELETE`, `MOVIE_REORDER`, `MOVIE_TMDB_MATCH`, `MOVIE_INTEREST_SET`, `MOVIE_TAG_SET`, `MOVIE_TAG_REMOVE`, `MOVIE_UNWATCH`, `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `MDBLIST_SYNC`, `MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`, `PUSH_SUBSCRIBE`, `PUSH_UNSUBSCRIBE`, `NOTIFICATION_PREFS_UPDATE`
 
 ## Key features
 
@@ -199,6 +205,26 @@ Generic, extensible tagging framework for movies. Tags are per-user (Alice can t
 
 `importFromLetterboxd(url)` fetches the public Letterboxd list, parses film titles from HTML (data-item-name), skips duplicates (case-insensitive), optionally matches to TMDB. Returns `{ imported, skipped, tmdb_matched, errors }`.
 
+### Push notifications (Web Push / iOS PWA)
+
+Web Push fan-out when a movie is added. Primary target: iPhone PWA users (iOS 16.4+, requires Add to Home Screen).
+
+**Backend module**: `backend/src/push.ts` — `configurePush()` (reads VAPID env, called at startup), `sendPushToUser(userId, payload)`, `sendPushToUsersExcept(excludeUserId, eventType, payload)`. The latter joins against `user_notification_preferences` to skip users who've opted out. Pruning: deletes subscriptions on 404/410; increments `failure_count` on 5xx and deletes when `failure_count >= 5`. Fan-out is fire-and-forget from `addMovie` — failures logged but not awaited.
+
+**GraphQL**: `appInfo.vapidPublicKey` (public key for browser subscribe), `notificationPreferences` (per-user prefs), `subscribePush(subscription)`, `unsubscribePush(endpoint)`, `updateNotificationPreference(eventType, enabled)`. `MOVIE_ADD` is the only seeded event type.
+
+**Frontend**:
+
+- `public/sw.js` — minimal service worker (no caching strategy), shows notification on `push`, focuses/opens window on `notificationclick`.
+- `src/utils/pushClient.ts` — feature detection (`pushSupported`, `isStandalonePWA`, `iosVersion`), `registerServiceWorker`, `subscribeForPush`, `unsubscribeFromPush`.
+- `src/components/settings/NotificationSettings.tsx` — device opt-in/out UI with iOS Add-to-Home-Screen instructions and per-event toggles.
+- Bell icon in Navbar opens the modal.
+- SW registration runs only in production (`process.env.NODE_ENV === 'production'`).
+
+**iOS specifics**: Push requires Safari 16.4+, Home Screen install, and a user gesture to call `Notification.requestPermission()`. The UI gates the subscribe button on `pushSupported && isStandalonePWA` and shows install instructions otherwise.
+
+**Spec**: `specs/push-notifications.spec.md`.
+
 ## Environment variables
 
 **Frontend** (`.env`):
@@ -216,6 +242,8 @@ Generic, extensible tagging framework for movies. Tags are per-user (Alice can t
 - `TMDB_API_KEY` — optional; enables TMDB search and Letterboxd TMDB matching
 - `KOMETA_COLLECTIONS_PATH` — directory for exported Kometa YAML files
 - `KOMETA_TRIGGER_URL` — optional webhook URL to trigger Kometa after export
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — Web Push VAPID keypair. Generate via `npx web-push generate-vapid-keys`. Push notifications are silently disabled if either is missing.
+- `VAPID_SUBJECT` — `mailto:` or `https://` URL identifying the app (defaults to `mailto:admin@movienight.local`).
 
 ## Docker profiles
 

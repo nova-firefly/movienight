@@ -84,6 +84,22 @@ export const typeDefs = `#graphql
   type AppInfo {
     isProduction: Boolean!
     quickLoginUsers: [QuickLoginUser!]!
+    vapidPublicKey: String
+  }
+
+  type NotificationPreference {
+    eventType: String!
+    enabled: Boolean!
+  }
+
+  input PushSubscriptionKeysInput {
+    p256dh: String!
+    auth: String!
+  }
+
+  input PushSubscriptionInput {
+    endpoint: String!
+    keys: PushSubscriptionKeysInput!
   }
 
   type ThisOrThatMovie {
@@ -190,6 +206,7 @@ export const typeDefs = `#graphql
     passedMovieIds: [ID!]!
     tags: [Tag!]!
     watchedMovies(limit: Int, offset: Int): [Movie!]!
+    notificationPreferences: [NotificationPreference!]!
   }
 
   type ImportResult {
@@ -239,5 +256,8 @@ export const typeDefs = `#graphql
     setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!
     removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!
     unwatchMovie(id: ID!): Movie!
+    subscribePush(subscription: PushSubscriptionInput!): Boolean!
+    unsubscribePush(endpoint: String!): Boolean!
+    updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!
   }
 `;

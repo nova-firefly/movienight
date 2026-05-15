@@ -9,6 +9,7 @@ import {
   hashResetToken,
 } from './auth';
 import { sendPasswordResetEmail } from './email';
+import { sendPushToUsersExcept } from './push';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
 import { rescheduleKometa } from './scheduler';
@@ -19,6 +20,11 @@ import { selectPair, MovieCandidate } from './pairSelection';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
+
+const NOTIFICATION_EVENT_TYPES = ['MOVIE_ADD'] as const;
+const PUSH_SUBSCRIBE_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const PUSH_SUBSCRIBE_RATE_LIMIT_MAX = 20;
+const MAX_ENDPOINT_LENGTH = 8 * 1024;
 
 async function logAudit(
   actorId: number | null,
@@ -65,6 +71,7 @@ interface RateLimitEntry {
 const ipRateLimiter = new Map<string, RateLimitEntry>();
 const emailRateLimiter = new Map<string, RateLimitEntry>();
 const loginRateLimiter = new Map<string, RateLimitEntry>();
+const pushSubscribeRateLimiter = new Map<string, RateLimitEntry>();
 
 const IP_RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
 const IP_RATE_LIMIT_MAX = 5; // max 5 requests per window per IP
@@ -117,6 +124,9 @@ setInterval(
     }
     for (const [key, entry] of loginRateLimiter) {
       if (now > entry.resetAt) loginRateLimiter.delete(key);
+    }
+    for (const [key, entry] of pushSubscribeRateLimiter) {
+      if (now > entry.resetAt) pushSubscribeRateLimiter.delete(key);
     }
   },
   15 * 60 * 1000,
@@ -207,6 +217,7 @@ export const resolvers = {
   Query: {
     appInfo: () => ({
       isProduction: isProduction(),
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
       quickLoginUsers: isProduction()
         ? []
         : [
@@ -759,6 +770,21 @@ export const resolvers = {
       );
       return result.rows;
     },
+
+    notificationPreferences: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const { rows } = await pool.query(
+        'SELECT event_type, enabled FROM user_notification_preferences WHERE user_id = $1',
+        [context.user.userId],
+      );
+      const overrides = new Map<string, boolean>(rows.map((r: any) => [r.event_type, r.enabled]));
+      return NOTIFICATION_EVENT_TYPES.map((eventType) => ({
+        eventType,
+        enabled: overrides.has(eventType) ? overrides.get(eventType) : true,
+      }));
+    },
   },
   Mutation: {
     addMovie: async (
@@ -799,6 +825,14 @@ export const resolvers = {
       if (tmdb_id) {
         fetchAndStoreTmdbData(newMovieId, tmdb_id).catch(() => {});
       }
+      // Fan out push notifications to other opted-in users — fire-and-forget so
+      // mutation latency isn't held up by push service round-trips.
+      sendPushToUsersExcept(context.user.userId, 'MOVIE_ADD', {
+        title: 'New movie added',
+        body: `${requesterName} added "${trimmedTitle}" to the queue`,
+        url: '/',
+        tag: `movie-add-${newMovieId}`,
+      }).catch((err) => console.error('Push fan-out failed:', err));
       return {
         ...insertResult.rows[0],
         user_username: userRow.rows[0]?.username,
@@ -2264,6 +2298,126 @@ export const resolvers = {
         user_username: userRow.rows[0]?.username,
         user_display_name: userRow.rows[0]?.display_name,
       };
+    },
+
+    subscribePush: async (
+      _: any,
+      {
+        subscription,
+      }: { subscription: { endpoint: string; keys: { p256dh: string; auth: string } } },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      if (
+        !checkRateLimit(
+          pushSubscribeRateLimiter,
+          String(context.user.userId),
+          PUSH_SUBSCRIBE_RATE_LIMIT_MAX,
+          PUSH_SUBSCRIBE_RATE_LIMIT_WINDOW,
+        )
+      ) {
+        throw new GraphQLError('Too many subscription attempts; try again later', {
+          extensions: { code: 'TOO_MANY_REQUESTS' },
+        });
+      }
+      const { endpoint, keys } = subscription;
+      if (
+        !endpoint ||
+        typeof endpoint !== 'string' ||
+        endpoint.length > MAX_ENDPOINT_LENGTH ||
+        !endpoint.startsWith('https://')
+      ) {
+        throw new GraphQLError('Invalid push endpoint', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      if (!keys?.p256dh || !keys?.auth) {
+        throw new GraphQLError('Invalid push subscription keys', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (endpoint) DO UPDATE SET
+           user_id = EXCLUDED.user_id,
+           p256dh = EXCLUDED.p256dh,
+           auth = EXCLUDED.auth,
+           user_agent = EXCLUDED.user_agent,
+           last_used_at = NOW(),
+           failure_count = 0
+         RETURNING id`,
+        [context.user.userId, endpoint, keys.p256dh, keys.auth, context.userAgent ?? null],
+      );
+      await logAudit(
+        context.user.userId,
+        'PUSH_SUBSCRIBE',
+        'push_subscription',
+        String(result.rows[0].id),
+        { user_agent: context.userAgent ?? null },
+        context.ipAddress ?? 'unknown',
+      );
+      return true;
+    },
+
+    unsubscribePush: async (_: any, { endpoint }: { endpoint: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      if (!endpoint || typeof endpoint !== 'string' || endpoint.length > MAX_ENDPOINT_LENGTH) {
+        // Return true even for malformed inputs to avoid endpoint enumeration leaks.
+        return true;
+      }
+      const result = await pool.query(
+        'DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id = $2 RETURNING id',
+        [endpoint, context.user.userId],
+      );
+      if (result.rows.length > 0) {
+        await logAudit(
+          context.user.userId,
+          'PUSH_UNSUBSCRIBE',
+          'push_subscription',
+          String(result.rows[0].id),
+          null,
+          context.ipAddress ?? 'unknown',
+        );
+      }
+      return true;
+    },
+
+    updateNotificationPreference: async (
+      _: any,
+      { eventType, enabled }: { eventType: string; enabled: boolean },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      if (!(NOTIFICATION_EVENT_TYPES as readonly string[]).includes(eventType)) {
+        throw new GraphQLError('Unknown notification event type', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      await pool.query(
+        `INSERT INTO user_notification_preferences (user_id, event_type, enabled)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, event_type) DO UPDATE SET
+           enabled = EXCLUDED.enabled,
+           updated_at = NOW()`,
+        [context.user.userId, eventType, enabled],
+      );
+      await logAudit(
+        context.user.userId,
+        'NOTIFICATION_PREFS_UPDATE',
+        'notification_preference',
+        eventType,
+        { enabled },
+        context.ipAddress ?? 'unknown',
+      );
+      return { eventType, enabled };
     },
   },
   Movie: {

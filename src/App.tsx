@@ -11,6 +11,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { useAuth } from './contexts/AuthContext';
+import { registerServiceWorker } from './utils/pushClient';
 
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
 const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== 'master';
@@ -26,6 +27,12 @@ const App = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('resetToken');
   });
+
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      registerServiceWorker();
+    }
+  }, []);
 
   if (isLoading) {
     return (

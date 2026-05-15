@@ -3,6 +3,7 @@ import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGravatarUrl } from '../../utils/gravatar';
 import { OnboardingModal } from './OnboardingGuide';
+import { NotificationSettingsModal } from '../settings/NotificationSettings';
 
 type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
 
@@ -28,6 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const navItems = (
     <>
@@ -218,6 +220,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 ?
               </IconButton>
+              <IconButton
+                variant="plain"
+                color="neutral"
+                size="sm"
+                aria-label="Notification settings"
+                onClick={() => setNotificationsOpen(true)}
+                sx={{
+                  fontSize: '1rem',
+                  color: 'text.secondary',
+                  '&:hover': { color: 'primary.300' },
+                }}
+              >
+                🔔
+              </IconButton>
               <Button
                 variant="outlined"
                 color="neutral"
@@ -256,6 +272,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </IconButton>
         </Box>
       </Box>
+
+      <NotificationSettingsModal
+        open={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+      />
 
       <OnboardingModal
         open={helpOpen}
