@@ -4,7 +4,7 @@ Web Push notifications for new movies, with iPhone (iOS 16.4+ PWA) as the primar
 
 ## Goal
 
-When a user adds a movie via the `addMovie` mutation, every _other_ opted-in user receives a push notification on their device:
+When a user adds a movie via the `addMovie` mutation, every opted-in user with an **accepted connection** to the requester receives a push notification on their device:
 
 > Alice added "Dune" to the queue
 
@@ -12,7 +12,7 @@ On iPhone this is delivered as a native-style notification, but only when the si
 
 ## Architectural overview
 
-A user installs MovieNight to their iOS Home Screen. On first launch they see a "Turn on notifications" CTA. Clicking it triggers the standard permission prompt, registers a Service Worker, calls `pushManager.subscribe(...)` with the server's VAPID public key, and POSTs the resulting `PushSubscription` JSON to the backend. The backend stores it per-user. When any other user calls `addMovie`, the resolver awaits an audit-log write and then asynchronously fans out a Web Push payload to all subscribed users except the requester, using the `web-push` npm package. Subscriptions returning `404`/`410` are pruned.
+A user installs MovieNight to their iOS Home Screen. On first launch they see a "Turn on notifications" CTA. Clicking it triggers the standard permission prompt, registers a Service Worker, calls `pushManager.subscribe(...)` with the server's VAPID public key, and POSTs the resulting `PushSubscription` JSON to the backend. The backend stores it per-user. When any user calls `addMovie`, the resolver awaits an audit-log write and then asynchronously fans out a Web Push payload to the requester's accepted `user_connections` peers (in either direction), using the `web-push` npm package. The requester themselves is excluded. Subscriptions returning `404`/`410` are pruned.
 
 ## 1. HTTPS prerequisite (operator action)
 
@@ -107,8 +107,8 @@ export async function sendPushToUser(
   userId: number,
   payload: PushPayload,
 ): Promise<{ delivered: number; pruned: number }>;
-export async function sendPushToUsersExcept(
-  excludeUserId: number,
+export async function sendPushToConnectionsOf(
+  userId: number,
   eventType: string,
   payload: PushPayload,
 ): Promise<{ delivered: number; pruned: number }>;
@@ -117,7 +117,7 @@ export async function sendPushToUsersExcept(
 Behavior:
 
 - `configurePush()` called once at startup. If VAPID env vars are unset, logs a warning and send functions become no-ops (mirrors `TMDB_API_KEY` gating).
-- Fan-out query joins `push_subscriptions` × `user_notification_preferences`, excluding requester and any user with `enabled = false` for the event type.
+- Fan-out query targets only users with an `accepted` row in `user_connections` (in either direction) relative to `userId`, joins `push_subscriptions`, and excludes any user with `enabled = false` for the event type in `user_notification_preferences`. The requester is excluded via `user_id != $1`.
 - Per-subscription result handling:
   - 2xx → `UPDATE … SET last_used_at = NOW(), failure_count = 0`
   - 404 / 410 → `DELETE` (subscription dead per RFC 8030)
@@ -129,7 +129,7 @@ Behavior:
 Located in `backend/src/resolvers.ts`. After the existing `logAudit('MOVIE_ADD', …)`:
 
 ```ts
-sendPushToUsersExcept(context.user.userId, 'MOVIE_ADD', {
+sendPushToConnectionsOf(context.user.userId, 'MOVIE_ADD', {
   title: 'New movie added',
   body: `${requesterName} added "${title}" to the queue`,
   url: '/',

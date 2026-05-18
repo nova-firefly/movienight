@@ -27,10 +27,10 @@ jest.mock('../../email', () => ({
 
 // Mock push — default to a no-op resolved promise so call sites that
 // fire-and-forget don't blow up when tests don't explicitly set a return value.
-export const mockSendPushToUsersExcept: jest.Mock = jest.fn();
-mockSendPushToUsersExcept.mockResolvedValue({ delivered: 0, pruned: 0 });
+export const mockSendPushToConnectionsOf: jest.Mock = jest.fn();
+mockSendPushToConnectionsOf.mockResolvedValue({ delivered: 0, pruned: 0 });
 jest.mock('../../push', () => ({
-  sendPushToUsersExcept: (...args: any[]) => mockSendPushToUsersExcept(...args),
+  sendPushToConnectionsOf: (...args: any[]) => mockSendPushToConnectionsOf(...args),
   configurePush: jest.fn(),
   isPushConfigured: jest.fn(() => false),
 }));

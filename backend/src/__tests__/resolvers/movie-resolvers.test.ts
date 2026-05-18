@@ -2,7 +2,7 @@ import {
   mockQuery,
   mockApplyComparison,
   mockUpdateGlobalEloRank,
-  mockSendPushToUsersExcept,
+  mockSendPushToConnectionsOf,
   authContext,
   adminContext,
   anonContext,
@@ -66,15 +66,15 @@ describe('Mutation.addMovie', () => {
     );
   });
 
-  it('fires push notification fan-out excluding the requester', async () => {
-    mockSendPushToUsersExcept.mockReset();
-    mockSendPushToUsersExcept.mockResolvedValue({ delivered: 0, pruned: 0 });
+  it('fires push notification fan-out to the requester’s connections', async () => {
+    mockSendPushToConnectionsOf.mockReset();
+    mockSendPushToConnectionsOf.mockResolvedValue({ delivered: 0, pruned: 0 });
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 42, title: 'Dune', requested_by: 7 }] })
       .mockResolvedValueOnce({ rows: [{ username: 'alice', display_name: 'Alice' }] })
       .mockResolvedValueOnce({ rows: [] });
     await addMovie(null, { title: 'Dune' }, authContext({ userId: 7 }));
-    expect(mockSendPushToUsersExcept).toHaveBeenCalledWith(
+    expect(mockSendPushToConnectionsOf).toHaveBeenCalledWith(
       7,
       'MOVIE_ADD',
       expect.objectContaining({
@@ -87,8 +87,8 @@ describe('Mutation.addMovie', () => {
   });
 
   it('does not await push fan-out (returns even if push rejects)', async () => {
-    mockSendPushToUsersExcept.mockReset();
-    mockSendPushToUsersExcept.mockRejectedValue(new Error('push down'));
+    mockSendPushToConnectionsOf.mockReset();
+    mockSendPushToConnectionsOf.mockRejectedValue(new Error('push down'));
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 1, title: 'X', requested_by: 1 }] })

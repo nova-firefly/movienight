@@ -209,7 +209,7 @@ Generic, extensible tagging framework for movies. Tags are per-user (Alice can t
 
 Web Push fan-out when a movie is added. Primary target: iPhone PWA users (iOS 16.4+, requires Add to Home Screen).
 
-**Backend module**: `backend/src/push.ts` — `configurePush()` (reads VAPID env, called at startup), `sendPushToUser(userId, payload)`, `sendPushToUsersExcept(excludeUserId, eventType, payload)`. The latter joins against `user_notification_preferences` to skip users who've opted out. Pruning: deletes subscriptions on 404/410; increments `failure_count` on 5xx and deletes when `failure_count >= 5`. Fan-out is fire-and-forget from `addMovie` — failures logged but not awaited.
+**Backend module**: `backend/src/push.ts` — `configurePush()` (reads VAPID env, called at startup), `sendPushToUser(userId, payload)`, `sendPushToConnectionsOf(userId, eventType, payload)`. The latter targets only users with an `accepted` row in `user_connections` (in either direction) and joins against `user_notification_preferences` to skip users who've opted out. Pruning: deletes subscriptions on 404/410; increments `failure_count` on 5xx and deletes when `failure_count >= 5`. Fan-out is fire-and-forget from `addMovie` — failures logged but not awaited.
 
 **GraphQL**: `appInfo.vapidPublicKey` (public key for browser subscribe), `notificationPreferences` (per-user prefs), `subscribePush(subscription)`, `unsubscribePush(endpoint)`, `updateNotificationPreference(eventType, enabled)`. `MOVIE_ADD` is the only seeded event type.
 

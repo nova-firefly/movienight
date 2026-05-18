@@ -26,7 +26,7 @@ jest.mock('web-push', () => ({
   WebPushError: FakeWebPushError,
 }));
 
-import { configurePush, isPushConfigured, sendPushToUser, sendPushToUsersExcept } from '../push';
+import { configurePush, isPushConfigured, sendPushToUser, sendPushToConnectionsOf } from '../push';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -123,7 +123,9 @@ describe('sendPushToUser', () => {
   });
 });
 
-describe('sendPushToUsersExcept', () => {
+describe('sendPushToConnectionsOf', () => {
+  // SQL filters by user_connections (status='accepted', either direction) so
+  // the fake rows returned here represent the post-filter result set.
   beforeEach(() => {
     process.env.VAPID_PUBLIC_KEY = 'pub';
     process.env.VAPID_PRIVATE_KEY = 'priv';
@@ -134,16 +136,18 @@ describe('sendPushToUsersExcept', () => {
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
     configurePush();
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 0, pruned: 0 });
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it('queries excluding requester and disabled preferences', async () => {
+  it('queries only accepted connections, excluding requester and disabled prefs', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
-    await sendPushToUsersExcept(42, 'MOVIE_ADD', { title: 't', body: 'b' });
+    await sendPushToConnectionsOf(42, 'MOVIE_ADD', { title: 't', body: 'b' });
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('user_id != $1');
+    expect(sql).toContain('user_connections');
+    expect(sql).toContain("status = 'accepted'");
     expect(sql).toContain('user_notification_preferences');
     expect(sql).toContain('enabled = false');
     expect(params).toEqual([42, 'MOVIE_ADD']);
@@ -154,7 +158,7 @@ describe('sendPushToUsersExcept', () => {
     mockSendNotification.mockResolvedValue({ statusCode: 201 });
     mockQuery.mockResolvedValue({ rows: [] });
 
-    await sendPushToUsersExcept(99, 'MOVIE_ADD', {
+    await sendPushToConnectionsOf(99, 'MOVIE_ADD', {
       title: 'New movie added',
       body: 'Alice added "Dune"',
       url: '/',
@@ -179,7 +183,7 @@ describe('sendPushToUsersExcept', () => {
     mockSendNotification.mockRejectedValueOnce(new FakeWebPushError(410));
     mockQuery.mockResolvedValue({ rows: [] });
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 0, pruned: 1 });
     const deleteCall = mockQuery.mock.calls.find(([sql]) =>
       sql.includes('DELETE FROM push_subscriptions'),
@@ -194,7 +198,7 @@ describe('sendPushToUsersExcept', () => {
     mockSendNotification.mockRejectedValueOnce(new FakeWebPushError(404));
     mockQuery.mockResolvedValue({ rows: [] });
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result.pruned).toBe(1);
     warnSpy.mockRestore();
   });
@@ -206,7 +210,7 @@ describe('sendPushToUsersExcept', () => {
     // UPDATE failure_count returning current count = 2
     mockQuery.mockResolvedValueOnce({ rows: [{ failure_count: 2 }] });
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 1, pruned: 0 });
     const updateCall = mockQuery.mock.calls.find(([sql]) =>
       sql.includes('failure_count = failure_count + 1'),
@@ -228,7 +232,7 @@ describe('sendPushToUsersExcept', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ failure_count: 5 }] });
     mockQuery.mockResolvedValue({ rows: [] }); // DELETE
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 0, pruned: 1 });
     const deleteCall = mockQuery.mock.calls.find(([sql]) =>
       sql.includes('DELETE FROM push_subscriptions'),
@@ -242,7 +246,7 @@ describe('sendPushToUsersExcept', () => {
     mockSendNotification.mockResolvedValueOnce({ statusCode: 201 });
     mockQuery.mockResolvedValue({ rows: [] });
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 1, pruned: 0 });
     const updateCall = mockQuery.mock.calls.find(([sql]) => sql.includes('last_used_at = NOW()'));
     expect(updateCall?.[1]).toEqual([5]);
@@ -258,7 +262,7 @@ describe('sendPushToUsersExcept', () => {
       .mockRejectedValueOnce(new FakeWebPushError(410));
     mockQuery.mockResolvedValue({ rows: [] });
 
-    const result = await sendPushToUsersExcept(1, 'MOVIE_ADD', { title: 't', body: 'b' });
+    const result = await sendPushToConnectionsOf(1, 'MOVIE_ADD', { title: 't', body: 'b' });
     expect(result).toEqual({ delivered: 1, pruned: 1 });
     warnSpy.mockRestore();
   });

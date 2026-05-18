@@ -96,8 +96,8 @@ export async function sendPushToUser(
   return fanOut(rows, payload);
 }
 
-export async function sendPushToUsersExcept(
-  excludeUserId: number,
+export async function sendPushToConnectionsOf(
+  userId: number,
   eventType: string,
   payload: PushPayload,
 ): Promise<{ delivered: number; pruned: number }> {
@@ -107,13 +107,21 @@ export async function sendPushToUsersExcept(
     `SELECT s.id, s.user_id, s.endpoint, s.p256dh, s.auth
      FROM push_subscriptions s
      WHERE s.user_id != $1
+       AND EXISTS (
+         SELECT 1 FROM user_connections uc
+         WHERE uc.status = 'accepted'
+           AND (
+             (uc.requester_id = $1 AND uc.addressee_id = s.user_id)
+             OR (uc.addressee_id = $1 AND uc.requester_id = s.user_id)
+           )
+       )
        AND NOT EXISTS (
          SELECT 1 FROM user_notification_preferences p
          WHERE p.user_id = s.user_id
            AND p.event_type = $2
            AND p.enabled = false
        )`,
-    [excludeUserId, eventType],
+    [userId, eventType],
   );
 
   return fanOut(rows, payload);

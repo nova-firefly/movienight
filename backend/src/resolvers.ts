@@ -9,7 +9,7 @@ import {
   hashResetToken,
 } from './auth';
 import { sendPasswordResetEmail } from './email';
-import { sendPushToUsersExcept } from './push';
+import { sendPushToConnectionsOf } from './push';
 import { User, CreateUserInput, UpdateUserInput } from './models/User';
 import { GraphQLError } from 'graphql';
 import { rescheduleKometa } from './scheduler';
@@ -825,9 +825,9 @@ export const resolvers = {
       if (tmdb_id) {
         fetchAndStoreTmdbData(newMovieId, tmdb_id).catch(() => {});
       }
-      // Fan out push notifications to other opted-in users — fire-and-forget so
-      // mutation latency isn't held up by push service round-trips.
-      sendPushToUsersExcept(context.user.userId, 'MOVIE_ADD', {
+      // Fan out push notifications to the requester's accepted connections only —
+      // fire-and-forget so mutation latency isn't held up by push round-trips.
+      sendPushToConnectionsOf(context.user.userId, 'MOVIE_ADD', {
         title: 'New movie added',
         body: `${requesterName} added "${trimmedTitle}" to the queue`,
         url: '/',
