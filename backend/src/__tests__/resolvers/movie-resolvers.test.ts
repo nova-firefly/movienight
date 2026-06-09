@@ -146,11 +146,26 @@ describe('Mutation.markWatched', () => {
     await markWatched(null, { id: '1' }, adminContext());
   });
 
-  it('non-owner non-admin throws FORBIDDEN', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, requested_by: 99 }] });
+  it('non-owner without connection throws FORBIDDEN', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, requested_by: 99 }] }) // SELECT movie
+      .mockResolvedValueOnce({ rows: [] }); // connection lookup → none
     await expect(markWatched(null, { id: '1' }, authContext({ userId: 2 }))).rejects.toThrow(
       'Not authorized',
     );
+  });
+
+  it('non-owner with accepted connection to owner can mark watched', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, requested_by: 99 }] }) // SELECT movie
+      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // connection lookup → exists
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, title: 'M', requested_by: 99, watched_at: new Date() }],
+      }) // UPDATE
+      .mockResolvedValueOnce({ rows: [{ username: 'x', display_name: null }] }) // user lookup
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    const result = await markWatched(null, { id: '1' }, authContext({ userId: 2 }));
+    expect(result.watched_at).toBeTruthy();
   });
 
   it('nonexistent movie throws NOT_FOUND', async () => {

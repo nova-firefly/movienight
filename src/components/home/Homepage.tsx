@@ -138,7 +138,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const { data, loading: moviesLoading } = useQuery(GET_MOVIES, { pollInterval: 5000 });
 
   const [markWatched] = useMutation(MARK_WATCHED, {
-    refetchQueries: [{ query: GET_MOVIES }],
+    refetchQueries: [
+      { query: GET_MOVIES },
+      ...(selectedConnectionId && selectedConnectionId !== 'solo'
+        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        : []),
+    ],
   });
   const [deleteMovie] = useMutation(DELETE_MOVIE, {
     refetchQueries: [{ query: GET_MOVIES }],
@@ -185,6 +190,21 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     const ok = await confirm({
       title: 'Mark as done?',
       message: `"${movieTitle}" will move to your watch history.`,
+      confirmText: 'Done',
+      confirmColor: 'success',
+    });
+    if (!ok) return;
+    try {
+      await markWatched({ variables: { id } });
+    } catch (err: any) {
+      showError(`Error marking movie as done: ${err.message}`);
+    }
+  };
+
+  const handleMarkWatchedCombined = async (id: string, movieTitle: string, friendName: string) => {
+    const ok = await confirm({
+      title: 'Watched together?',
+      message: `"${movieTitle}" will move to both your and ${friendName}'s watch history, and disappear from your queues.`,
       confirmText: 'Done',
       confirmColor: 'success',
     });
@@ -657,13 +677,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                     combinedData.combinedList.connection.user.username}
                                 </th>
                                 <th style={combinedThStyle}>Combined</th>
+                                <th style={combinedThStyle} aria-label="Actions"></th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredRankings.length === 0 ? (
                                 <tr>
                                   <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     style={{
                                       ...combinedTdStyle,
                                       textAlign: 'center',
@@ -746,6 +767,44 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       <Chip size="sm" variant="solid" color="primary">
                                         {Math.round(r.combinedElo)}
                                       </Chip>
+                                    </td>
+                                    <td
+                                      style={{
+                                        ...combinedTdStyle,
+                                        textAlign: 'right',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {isAuthenticated && (
+                                        <Tooltip
+                                          title={`Mark "${r.movie.title}" as watched together`}
+                                          arrow
+                                        >
+                                          <IconButton
+                                            size="sm"
+                                            color="success"
+                                            variant="plain"
+                                            onClick={() =>
+                                              handleMarkWatchedCombined(
+                                                r.movie.id,
+                                                r.movie.title,
+                                                combinedData.combinedList.connection.user
+                                                  .display_name ||
+                                                  combinedData.combinedList.connection.user
+                                                    .username,
+                                              )
+                                            }
+                                            aria-label={`Mark "${r.movie.title}" as watched together`}
+                                            sx={{
+                                              opacity: 0.5,
+                                              transition: 'opacity 0.15s',
+                                              '&:hover': { opacity: 1 },
+                                            }}
+                                          >
+                                            <span aria-hidden="true">✓</span>
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
                                     </td>
                                   </tr>
                                 ))
