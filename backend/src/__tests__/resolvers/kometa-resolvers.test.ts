@@ -3,22 +3,19 @@ import {
   mockWriteFile,
   mockFetch,
   mockRescheduleKometa,
+  mockRunKometaExport,
   adminContext,
   authContext,
 } from './__helpers';
 
-// Mock the shared kometaExport module
-const mockRunKometaExport = jest.fn();
-jest.mock('../../kometaExport', () => ({
-  runKometaExport: (...args: any[]) => mockRunKometaExport(...args),
-}));
-
 import { resolvers } from '../../resolvers';
 
-const { exportKometa, updateKometaSchedule, setMdblistApiKey } = resolvers.Mutation;
+const { exportKometa, syncMdblist, updateKometaSchedule, setMdblistApiKey } = resolvers.Mutation;
 
 beforeEach(() => {
   mockRunKometaExport.mockReset();
+  // Restore the default no-op so unrelated tests' background syncs don't error.
+  mockRunKometaExport.mockResolvedValue({ filePath: null, yamlContent: '', lists: [] });
 });
 
 describe('Mutation.exportKometa', () => {
@@ -249,6 +246,113 @@ describe('Mutation.exportKometa', () => {
     const result = await exportKometa(null, {}, adminContext());
     expect(result.triggered).toBe(false);
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('Mutation.syncMdblist', () => {
+  const origEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env.NODE_ENV = origEnv.NODE_ENV;
+    process.env.MDBLIST_API_KEY = origEnv.MDBLIST_API_KEY;
+  });
+
+  it('non-admin throws FORBIDDEN', async () => {
+    await expect(syncMdblist(null, {}, authContext())).rejects.toThrow('Not authorized');
+  });
+
+  it('missing MDBList API key throws BAD_USER_INPUT', async () => {
+    delete process.env.MDBLIST_API_KEY;
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] }); // kometa_schedule SELECT
+    await expect(syncMdblist(null, {}, adminContext())).rejects.toThrow(
+      'MDBList API key is not configured',
+    );
+  });
+
+  it('throws when no exportable lists are found', async () => {
+    process.env.MDBLIST_API_KEY = 'test-key';
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] }); // kometa_schedule SELECT
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '',
+      lists: [],
+    });
+    await expect(syncMdblist(null, {}, adminContext())).rejects.toThrow(
+      'No exportable lists found',
+    );
+  });
+
+  it('production: syncs MDBList without writing YAML or triggering Kometa', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.MDBLIST_API_KEY = 'test-key';
+    process.env.KOMETA_TRIGGER_URL = 'http://kometa:5000/run';
+
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] }); // kometa_schedule SELECT
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## yaml',
+      lists: [
+        { name: 'Alice & Bob', type: 'combined', movieCount: 2, mdblistUrl: 'https://x.com' },
+      ],
+    });
+    mockQuery.mockResolvedValue({ rows: [] }); // audit log
+
+    const result = await syncMdblist(null, {}, adminContext());
+    expect(result.filePath).toBeNull();
+    expect(result.triggered).toBe(false);
+    expect(result.lists).toHaveLength(1);
+    expect(mockRunKometaExport).toHaveBeenCalledWith({
+      collectionsPath: null,
+      mdblistApiKey: 'test-key',
+      namePrefix: '',
+      environment: 'production',
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('dev mode: uses [DEV] prefix and development environment', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.MDBLIST_API_KEY = 'test-key';
+
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: null }] });
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## dev yaml',
+      lists: [
+        { name: '[DEV] A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://x.com' },
+      ],
+    });
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    const result = await syncMdblist(null, {}, adminContext());
+    expect(result.filePath).toBeNull();
+    expect(result.triggered).toBe(false);
+    expect(result.lists[0].name).toBe('[DEV] A & B');
+    expect(mockRunKometaExport).toHaveBeenCalledWith({
+      collectionsPath: null,
+      mdblistApiKey: 'test-key',
+      namePrefix: '[DEV] ',
+      environment: 'development',
+    });
+  });
+
+  it('prefers DB-stored API key over env var', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.MDBLIST_API_KEY = 'env-key';
+
+    mockQuery.mockResolvedValueOnce({ rows: [{ mdblist_api_key: 'db-key' }] });
+    mockRunKometaExport.mockResolvedValueOnce({
+      filePath: null,
+      yamlContent: '## yaml',
+      lists: [{ name: 'A & B', type: 'combined', movieCount: 1, mdblistUrl: 'https://x.com' }],
+    });
+    mockQuery.mockResolvedValue({ rows: [] });
+
+    await syncMdblist(null, {}, adminContext());
+    expect(mockRunKometaExport).toHaveBeenCalledWith(
+      expect.objectContaining({ mdblistApiKey: 'db-key' }),
+    );
   });
 });
 

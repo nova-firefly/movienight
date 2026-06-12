@@ -39,6 +39,19 @@ jest.mock('../../mdblist', () => ({
   syncList: (...args: any[]) => mockSyncList(...args),
 }));
 
+// Mock kometaExport (used by both manual export resolvers and the
+// fire-and-forget MDBList re-sync triggered by markWatched/unwatchMovie).
+// Default to a no-op resolved value so background syncs don't blow up other
+// tests; per-test code can override with mockResolvedValueOnce as needed.
+export const mockRunKometaExport = jest.fn().mockResolvedValue({
+  filePath: null,
+  yamlContent: '',
+  lists: [],
+});
+jest.mock('../../kometaExport', () => ({
+  runKometaExport: (...args: any[]) => mockRunKometaExport(...args),
+}));
+
 // Mock elo
 export const mockApplyComparison = jest.fn();
 export const mockUpdateGlobalEloRank = jest.fn();

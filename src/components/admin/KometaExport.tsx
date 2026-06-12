@@ -17,6 +17,7 @@ import {
 } from '@mui/joy';
 import {
   EXPORT_KOMETA,
+  SYNC_MDBLIST,
   GET_KOMETA_SCHEDULE,
   UPDATE_KOMETA_SCHEDULE,
   SET_MDBLIST_API_KEY,
@@ -61,6 +62,7 @@ function generatePreviewYaml(lists: ExportedList[]): string {
 
 export const KometaExport: React.FC = () => {
   const [exportKometa, { loading: exporting }] = useMutation(EXPORT_KOMETA);
+  const [syncMdblist, { loading: syncingMdblist }] = useMutation(SYNC_MDBLIST);
 
   const { data: scheduleData, loading: scheduleLoading } = useQuery(GET_KOMETA_SCHEDULE, {
     fetchPolicy: 'cache-and-network',
@@ -142,6 +144,17 @@ export const KometaExport: React.FC = () => {
     }
   };
 
+  const handleSyncMdblist = async () => {
+    setExportResult(null);
+    try {
+      const { data: result } = await syncMdblist();
+      const { filePath, yamlContent, triggered, triggerError, lists } = result.syncMdblist;
+      setExportResult({ path: filePath, yamlContent, triggered, triggerError, lists });
+    } catch (err: any) {
+      setExportResult({ error: err.message });
+    }
+  };
+
   const handleSaveSchedule = async () => {
     setSchedSaveResult(null);
     try {
@@ -190,12 +203,14 @@ export const KometaExport: React.FC = () => {
         on.{' '}
         {isProd ? (
           <>
-            <strong>Write to Kometa</strong> syncs lists and writes to{' '}
-            <code>KOMETA_COLLECTIONS_PATH</code>.
+            <strong>Full sync</strong> syncs MDBList <em>and</em> writes to{' '}
+            <code>KOMETA_COLLECTIONS_PATH</code>. <strong>Sync MDBList only</strong> updates MDBList
+            without touching the Kometa file or trigger.
           </>
         ) : (
           <>
-            <strong>Sync to MDBList</strong> creates/updates MDBList lists with a [DEV] prefix.
+            Both buttons create/update MDBList lists with a [DEV] prefix; no file is written and
+            Kometa is not triggered.
           </>
         )}
       </Typography>
@@ -249,9 +264,20 @@ export const KometaExport: React.FC = () => {
           variant="solid"
           color="primary"
           loading={exporting}
+          disabled={syncingMdblist}
           onClick={handleExport}
         >
-          {isProd ? 'Write to Kometa' : 'Sync to MDBList'}
+          Full sync
+        </Button>
+        <Button
+          size="sm"
+          variant="outlined"
+          color="primary"
+          loading={syncingMdblist}
+          disabled={exporting}
+          onClick={handleSyncMdblist}
+        >
+          Sync MDBList only
         </Button>
         {yaml && (
           <>

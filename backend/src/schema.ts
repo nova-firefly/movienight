@@ -222,6 +222,7 @@ export const typeDefs = `#graphql
     recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!
     resetMovieComparisons(movieId: ID!): Boolean!
     exportKometa: KometaExportResult!
+    syncMdblist: KometaExportResult!
     updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String): KometaSchedule!
     setMdblistApiKey(apiKey: String!): KometaSchedule!
     importFromLetterboxd(url: String!): ImportResult!

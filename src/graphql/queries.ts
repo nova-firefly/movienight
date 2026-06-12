@@ -229,6 +229,23 @@ export const EXPORT_KOMETA = gql`
   }
 `;
 
+export const SYNC_MDBLIST = gql`
+  mutation SyncMdblist {
+    syncMdblist {
+      filePath
+      yamlContent
+      triggered
+      triggerError
+      lists {
+        name
+        type
+        movieCount
+        mdblistUrl
+      }
+    }
+  }
+`;
+
 export const GET_AUDIT_LOGS = gql`
   query GetAuditLogs($limit: Int, $offset: Int) {
     auditLogs(limit: $limit, offset: $offset) {

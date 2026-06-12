@@ -162,6 +162,47 @@ async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<v
   }
 }
 
+// ── MDBList background re-sync ───────────────────────────────────────────────
+// Re-syncs MDBList lists after a movie's watched state changes, so that
+// MDBList (and consequently the Kometa-pulled collection) drops watched movies
+// and re-adds them on unwatch. Best-effort: errors are logged, never thrown.
+async function triggerMdblistSyncInBackground(
+  actorId: number,
+  ipAddress: string,
+  trigger: string,
+  movieMetadata: Record<string, any>,
+): Promise<void> {
+  try {
+    const schedRow = await pool.query('SELECT mdblist_api_key FROM kometa_schedule WHERE id = 1');
+    const mdblistApiKey = schedRow.rows[0]?.mdblist_api_key || process.env.MDBLIST_API_KEY;
+    if (!mdblistApiKey) return;
+
+    const prod = isProduction();
+    const { lists } = await runKometaExport({
+      collectionsPath: null,
+      mdblistApiKey,
+      namePrefix: prod ? '' : '[DEV] ',
+      environment: prod ? 'production' : 'development',
+    });
+
+    await logAudit(
+      actorId,
+      'MDBLIST_AUTO_SYNC',
+      'mdblist',
+      null,
+      {
+        trigger,
+        ...movieMetadata,
+        listCount: lists.length,
+        totalMovies: lists.reduce((sum, l) => sum + l.movieCount, 0),
+      },
+      ipAddress,
+    );
+  } catch (err) {
+    console.error('[MDBList auto-sync] Failed:', err);
+  }
+}
+
 export const resolvers = {
   Query: {
     appInfo: () => ({
@@ -863,6 +904,14 @@ export const resolvers = {
         { title: movie.title },
         context.ipAddress ?? 'unknown',
       );
+      // Fire-and-forget: re-sync MDBList so the watched movie drops out of the
+      // collections that Kometa pulls. Skipped silently if no API key is set.
+      triggerMdblistSyncInBackground(
+        context.user.userId,
+        context.ipAddress ?? 'unknown',
+        'movie_watched',
+        { movieId: String(id), title: movie.title, tmdbId: movie.tmdb_id ?? null },
+      );
       return {
         ...movie,
         user_username: userRow.rows[0]?.username,
@@ -1045,6 +1094,65 @@ export const resolvers = {
         yamlContent,
         triggered,
         triggerError: triggerError ?? null,
+        lists,
+      };
+    },
+    syncMdblist: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      const schedRow = await pool.query('SELECT mdblist_api_key FROM kometa_schedule WHERE id = 1');
+      const mdblistApiKey = schedRow.rows[0]?.mdblist_api_key || process.env.MDBLIST_API_KEY;
+      if (!mdblistApiKey) {
+        throw new GraphQLError('MDBList API key is not configured', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const prod = isProduction();
+      const namePrefix = prod ? '' : '[DEV] ';
+      const environment = prod ? 'production' : 'development';
+
+      // MDBList-only: skip file write and Kometa trigger.
+      const { yamlContent, lists } = await runKometaExport({
+        collectionsPath: null,
+        mdblistApiKey,
+        namePrefix,
+        environment,
+      });
+
+      if (lists.length === 0) {
+        throw new GraphQLError(
+          'No exportable lists found (no combined/solo movies with TMDB IDs)',
+          {
+            extensions: { code: 'BAD_USER_INPUT' },
+          },
+        );
+      }
+
+      const totalMovies = lists.reduce((sum, l) => sum + l.movieCount, 0);
+      await logAudit(
+        context.user.userId,
+        'MDBLIST_SYNC',
+        'mdblist',
+        null,
+        {
+          listCount: lists.length,
+          totalMovies,
+          lists: lists.map((l) => ({ name: l.name, type: l.type, count: l.movieCount })),
+          environment,
+        },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return {
+        filePath: null,
+        yamlContent,
+        triggered: false,
+        triggerError: null,
         lists,
       };
     },
@@ -2142,6 +2250,13 @@ export const resolvers = {
         String(id),
         { title: movie.title },
         context.ipAddress ?? 'unknown',
+      );
+      // Fire-and-forget: re-sync MDBList so the movie reappears in collections.
+      triggerMdblistSyncInBackground(
+        context.user.userId,
+        context.ipAddress ?? 'unknown',
+        'movie_unwatch',
+        { movieId: String(id), title: movie.title, tmdbId: movie.tmdb_id ?? null },
       );
 
       return {
