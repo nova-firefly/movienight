@@ -826,9 +826,20 @@ export const resolvers = {
         });
       }
       if (!context.user.isAdmin && movieResult.rows[0].requested_by !== context.user.userId) {
-        throw new GraphQLError('Not authorized', {
-          extensions: { code: 'FORBIDDEN' },
-        });
+        const ownerId = movieResult.rows[0].requested_by;
+        const conn = await pool.query(
+          `SELECT 1 FROM user_connections
+             WHERE status = 'accepted'
+               AND ((requester_id = $1 AND addressee_id = $2)
+                    OR (addressee_id = $1 AND requester_id = $2))
+             LIMIT 1`,
+          [context.user.userId, ownerId],
+        );
+        if (conn.rows.length === 0) {
+          throw new GraphQLError('Not authorized', {
+            extensions: { code: 'FORBIDDEN' },
+          });
+        }
       }
       const result = await pool.query(
         `UPDATE movies SET watched_at = NOW() WHERE id = $1
