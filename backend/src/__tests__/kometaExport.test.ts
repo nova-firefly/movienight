@@ -110,7 +110,11 @@ describe('runKometaExport', () => {
     });
     // getSoloTmdbIds for user 1 (empty = no solo movies)
     mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList for user 1 solo (no pre-existing list → skip)
+    mockQuery.mockResolvedValueOnce({ rows: [] });
     // getSoloTmdbIds for user 2 (empty)
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList for user 2 solo (no pre-existing list → skip)
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
     const result = await runKometaExport(defaultOptions);
@@ -197,7 +201,7 @@ describe('runKometaExport', () => {
     expect(mockSyncList).toHaveBeenCalledWith('test-key', 42, [100]);
   });
 
-  it('skips empty combined lists (no TMDB-matched movies)', async () => {
+  it('skips empty combined lists (no TMDB-matched movies, no existing list)', async () => {
     // getAcceptedConnections
     mockQuery.mockResolvedValueOnce({
       rows: [
@@ -214,6 +218,8 @@ describe('runKometaExport', () => {
     });
     // getCombinedTmdbIds — empty
     mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList — no pre-existing list
+    mockQuery.mockResolvedValueOnce({ rows: [] });
     // getUsersWithConnections
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -222,6 +228,42 @@ describe('runKometaExport', () => {
     expect(result.lists).toHaveLength(0);
     expect(mockCreateList).not.toHaveBeenCalled();
     expect(mockSyncList).not.toHaveBeenCalled();
+  });
+
+  it('clears a pre-existing list when all its movies are now watched/removed', async () => {
+    // getAcceptedConnections — one pair
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds — empty (all movies watched)
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList — list does exist
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/u/ab' }],
+    });
+    // getUsersWithConnections (empty)
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // syncList is called with empty tmdbIds (clears the list)
+    mockSyncList.mockResolvedValueOnce(undefined);
+
+    const result = await runKometaExport(defaultOptions);
+
+    expect(mockCreateList).not.toHaveBeenCalled();
+    expect(mockSyncList).toHaveBeenCalledWith('test-key', 42, []);
+    expect(result.lists).toHaveLength(1);
+    expect(result.lists[0]).toEqual(
+      expect.objectContaining({ name: 'Alice & Bob', type: 'combined', movieCount: 0 }),
+    );
   });
 
   it('sorts pair names alphabetically for consistent naming', async () => {
@@ -335,6 +377,8 @@ describe('runKometaExport', () => {
     });
     mockSyncList.mockResolvedValueOnce(undefined);
     // getSoloTmdbIds for user 2 (empty)
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList for user 2 solo (none → skip)
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
     const result = await runKometaExport(defaultOptions);

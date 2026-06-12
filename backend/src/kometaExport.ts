@@ -187,6 +187,29 @@ async function getOrCreateMdbList(
   return { listId: listInfo.id, listUrl: listInfo.url };
 }
 
+/**
+ * Look up an already-persisted MDBList list, or return null if none. Used when
+ * a list's TMDB IDs are empty to decide between clearing the existing list and
+ * skipping (avoiding pointless empty list creation on MDBList).
+ */
+async function findExistingMdbList(
+  listType: string,
+  refId: number,
+  environment: string,
+): Promise<{ listId: number; listUrl: string } | null> {
+  const result = await pool.query(
+    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3',
+    [listType, refId, environment],
+  );
+  if (result.rows.length > 0 && result.rows[0].mdblist_list_id) {
+    return {
+      listId: result.rows[0].mdblist_list_id,
+      listUrl: result.rows[0].mdblist_list_url,
+    };
+  }
+  return null;
+}
+
 /** Generate Kometa YAML with multiple collections. */
 export function generateMultiCollectionYaml(lists: ExportListResult[]): string {
   const today = new Date().toISOString().split('T')[0];
@@ -219,15 +242,27 @@ export async function runKometaExport(options: ExportOptions): Promise<ExportRes
   const connections = await getAcceptedConnections();
   for (const conn of connections) {
     const tmdbIds = await getCombinedTmdbIds(conn.userAId, conn.userBId);
-    if (tmdbIds.length === 0) continue;
     const name = `${namePrefix}${conn.userAName} & ${conn.userBName}`;
-    const { listId, listUrl } = await getOrCreateMdbList(
-      mdblistApiKey,
-      'combined',
-      conn.connectionId,
-      name,
-      environment,
-    );
+    let listId: number;
+    let listUrl: string;
+    if (tmdbIds.length === 0) {
+      // Only sync (to clear) if a list already exists; otherwise skip to avoid
+      // creating an empty list on MDBList.
+      const existing = await findExistingMdbList('combined', conn.connectionId, environment);
+      if (!existing) continue;
+      listId = existing.listId;
+      listUrl = existing.listUrl;
+    } else {
+      const created = await getOrCreateMdbList(
+        mdblistApiKey,
+        'combined',
+        conn.connectionId,
+        name,
+        environment,
+      );
+      listId = created.listId;
+      listUrl = created.listUrl;
+    }
     await syncList(mdblistApiKey, listId, tmdbIds);
     lists.push({ name, type: 'combined', movieCount: tmdbIds.length, mdblistUrl: listUrl });
   }
@@ -236,15 +271,19 @@ export async function runKometaExport(options: ExportOptions): Promise<ExportRes
   const users = await getUsersWithConnections();
   for (const user of users) {
     const tmdbIds = await getSoloTmdbIds(user.id);
-    if (tmdbIds.length === 0) continue;
     const name = `${namePrefix}Just ${user.name}`;
-    const { listId, listUrl } = await getOrCreateMdbList(
-      mdblistApiKey,
-      'solo',
-      user.id,
-      name,
-      environment,
-    );
+    let listId: number;
+    let listUrl: string;
+    if (tmdbIds.length === 0) {
+      const existing = await findExistingMdbList('solo', user.id, environment);
+      if (!existing) continue;
+      listId = existing.listId;
+      listUrl = existing.listUrl;
+    } else {
+      const created = await getOrCreateMdbList(mdblistApiKey, 'solo', user.id, name, environment);
+      listId = created.listId;
+      listUrl = created.listUrl;
+    }
     await syncList(mdblistApiKey, listId, tmdbIds);
     lists.push({ name, type: 'solo', movieCount: tmdbIds.length, mdblistUrl: listUrl });
   }
