@@ -21,7 +21,13 @@ const config: Config = {
   },
   clearMocks: true,
   restoreMocks: true,
-  collectCoverageFrom: ['src/**/*.ts', '!src/index.ts', '!src/schema.ts', '!src/db.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/index.ts',
+    '!src/schema.ts',
+    '!src/db.ts',
+    '!src/restore-cli.ts',
+  ],
   coverageThreshold: {
     global: {
       branches: 65,
