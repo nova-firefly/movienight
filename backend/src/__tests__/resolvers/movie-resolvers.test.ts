@@ -2,6 +2,7 @@ import {
   mockQuery,
   mockApplyComparison,
   mockUpdateGlobalEloRank,
+  mockSendPushToConnectionsOf,
   authContext,
   adminContext,
   anonContext,
@@ -63,6 +64,41 @@ describe('Mutation.addMovie', () => {
     await expect(addMovie(null, { title: 'X' }, anonContext())).rejects.toThrow(
       'Not authenticated',
     );
+  });
+
+  it('fires push notification fan-out to the requester’s connections', async () => {
+    mockSendPushToConnectionsOf.mockReset();
+    mockSendPushToConnectionsOf.mockResolvedValue({ delivered: 0, pruned: 0 });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 42, title: 'Dune', requested_by: 7 }] })
+      .mockResolvedValueOnce({ rows: [{ username: 'alice', display_name: 'Alice' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    await addMovie(null, { title: 'Dune' }, authContext({ userId: 7 }));
+    expect(mockSendPushToConnectionsOf).toHaveBeenCalledWith(
+      7,
+      'MOVIE_ADD',
+      expect.objectContaining({
+        title: 'New movie added',
+        body: 'Alice added "Dune" to the queue',
+        url: '/',
+        tag: 'movie-add-42',
+      }),
+    );
+  });
+
+  it('does not await push fan-out (returns even if push rejects)', async () => {
+    mockSendPushToConnectionsOf.mockReset();
+    mockSendPushToConnectionsOf.mockRejectedValue(new Error('push down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'X', requested_by: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ username: 'a' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const result = await addMovie(null, { title: 'X' }, authContext());
+    expect(result.title).toBe('X');
+    // Allow microtasks to settle so the rejected promise lands in the catch handler
+    await Promise.resolve();
+    errSpy.mockRestore();
   });
 });
 

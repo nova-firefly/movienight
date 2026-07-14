@@ -25,6 +25,16 @@ jest.mock('../../email', () => ({
   sendPasswordResetEmail: (...args: any[]) => mockSendPasswordResetEmail(...args),
 }));
 
+// Mock push — default to a no-op resolved promise so call sites that
+// fire-and-forget don't blow up when tests don't explicitly set a return value.
+export const mockSendPushToConnectionsOf: jest.Mock = jest.fn();
+mockSendPushToConnectionsOf.mockResolvedValue({ delivered: 0, pruned: 0 });
+jest.mock('../../push', () => ({
+  sendPushToConnectionsOf: (...args: any[]) => mockSendPushToConnectionsOf(...args),
+  configurePush: jest.fn(),
+  isPushConfigured: jest.fn(() => false),
+}));
+
 // Mock scheduler
 export const mockRescheduleKometa = jest.fn();
 jest.mock('../../scheduler', () => ({
