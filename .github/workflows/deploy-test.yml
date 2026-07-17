@@ -82,9 +82,23 @@ jobs:
         env:
           NOVA_DIR: ${{ vars.NOVA_CONFIG_PATH }}
           COMPOSE_FILE: ${{ vars.COMPOSE_FILE_TEST }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd "$NOVA_DIR"
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Write GHCR creds directly to Docker config.json instead of running
+          # `docker login`. login POSTs to the daemon's /auth endpoint, which
+          # runners-socket-proxy denies (AUTH toggle intentionally off — the
+          # runner's blast radius stays narrow). `docker compose pull` reads
+          # config.json for registry auth, so we get GHCR access without ever
+          # touching /auth. Config lives in the ephemeral runner and is thrown
+          # away with the container at end-of-job.
+          mkdir -p "$HOME/.docker"
+          umask 077
+          AUTH_B64=$(printf '%s:%s' "$GHCR_USER" "$GHCR_TOKEN" | base64 -w 0)
+          printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$AUTH_B64" > "$HOME/.docker/config.json"
+
           docker compose -f "$COMPOSE_FILE" pull
           docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 

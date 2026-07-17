@@ -46,11 +46,11 @@ GitHub repository configuration:
 
 ### Repository variables (`Settings → Secrets and variables → Actions → Variables`)
 
-| Variable | Value | Purpose |
-| --- | --- | --- |
-| `NOVA_CONFIG_PATH` | `/nova-config` | In-container mount path of the read-only nova-config checkout inside the runner. |
-| `COMPOSE_FILE_PROD` | `movienight/compose.yaml` | Path (relative to `NOVA_CONFIG_PATH`) of the production compose file. |
-| `COMPOSE_FILE_TEST` | `movienight-test/compose.yaml` | Path (relative to `NOVA_CONFIG_PATH`) of the PR-test compose file. |
+| Variable            | Value                          | Purpose                                                                          |
+| ------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| `NOVA_CONFIG_PATH`  | `/nova-config`                 | In-container mount path of the read-only nova-config checkout inside the runner. |
+| `COMPOSE_FILE_PROD` | `movienight/compose.yaml`      | Path (relative to `NOVA_CONFIG_PATH`) of the production compose file.            |
+| `COMPOSE_FILE_TEST` | `movienight-test/compose.yaml` | Path (relative to `NOVA_CONFIG_PATH`) of the PR-test compose file.               |
 
 ### Secrets
 
