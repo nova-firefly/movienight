@@ -1,4 +1,4 @@
-name: Deploy to Remote Docker Host
+name: Deploy to Nova
 
 on:
   push:
@@ -26,10 +26,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -37,7 +37,7 @@ jobs:
 
       - name: Extract Docker metadata (frontend)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
           tags: |
@@ -50,7 +50,7 @@ jobs:
         run: echo "value=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
@@ -75,17 +75,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./backend
           push: true
@@ -96,47 +96,49 @@ jobs:
   deploy:
     name: Deploy via Nova Compose
     needs: [build-push-frontend, build-push-backend]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nova, movienight]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
 
     steps:
-      - name: Deploy to nova host via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.NOVA_HOST }}
-          username: ${{ secrets.NOVA_USER }}
-          key: ${{ secrets.NOVA_SSH_KEY }}
-          port: ${{ secrets.NOVA_SSH_PORT || 22 }}
-          script: |
-            NOVA_DIR="${{ secrets.NOVA_CONFIG_PATH }}"
-            COMPOSE_FILE="$NOVA_DIR/docker-compose.movienight.yaml"
+      - name: Deploy
+        env:
+          NOVA_DIR: ${{ vars.NOVA_CONFIG_PATH }}
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE_PROD }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$NOVA_DIR"
 
-            # Ensure host has latest nova-config compose files
-            cd "$NOVA_DIR"
-            git fetch origin
-            git reset --hard origin/main
+          # Write GHCR creds directly to Docker config.json instead of running
+          # `docker login`. login POSTs to the daemon's /auth endpoint, which
+          # runners-socket-proxy denies (AUTH toggle intentionally off — the
+          # runner's blast radius stays narrow). `docker compose pull` reads
+          # config.json for registry auth, so we get GHCR access without ever
+          # touching /auth. Config lives in the ephemeral runner and is thrown
+          # away with the container at end-of-job.
+          mkdir -p "$HOME/.docker"
+          umask 077
+          AUTH_B64=$(printf '%s:%s' "$GHCR_USER" "$GHCR_TOKEN" | base64 -w 0)
+          printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$AUTH_B64" > "$HOME/.docker/config.json"
 
-            # Login to GHCR and pull new images
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
+          docker compose -f "$COMPOSE_FILE" pull movienight-frontend movienight-backend
+          docker compose -f "$COMPOSE_FILE" up -d
 
-            # Restart with new images
-            docker compose -f "$COMPOSE_FILE" up -d
-
-            # Clean up dangling images
-            docker image prune -f
-
-            # Verify all containers are running
-            sleep 5
-            for svc in movienight-frontend movienight-backend movienight-db; do
-              STATUS=$(docker inspect --format '{{.State.Status}}' "$svc" 2>/dev/null || echo "missing")
-              if [ "$STATUS" != "running" ]; then
-                echo "FAIL: $svc is $STATUS"
-                docker compose -f "$COMPOSE_FILE" logs --tail=30 "$svc"
-                exit 1
-              fi
-            done
-            echo "Deployment successful"
-            docker compose -f "$COMPOSE_FILE" ps
+          # Verify all three services are running
+          sleep 5
+          for svc in movienight-frontend movienight-backend movienight-db; do
+            STATUS=$(docker inspect --format '{{.State.Status}}' "$svc" 2>/dev/null || echo "missing")
+            if [ "$STATUS" != "running" ]; then
+              echo "FAIL: $svc is $STATUS"
+              docker compose -f "$COMPOSE_FILE" logs --tail=30 "$svc" || true
+              exit 1
+            fi
+          done
+          echo "Deployment successful"
+          docker compose -f "$COMPOSE_FILE" ps
 
       - name: Deployment summary
         if: success()
@@ -145,5 +147,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Frontend:** \`${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "**Backend:** \`${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Host:** \`${{ secrets.NOVA_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
