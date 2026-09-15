@@ -152,6 +152,29 @@ describe('fetchTmdbMetadata (movie)', () => {
     expect(result).toBeNull();
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it.each([0, -5, 1.5, NaN, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid tmdb id %p without calling TMDB',
+    async (badId) => {
+      const result = await fetchTmdbMetadata('movie', badId);
+      expect(result).toBeNull();
+      expect(mockFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it('logs with a constant format string when fetch throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    mockFetch.mockRejectedValue(new Error('network down'));
+    const result = await fetchTmdbMetadata('movie', 42);
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'TMDB fetch failed for %s %d:',
+      'movie',
+      42,
+      expect.any(Error),
+    );
+    errorSpy.mockRestore();
+  });
 });
 
 describe('fetchTmdbMetadata (show)', () => {

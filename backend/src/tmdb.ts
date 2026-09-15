@@ -56,6 +56,12 @@ export function isTmdbConfigured(): boolean {
   return Boolean(apiKey());
 }
 
+// TMDB ids are positive integers; rejecting anything else keeps callers from
+// steering requests to other TMDB endpoints via the URL path.
+function isValidTmdbId(tmdbId: unknown): tmdbId is number {
+  return typeof tmdbId === 'number' && Number.isSafeInteger(tmdbId) && tmdbId > 0;
+}
+
 function extractYear(date: string | null | undefined): string | null {
   if (!date) return null;
   return date.split('-')[0] || null;
@@ -90,6 +96,7 @@ export async function searchTmdb(kind: Kind, query: string): Promise<TmdbSearchR
 export async function fetchTmdbMetadata(kind: Kind, tmdbId: number): Promise<TmdbMetadata | null> {
   const key = apiKey();
   if (!key) return null;
+  if (!isValidTmdbId(tmdbId)) return null;
 
   const endpoint = TMDB_ENDPOINT[kind];
   try {
@@ -146,7 +153,7 @@ export async function fetchTmdbMetadata(kind: Kind, tmdbId: number): Promise<Tmd
       genre_tags,
     };
   } catch (err) {
-    console.error(`TMDB fetch failed for ${kind} ${tmdbId}:`, err);
+    console.error('TMDB fetch failed for %s %d:', kind, tmdbId, err);
     return null;
   }
 }
@@ -201,6 +208,6 @@ export async function fetchAndStoreTmdbData(
       );
     }
   } catch (err) {
-    console.error(`TMDB persist failed for ${kind} %d (tmdb %d):`, contentId, tmdbId, err);
+    console.error('TMDB persist failed for %s %d (tmdb %d):', kind, contentId, tmdbId, err);
   }
 }

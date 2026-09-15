@@ -6,14 +6,17 @@
     <title>MovieNight — TV Shows UI Mockup</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         /* Kind accents — the differentiator */
-        --kind-movie: #f59e0b;   /* warm amber — existing movies */
-        --kind-show:  #0ea5e9;   /* cool teal  — new shows */
+        --kind-movie: #f59e0b; /* warm amber — existing movies */
+        --kind-show: #0ea5e9; /* cool teal  — new shows */
         --kind-movie-tint: #fef3c7;
-        --kind-show-tint:  #e0f2fe;
+        --kind-show-tint: #e0f2fe;
 
         /* Joy-ish neutral system */
         --surface: #fbfbfc;
@@ -29,15 +32,29 @@
         --shadow-md: 0 4px 12px rgb(0 0 0 / 0.06);
       }
 
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
-        font: 400 15px/1.5 Inter, system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font:
+          400 15px/1.5 Inter,
+          system-ui,
+          -apple-system,
+          sans-serif;
         color: var(--text);
         background: var(--surface);
         -webkit-font-smoothing: antialiased;
       }
-      main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 64px; }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 20px 64px;
+      }
 
       /* ---------- Legend banner ---------- */
       .legend-banner {
@@ -48,78 +65,137 @@
         margin-bottom: 24px;
         font-size: 13px;
         color: #374151;
-        display: flex; align-items: center; gap: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
-      .legend-banner strong { color: var(--text); }
+      .legend-banner strong {
+        color: var(--text);
+      }
 
       /* ---------- Navbar ---------- */
-      .navbar-wrap { margin-bottom: 32px; }
+      .navbar-wrap {
+        margin-bottom: 32px;
+      }
       .navbar {
         background: var(--surface-2);
         border: 1px solid var(--border);
         border-radius: var(--radius);
         padding: 10px 14px;
-        display: flex; align-items: center; gap: 20px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
         box-shadow: var(--shadow-sm);
       }
       .brand {
-        font-weight: 700; letter-spacing: -0.01em;
-        display: flex; align-items: center; gap: 8px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         color: var(--text);
       }
-      .brand .dot { width: 8px; height: 8px; border-radius: 50%;
-        background: linear-gradient(135deg, var(--kind-movie), var(--kind-show)); }
+      .brand .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--kind-movie), var(--kind-show));
+      }
 
       /* Segmented Movies | Shows — the star of the show */
       .segmented {
-        display: inline-flex; padding: 3px; gap: 2px;
-        background: #f3f4f6; border: 1px solid var(--border);
+        display: inline-flex;
+        padding: 3px;
+        gap: 2px;
+        background: #f3f4f6;
+        border: 1px solid var(--border);
         border-radius: 999px;
       }
       .seg-btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 6px 14px; border: 0; background: transparent;
-        border-radius: 999px; font: 500 13px Inter, sans-serif;
-        color: var(--text-muted); cursor: pointer;
-        transition: background 120ms, color 120ms;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border: 0;
+        background: transparent;
+        border-radius: 999px;
+        font:
+          500 13px Inter,
+          sans-serif;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition:
+          background 120ms,
+          color 120ms;
       }
-      .seg-btn.is-active[data-kind="movie"] {
-        background: var(--surface-2); color: var(--kind-movie);
+      .seg-btn.is-active[data-kind='movie'] {
+        background: var(--surface-2);
+        color: var(--kind-movie);
         box-shadow: var(--shadow-sm);
       }
-      .seg-btn.is-active[data-kind="show"] {
-        background: var(--surface-2); color: var(--kind-show);
+      .seg-btn.is-active[data-kind='show'] {
+        background: var(--surface-2);
+        color: var(--kind-show);
         box-shadow: var(--shadow-sm);
       }
 
-      .nav-links { display: flex; gap: 4px; margin-left: auto; }
-      .nav-links a {
-        padding: 6px 12px; border-radius: var(--radius);
-        color: var(--text-muted); text-decoration: none; font-size: 14px;
+      .nav-links {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
       }
-      .nav-links a.is-current { color: var(--text); background: #f3f4f6; }
+      .nav-links a {
+        padding: 6px 12px;
+        border-radius: var(--radius);
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .nav-links a.is-current {
+        color: var(--text);
+        background: #f3f4f6;
+      }
 
       /* Kind-tinted underline strip under the navbar */
       .kind-underline {
-        height: 3px; margin-top: 6px; border-radius: 2px;
+        height: 3px;
+        margin-top: 6px;
+        border-radius: 2px;
         background: var(--kind-show);
         box-shadow: 0 0 12px color-mix(in srgb, var(--kind-show) 40%, transparent);
       }
 
       /* ---------- Sections ---------- */
-      section { margin-bottom: 36px; }
-      .section-head {
-        display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;
+      section {
+        margin-bottom: 36px;
       }
-      .section-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
-      .section-head .hint { color: var(--text-muted); font-size: 13px; }
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .section-head h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .section-head .hint {
+        color: var(--text-muted);
+        font-size: 13px;
+      }
 
       /* ---------- Queue rows ---------- */
-      .queue { display: flex; flex-direction: column; gap: 8px; }
+      .queue {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
       .row {
         display: grid;
         grid-template-columns: 20px 56px 1fr auto auto;
-        align-items: center; gap: 14px;
+        align-items: center;
+        gap: 14px;
         background: var(--surface-2);
         border: 1px solid var(--border);
         border-left-width: 4px;
@@ -127,163 +203,388 @@
         padding: 10px 14px 10px 10px;
         box-shadow: var(--shadow-sm);
       }
-      .row.kind-show  { border-left-color: var(--kind-show); }
-      .row.kind-movie { border-left-color: var(--kind-movie); }
-
-      .drag { color: var(--text-faint); display: flex; cursor: grab; }
-      .poster {
-        width: 56px; height: 76px; border-radius: 6px;
-        display: flex; align-items: center; justify-content: center;
-        color: #fff; font-weight: 700; font-size: 15px; letter-spacing: 0.02em;
+      .row.kind-show {
+        border-left-color: var(--kind-show);
       }
-      .poster.sev { background: linear-gradient(155deg, #1e3a8a, #0e7490); }
-      .poster.bea { background: linear-gradient(155deg, #7c2d12, #b45309); }
-      .poster.and { background: linear-gradient(155deg, #111827, #4b5563); }
-      .poster.lou { background: linear-gradient(155deg, #14532d, #365314); }
-      .poster.inc { background: linear-gradient(155deg, #111827, #1f2937); }
-      .poster.dun { background: linear-gradient(155deg, #92400e, #b45309); }
+      .row.kind-movie {
+        border-left-color: var(--kind-movie);
+      }
 
-      .meta { min-width: 0; }
+      .drag {
+        color: var(--text-faint);
+        display: flex;
+        cursor: grab;
+      }
+      .poster {
+        width: 56px;
+        height: 76px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.02em;
+      }
+      .poster.sev {
+        background: linear-gradient(155deg, #1e3a8a, #0e7490);
+      }
+      .poster.bea {
+        background: linear-gradient(155deg, #7c2d12, #b45309);
+      }
+      .poster.and {
+        background: linear-gradient(155deg, #111827, #4b5563);
+      }
+      .poster.lou {
+        background: linear-gradient(155deg, #14532d, #365314);
+      }
+      .poster.inc {
+        background: linear-gradient(155deg, #111827, #1f2937);
+      }
+      .poster.dun {
+        background: linear-gradient(155deg, #92400e, #b45309);
+      }
+
+      .meta {
+        min-width: 0;
+      }
       .title-line {
-        display: flex; align-items: center; gap: 8px;
-        font-weight: 600; font-size: 15px; color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text);
       }
       .kind-chip {
-        display: inline-flex; align-items: center; gap: 4px;
-        font: 500 11px Inter; text-transform: uppercase; letter-spacing: 0.06em;
-        padding: 2px 7px; border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font: 500 11px Inter;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 7px;
+        border-radius: 999px;
       }
-      .kind-chip.show  { color: var(--kind-show);  background: var(--kind-show-tint); }
-      .kind-chip.movie { color: #b45309;           background: var(--kind-movie-tint); }
+      .kind-chip.show {
+        color: var(--kind-show);
+        background: var(--kind-show-tint);
+      }
+      .kind-chip.movie {
+        color: #b45309;
+        background: var(--kind-movie-tint);
+      }
       .meta-line {
-        font-size: 13px; color: var(--text-muted); margin-top: 4px;
-        display: flex; align-items: center; gap: 6px;
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
       /* Reserved slot for future S2E4 progress chip — visible outline placeholder */
       .progress-slot {
-        display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
-        border: 1px dashed var(--border-strong); border-radius: 999px;
-        color: var(--text-faint); font-size: 11px; font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 8px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 999px;
+        color: var(--text-faint);
+        font-size: 11px;
+        font-weight: 500;
         margin-left: 4px;
       }
 
       /* Icon buttons */
       .icon-btn {
-        width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 6px; border: 1px solid transparent; background: transparent;
-        color: var(--text-muted); cursor: pointer;
-      }
-      .icon-btn:hover { background: #f3f4f6; color: var(--text); }
-      .icon-btn.is-active { color: var(--kind-show); background: var(--kind-show-tint); }
-
-      .btn-done {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 7px 12px; border-radius: var(--radius);
-        border: 1px solid var(--kind-show); background: var(--surface-2);
-        color: var(--kind-show); font: 500 13px Inter, sans-serif;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-muted);
         cursor: pointer;
       }
-      .row.kind-movie .btn-done { border-color: var(--kind-movie); color: var(--kind-movie); }
-      .btn-done:hover { background: var(--kind-show-tint); }
-      .row.kind-movie .btn-done:hover { background: var(--kind-movie-tint); }
+      .icon-btn:hover {
+        background: #f3f4f6;
+        color: var(--text);
+      }
+      .icon-btn.is-active {
+        color: var(--kind-show);
+        background: var(--kind-show-tint);
+      }
+
+      .btn-done {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--kind-show);
+        background: var(--surface-2);
+        color: var(--kind-show);
+        font:
+          500 13px Inter,
+          sans-serif;
+        cursor: pointer;
+      }
+      .row.kind-movie .btn-done {
+        border-color: var(--kind-movie);
+        color: var(--kind-movie);
+      }
+      .btn-done:hover {
+        background: var(--kind-show-tint);
+      }
+      .row.kind-movie .btn-done:hover {
+        background: var(--kind-movie-tint);
+      }
 
       /* ---------- Autocomplete ---------- */
-      .autocomplete { position: relative; max-width: 520px; }
+      .autocomplete {
+        position: relative;
+        max-width: 520px;
+      }
       .ac-input-wrap {
-        display: flex; align-items: center; gap: 10px;
-        background: var(--surface-2); border: 1px solid var(--border-strong);
-        border-radius: var(--radius); padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
+        padding: 10px 12px;
         box-shadow: var(--shadow-sm);
       }
-      .ac-input-wrap:focus-within { border-color: var(--kind-show); box-shadow: 0 0 0 3px color-mix(in srgb, var(--kind-show) 20%, transparent); }
+      .ac-input-wrap:focus-within {
+        border-color: var(--kind-show);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--kind-show) 20%, transparent);
+      }
       .ac-input {
-        flex: 1; border: 0; outline: 0; font: 400 14px Inter, sans-serif;
-        color: var(--text); background: transparent;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        font:
+          400 14px Inter,
+          sans-serif;
+        color: var(--text);
+        background: transparent;
       }
-      .ac-input::placeholder { color: var(--text-faint); }
+      .ac-input::placeholder {
+        color: var(--text-faint);
+      }
       .ac-menu {
-        margin-top: 6px; background: var(--surface-2); border: 1px solid var(--border);
-        border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden;
+        margin-top: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
       }
-      .ac-item { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px;
-        padding: 10px 12px; align-items: center; cursor: pointer; }
-      .ac-item + .ac-item { border-top: 1px solid var(--border); }
-      .ac-item:hover { background: #f9fafb; }
+      .ac-item {
+        display: grid;
+        grid-template-columns: 40px 1fr auto;
+        gap: 12px;
+        padding: 10px 12px;
+        align-items: center;
+        cursor: pointer;
+      }
+      .ac-item + .ac-item {
+        border-top: 1px solid var(--border);
+      }
+      .ac-item:hover {
+        background: #f9fafb;
+      }
       .ac-thumb {
-        width: 40px; height: 56px; border-radius: 4px; color: #fff; font-weight: 700;
-        font-size: 13px; display: flex; align-items: center; justify-content: center;
+        width: 40px;
+        height: 56px;
+        border-radius: 4px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .ac-thumb.fal { background: linear-gradient(155deg, #7f1d1d, #292524); }
-      .ac-thumb.sil { background: linear-gradient(155deg, #374151, #1f2937); }
-      .ac-thumb.sho { background: linear-gradient(155deg, #431407, #7c2d12); }
-      .ac-body .t { font-weight: 600; font-size: 14px; }
-      .ac-body .o { font-size: 12px; color: var(--text-muted); margin-top: 3px;
-        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-      .ac-year { font-size: 12px; color: var(--text-faint); }
+      .ac-thumb.fal {
+        background: linear-gradient(155deg, #7f1d1d, #292524);
+      }
+      .ac-thumb.sil {
+        background: linear-gradient(155deg, #374151, #1f2937);
+      }
+      .ac-thumb.sho {
+        background: linear-gradient(155deg, #431407, #7c2d12);
+      }
+      .ac-body .t {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .ac-body .o {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .ac-year {
+        font-size: 12px;
+        color: var(--text-faint);
+      }
 
       /* ---------- This or That ---------- */
-      .versus { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 16px; align-items: center; }
+      .versus {
+        display: grid;
+        grid-template-columns: 1fr 40px 1fr;
+        gap: 16px;
+        align-items: center;
+      }
       .vs-card {
-        background: var(--surface-2); border: 1px solid var(--border);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
         border-top: 4px solid var(--kind-show);
-        border-radius: var(--radius-lg); padding: 16px; text-align: center;
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        text-align: center;
         box-shadow: var(--shadow-sm);
       }
       .vs-poster {
-        width: 100%; max-width: 200px; margin: 0 auto 12px;
-        aspect-ratio: 2 / 3; border-radius: var(--radius);
-        color: #fff; font-weight: 700; font-size: 22px;
-        display: flex; align-items: center; justify-content: center;
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto 12px;
+        aspect-ratio: 2 / 3;
+        border-radius: var(--radius);
+        color: #fff;
+        font-weight: 700;
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .vs-title { font-weight: 600; font-size: 16px; }
-      .vs-meta  { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+      .vs-title {
+        font-weight: 600;
+        font-size: 16px;
+      }
+      .vs-meta {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
       .vs-vote {
-        margin-top: 14px; padding: 8px 18px; border-radius: var(--radius);
-        background: var(--kind-show); color: #fff; border: 0;
-        font: 500 13px Inter, sans-serif; cursor: pointer;
+        margin-top: 14px;
+        padding: 8px 18px;
+        border-radius: var(--radius);
+        background: var(--kind-show);
+        color: #fff;
+        border: 0;
+        font:
+          500 13px Inter,
+          sans-serif;
+        cursor: pointer;
       }
       .vs-divider {
-        font: 700 14px Inter; color: var(--text-faint);
-        text-align: center; letter-spacing: 0.06em;
+        font: 700 14px Inter;
+        color: var(--text-faint);
+        text-align: center;
+        letter-spacing: 0.06em;
       }
 
       /* ---------- Movies contrast section ---------- */
       .contrast {
-        background: var(--surface-2); border: 1px solid var(--border);
-        border-radius: var(--radius-lg); padding: 16px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
       }
       .contrast-head {
-        display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-        color: #92400e; font-weight: 600; font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        color: #92400e;
+        font-weight: 600;
+        font-size: 14px;
       }
 
       /* ---------- Tokens footer ---------- */
       .tokens {
-        background: var(--surface-2); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 16px; font-size: 13px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        font-size: 13px;
       }
-      .tokens h3 { margin: 0 0 10px; font-size: 14px; }
-      .swatch-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
-      .swatch { display: flex; align-items: center; gap: 8px; }
-      .swatch .chip { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
+      .tokens h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
+      .swatch-row {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .swatch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch .chip {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+      }
       .tokens code {
-        font: 500 12px ui-monospace, SFMono-Regular, Menlo, monospace;
-        background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
+        font:
+          500 12px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
       }
-      .tokens p { margin: 6px 0; color: var(--text-muted); }
+      .tokens p {
+        margin: 6px 0;
+        color: var(--text-muted);
+      }
     </style>
   </head>
   <body>
     <main>
       <!-- ================= 1. Legend banner ================= -->
       <div class="legend-banner">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-        <span><strong>Static mockup</strong> — MovieNight TV Shows UI. Illustrates the Movies↔Shows content-type differentiation.</span>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4" />
+          <path d="M12 16h.01" />
+        </svg>
+        <span
+          ><strong>Static mockup</strong> — MovieNight TV Shows UI. Illustrates the Movies↔Shows
+          content-type differentiation.</span
+        >
       </div>
 
       <!-- ================= 2. Navbar with segmented toggle ================= -->
       <section aria-label="Navbar">
-        <div class="section-head"><h2>Navbar</h2><span class="hint">Segmented toggle is always visible; nav items remain unchanged.</span></div>
+        <div class="section-head">
+          <h2>Navbar</h2>
+          <span class="hint">Segmented toggle is always visible; nav items remain unchanged.</span>
+        </div>
         <div class="navbar-wrap">
           <nav class="navbar" aria-label="Primary">
             <span class="brand"><span class="dot"></span>MovieNight</span>
@@ -291,11 +592,41 @@
             <!-- The star of the show: segmented content-type toggle -->
             <div class="segmented" role="tablist" aria-label="Content type">
               <button class="seg-btn" data-kind="movie" role="tab" aria-selected="false">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                  <line x1="7" y1="2" x2="7" y2="22" />
+                  <line x1="17" y1="2" x2="17" y2="22" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <line x1="2" y1="7" x2="7" y2="7" />
+                  <line x1="2" y1="17" x2="7" y2="17" />
+                  <line x1="17" y1="17" x2="22" y2="17" />
+                  <line x1="17" y1="7" x2="22" y2="7" />
+                </svg>
                 Movies
               </button>
               <button class="seg-btn is-active" data-kind="show" role="tab" aria-selected="true">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="7" width="20" height="15" rx="2" />
+                  <polyline points="17 2 12 7 7 2" />
+                </svg>
                 Shows
               </button>
             </div>
@@ -314,86 +645,297 @@
 
       <!-- ================= 3. Shows queue ================= -->
       <section aria-label="Shows queue">
-        <div class="section-head"><h2>Shows queue</h2><span class="hint">Drag to reorder · Left border teal = show · "Seen it" is per-user</span></div>
+        <div class="section-head">
+          <h2>Shows queue</h2>
+          <span class="hint"
+            >Drag to reorder · Left border teal = show · "Seen it" is per-user</span
+          >
+        </div>
         <div class="queue">
           <article class="row kind-show">
-            <span class="drag" aria-label="Drag to reorder"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+            <span class="drag" aria-label="Drag to reorder"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" /></svg
+            ></span>
             <div class="poster sev">SEV</div>
             <div class="meta">
-              <div class="title-line">Severance <span class="kind-chip show">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                Show</span></div>
-              <div class="meta-line">3 seasons · 27 episodes · Sci-fi Thriller · 2025<span class="progress-slot" title="Future episode progress">S · E</span></div>
+              <div class="title-line">
+                Severance
+                <span class="kind-chip show">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="2" y="7" width="20" height="15" rx="2" />
+                    <polyline points="17 2 12 7 7 2" />
+                  </svg>
+                  Show</span
+                >
+              </div>
+              <div class="meta-line">
+                3 seasons · 27 episodes · Sci-fi Thriller · 2025<span
+                  class="progress-slot"
+                  title="Future episode progress"
+                  >S · E</span
+                >
+              </div>
             </div>
-            <button class="icon-btn is-active" title="Seen it (you've watched this)" aria-pressed="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="#fff"/></svg>
+            <button
+              class="icon-btn is-active"
+              title="Seen it (you've watched this)"
+              aria-pressed="true"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" fill="#fff" />
+              </svg>
             </button>
             <button class="btn-done" title="Mark done">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               Done
             </button>
           </article>
 
           <article class="row kind-show">
-            <span class="drag"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+            <span class="drag"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" /></svg
+            ></span>
             <div class="poster bea">BR</div>
             <div class="meta">
               <div class="title-line">The Bear <span class="kind-chip show">Show</span></div>
-              <div class="meta-line">4 seasons · 40 episodes · Comedy Drama · 2025<span class="progress-slot">S · E</span></div>
+              <div class="meta-line">
+                4 seasons · 40 episodes · Comedy Drama · 2025<span class="progress-slot"
+                  >S · E</span
+                >
+              </div>
             </div>
             <button class="icon-btn" title="Mark seen">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
             </button>
-            <button class="btn-done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Done</button>
+            <button class="btn-done">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" /></svg
+              >Done
+            </button>
           </article>
 
           <article class="row kind-show">
-            <span class="drag"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+            <span class="drag"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" /></svg
+            ></span>
             <div class="poster and">AND</div>
             <div class="meta">
               <div class="title-line">Andor <span class="kind-chip show">Show</span></div>
-              <div class="meta-line">2 seasons · 24 episodes · Sci-fi · 2025<span class="progress-slot">S · E</span></div>
+              <div class="meta-line">
+                2 seasons · 24 episodes · Sci-fi · 2025<span class="progress-slot">S · E</span>
+              </div>
             </div>
-            <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            <button class="btn-done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Done</button>
+            <button class="icon-btn">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+            <button class="btn-done">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" /></svg
+              >Done
+            </button>
           </article>
 
           <article class="row kind-show">
-            <span class="drag"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+            <span class="drag"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" /></svg
+            ></span>
             <div class="poster lou">TLOU</div>
             <div class="meta">
               <div class="title-line">The Last of Us <span class="kind-chip show">Show</span></div>
-              <div class="meta-line">2 seasons · 16 episodes · Post-apocalyptic Drama · 2025<span class="progress-slot">S · E</span></div>
+              <div class="meta-line">
+                2 seasons · 16 episodes · Post-apocalyptic Drama · 2025<span class="progress-slot"
+                  >S · E</span
+                >
+              </div>
             </div>
-            <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            <button class="btn-done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Done</button>
+            <button class="icon-btn">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+            <button class="btn-done">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" /></svg
+              >Done
+            </button>
           </article>
         </div>
       </section>
 
       <!-- ================= 4. Add-show autocomplete ================= -->
       <section aria-label="Add show">
-        <div class="section-head"><h2>Add a show</h2><span class="hint">TMDB TV endpoint results, matched by year</span></div>
+        <div class="section-head">
+          <h2>Add a show</h2>
+          <span class="hint">TMDB TV endpoint results, matched by year</span>
+        </div>
         <div class="autocomplete">
           <div class="ac-input-wrap">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#6b7280"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="7" width="20" height="15" rx="2" />
+              <polyline points="17 2 12 7 7 2" />
+            </svg>
             <input class="ac-input" placeholder="Add a show…" value="Silo" />
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#0ea5e9"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
           </div>
           <div class="ac-menu" role="listbox">
             <div class="ac-item" role="option">
               <div class="ac-thumb fal">FO</div>
-              <div class="ac-body"><div class="t">Fallout</div><div class="o">Based on the video game series — survivors emerge from vaults into a scorched wasteland.</div></div>
+              <div class="ac-body">
+                <div class="t">Fallout</div>
+                <div class="o">
+                  Based on the video game series — survivors emerge from vaults into a scorched
+                  wasteland.
+                </div>
+              </div>
               <span class="ac-year">2024</span>
             </div>
-            <div class="ac-item" role="option" aria-selected="true" style="background:#f0f9ff;">
+            <div class="ac-item" role="option" aria-selected="true" style="background: #f0f9ff">
               <div class="ac-thumb sil">SI</div>
-              <div class="ac-body"><div class="t">Silo</div><div class="o">In a ruined and toxic future, thousands live in a giant silo hundreds of stories underground.</div></div>
+              <div class="ac-body">
+                <div class="t">Silo</div>
+                <div class="o">
+                  In a ruined and toxic future, thousands live in a giant silo hundreds of stories
+                  underground.
+                </div>
+              </div>
               <span class="ac-year">2023</span>
             </div>
             <div class="ac-item" role="option">
               <div class="ac-thumb sho">SH</div>
-              <div class="ac-body"><div class="t">Shōgun</div><div class="o">A shipwrecked English pilot navigates political intrigue in feudal Japan.</div></div>
+              <div class="ac-body">
+                <div class="t">Shōgun</div>
+                <div class="o">
+                  A shipwrecked English pilot navigates political intrigue in feudal Japan.
+                </div>
+              </div>
               <span class="ac-year">2024</span>
             </div>
           </div>
@@ -402,7 +944,10 @@
 
       <!-- ================= 5. This or That (shows) ================= -->
       <section aria-label="This or That, shows">
-        <div class="section-head"><h2>This or That · Shows</h2><span class="hint">Pairwise Elo ranking, teal-accented cards</span></div>
+        <div class="section-head">
+          <h2>This or That · Shows</h2>
+          <span class="hint">Pairwise Elo ranking, teal-accented cards</span>
+        </div>
         <div class="versus">
           <article class="vs-card">
             <div class="vs-poster sev">SEV</div>
@@ -422,32 +967,121 @@
 
       <!-- ================= 6. Movies contrast ================= -->
       <section aria-label="Movies contrast">
-        <div class="section-head"><h2>Movies view (for contrast)</h2><span class="hint">Same layout, amber accent, film chip — no ambiguity</span></div>
+        <div class="section-head">
+          <h2>Movies view (for contrast)</h2>
+          <span class="hint">Same layout, amber accent, film chip — no ambiguity</span>
+        </div>
         <div class="contrast">
           <div class="contrast-head">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+              <line x1="7" y1="2" x2="7" y2="22" />
+              <line x1="17" y1="2" x2="17" y2="22" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <line x1="2" y1="7" x2="7" y2="7" />
+              <line x1="2" y1="17" x2="7" y2="17" />
+              <line x1="17" y1="17" x2="22" y2="17" />
+              <line x1="17" y1="7" x2="22" y2="7" />
+            </svg>
             Movies · warm amber accent
           </div>
           <div class="queue">
             <article class="row kind-movie">
-              <span class="drag"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+              <span class="drag"
+                ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="6" r="1.5" />
+                  <circle cx="15" cy="6" r="1.5" />
+                  <circle cx="9" cy="12" r="1.5" />
+                  <circle cx="15" cy="12" r="1.5" />
+                  <circle cx="9" cy="18" r="1.5" />
+                  <circle cx="15" cy="18" r="1.5" /></svg
+              ></span>
               <div class="poster inc">IN</div>
               <div class="meta">
                 <div class="title-line">Inception <span class="kind-chip movie">Movie</span></div>
                 <div class="meta-line">148 min · Sci-fi · 2010</div>
               </div>
-              <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              <button class="btn-done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Done</button>
+              <button class="icon-btn">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <button class="btn-done">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" /></svg
+                >Done
+              </button>
             </article>
             <article class="row kind-movie">
-              <span class="drag"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+              <span class="drag"
+                ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="6" r="1.5" />
+                  <circle cx="15" cy="6" r="1.5" />
+                  <circle cx="9" cy="12" r="1.5" />
+                  <circle cx="15" cy="12" r="1.5" />
+                  <circle cx="9" cy="18" r="1.5" />
+                  <circle cx="15" cy="18" r="1.5" /></svg
+              ></span>
               <div class="poster dun">DP2</div>
               <div class="meta">
-                <div class="title-line">Dune: Part Two <span class="kind-chip movie">Movie</span></div>
+                <div class="title-line">
+                  Dune: Part Two <span class="kind-chip movie">Movie</span>
+                </div>
                 <div class="meta-line">166 min · Sci-fi · 2024</div>
               </div>
-              <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              <button class="btn-done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Done</button>
+              <button class="icon-btn">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <button class="btn-done">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" /></svg
+                >Done
+              </button>
             </article>
           </div>
         </div>
@@ -458,14 +1092,40 @@
         <div class="section-head"><h2>Design tokens & rationale</h2></div>
         <div class="tokens">
           <div class="swatch-row">
-            <div class="swatch"><span class="chip" style="background:#0ea5e9;"></span><code>--kind-show: #0EA5E9</code> · teal</div>
-            <div class="swatch"><span class="chip" style="background:#f59e0b;"></span><code>--kind-movie: #F59E0B</code> · amber</div>
-            <div class="swatch"><span class="chip" style="background:#e0f2fe; border-color:#0ea5e9;"></span><code>--kind-show-tint</code></div>
-            <div class="swatch"><span class="chip" style="background:#fef3c7; border-color:#f59e0b;"></span><code>--kind-movie-tint</code></div>
+            <div class="swatch">
+              <span class="chip" style="background: #0ea5e9"></span
+              ><code>--kind-show: #0EA5E9</code> · teal
+            </div>
+            <div class="swatch">
+              <span class="chip" style="background: #f59e0b"></span
+              ><code>--kind-movie: #F59E0B</code> · amber
+            </div>
+            <div class="swatch">
+              <span class="chip" style="background: #e0f2fe; border-color: #0ea5e9"></span
+              ><code>--kind-show-tint</code>
+            </div>
+            <div class="swatch">
+              <span class="chip" style="background: #fef3c7; border-color: #f59e0b"></span
+              ><code>--kind-movie-tint</code>
+            </div>
           </div>
-          <p><strong>Icons</strong> — Lucide-style stroke icons: <code>tv</code> for shows, <code>film</code> for movies. Every colored surface (chip, row border, segmented button) is paired with an icon and text label, so color is never the sole cue (WCAG 1.4.1).</p>
-          <p><strong>Why segmented vs tabs?</strong> Tabs suggest peer views of the <em>same</em> data; a segmented toggle communicates a <em>content-type filter</em> that cascades through every downstream view (Queue, This or That, Combined, History). One selection, global scope — matches the mental model users already have from Netflix / Plex.</p>
-          <p><strong>Reserved space</strong> — the dashed <code>S · E</code> pill in each show row is a placeholder for the forthcoming episode-progress chip (e.g. <code>S2E4</code>). Layout is stable today so shipping progress later won't reflow rows.</p>
+          <p>
+            <strong>Icons</strong> — Lucide-style stroke icons: <code>tv</code> for shows,
+            <code>film</code> for movies. Every colored surface (chip, row border, segmented button)
+            is paired with an icon and text label, so color is never the sole cue (WCAG 1.4.1).
+          </p>
+          <p>
+            <strong>Why segmented vs tabs?</strong> Tabs suggest peer views of the
+            <em>same</em> data; a segmented toggle communicates a <em>content-type filter</em> that
+            cascades through every downstream view (Queue, This or That, Combined, History). One
+            selection, global scope — matches the mental model users already have from Netflix /
+            Plex.
+          </p>
+          <p>
+            <strong>Reserved space</strong> — the dashed <code>S · E</code> pill in each show row is
+            a placeholder for the forthcoming episode-progress chip (e.g. <code>S2E4</code>). Layout
+            is stable today so shipping progress later won't reflow rows.
+          </p>
         </div>
       </section>
     </main>
