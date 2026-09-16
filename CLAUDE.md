@@ -1,119 +1,178 @@
 # MovieNight — Agent Context
 
-A full-stack movie suggestion app: React + TypeScript frontend, Apollo GraphQL backend, PostgreSQL database. Containerized with Docker Compose.
+A full-stack movie suggestion app: React + TypeScript frontend, Apollo GraphQL backend, PostgreSQL
+database. Containerized with Docker Compose. Movies are ranked by pairwise Elo, shared with
+"connections", and exported to Plex via MDBList + Kometa.
+
+> **Last verified:** 2026-09-15 against branch `60a7-tv-shows-ui`. If something here contradicts the
+> code, trust the code and fix this file.
 
 ## Quick orientation
 
-| Layer          | Location              | Key files                                                                              |
-| -------------- | --------------------- | -------------------------------------------------------------------------------------- |
-| Frontend       | `src/`                | `App.tsx`, `src/components/`, `src/graphql/queries.ts`, `src/contexts/AuthContext.tsx` |
-| Backend        | `backend/src/`        | `index.ts`, `schema.ts`, `resolvers.ts`, `db.ts`, `auth.ts`, `scheduler.ts`            |
-| DB migrations  | `backend/migrations/` | numbered JS files run by node-pg-migrate                                               |
-| Docker         | root                  | `docker-compose.yml`, `Dockerfile`, `nginx.conf`                                       |
-| Backend Docker | `backend/`            | `backend/Dockerfile`                                                                   |
+| Layer          | Location              | Key files                                                                                |
+| -------------- | --------------------- | ---------------------------------------------------------------------------------------- |
+| Frontend       | `src/`                | `App.tsx`, `src/components/`, `src/graphql/queries.ts`, `src/contexts/AuthContext.tsx`   |
+| Backend        | `backend/src/`        | `index.ts`, `schema.ts`, `resolvers.ts`, `db.ts`, `auth.ts`, `elo.ts`, `kometaExport.ts` |
+| DB migrations  | `backend/migrations/` | 33 numbered JS files run by node-pg-migrate                                              |
+| Docker         | root                  | `docker-compose.yml`, `Dockerfile`, `nginx.conf`                                         |
+| Backend Docker | `backend/`            | `backend/Dockerfile`                                                                     |
+| Specs          | `specs/`              | `tv-shows.spec.md`, `push-notifications.spec.md`, `this-or-that.spec.md`, `mockups/`     |
 
 ## Running the project
 
 ```bash
-# Start everything (recommended)
-docker-compose up -d
-# Frontend → http://localhost:3000
-# GraphQL  → http://localhost:4000/graphql
-# Postgres → localhost:5432
+docker-compose up -d                      # Frontend :3000, GraphQL :4000/graphql, Postgres :5432
+npm install && npm start                  # frontend without Docker
+cd backend && npm install && npm run dev  # backend without Docker (needs Postgres)
 
-# Local dev without Docker
-npm install && npm start            # frontend
-cd backend && npm install && npm run dev  # backend (needs Postgres separately)
+npm run build                             # frontend (CRA)
+cd backend && npm run build               # backend (tsc)
 
-# Build
-npm run build                       # frontend (CRA)
-cd backend && npm run build         # backend (tsc)
-
-# Migrations (run automatically on backend startup)
-cd backend && npm run migrate:up
+cd backend && npm run migrate:up          # migrations also run automatically on backend startup
 cd backend && npm run migrate:down
 cd backend && npm run migrate:create <name>
 ```
 
 ## Architecture
 
-- **Frontend**: React 18 + TypeScript, Apollo Client 3, MUI Joy, Styled Components, @dnd-kit (drag-and-drop)
-- **Backend**: Node 18/20, Apollo Server 4 + Express, pg (no ORM), bcrypt + JWT
-- **Database**: PostgreSQL 15
-- **Auth**: JWT (7-day expiry) stored in localStorage, sent as `Authorization: Bearer <token>`. Context injected per-request in `backend/src/index.ts`.
-- **Ranking**: Movies ordered by `rank NUMERIC(20,10)` using fractional indexing; new movies appended at `MAX(rank) + 1`.
-- **Polling**: `GET_MOVIES` query polls every 5 s (`pollInterval: 5000`).
-- **Production gating**: Kometa export/scheduling and certain mutations are blocked unless `NODE_ENV === 'production'`. `appInfo.isProduction` query exposes this to the frontend.
+- **Frontend**: React 18 + TypeScript, Apollo Client 3, MUI Joy (dark mode only), Emotion,
+  `lucide-react` icons, `md5` for gravatar. CRA (`react-scripts`).
+- **Backend**: Node 18/20, Apollo Server 4 + Express, `pg` (no ORM), bcrypt + JWT, `web-push`,
+  `nodemailer`.
+- **Database**: PostgreSQL 15.
+- **Auth**: JWT (7-day expiry) in localStorage, sent as `Authorization: Bearer <token>`. Context is
+  injected per-request in `backend/src/index.ts`, which **re-validates the JWT against the DB on
+  every request** so demoted or deactivated users lose access immediately.
+- **Ranking**: pairwise Elo. `user_movie_elo` holds per-user ratings; `movies.elo_rank` caches the
+  cross-user average. See "Gotchas" about the dead `movies.rank` column.
+- **Polling**: the app polls rather than subscribing — `GET_MOVIES` every 5 s, connection/inbox
+  queries every 10 s, `soloMovies` every 15 s. There is no GraphQL subscription support.
+- **Production gating**: Kometa file export and the scheduler require `NODE_ENV === 'production'`.
+  `appInfo.isProduction` exposes this to the frontend. Note `syncMdblist` is **not** production-gated
+  — it runs in dev against `[DEV] `-prefixed lists.
 
 ## GraphQL schema
 
+Authoritative source: `backend/src/schema.ts`. All client operations live in `src/graphql/queries.ts`.
+
 ```graphql
 # Queries
-appInfo: AppInfo                                   # isProduction flag
-movies: [Movie!]!                                  # unwatched only (watched_at IS NULL), ordered by rank
-movie(id: ID!): Movie
-me: User                                           # requires auth
-users: [User!]!                                    # admin only
-user(id: ID!): User                                # admin only
-searchTmdb(query: String!): [TmdbMovie!]!          # TMDB search (needs TMDB_API_KEY)
-auditLogs(limit: Int, offset: Int): [AuditLog!]!  # admin only, max 500
-loginHistory(userId: ID, limit: Int): [LoginHistory!]!  # admin only, max 500
-kometaSchedule: KometaSchedule                     # admin only
-tags: [Tag!]!                                          # all tag definitions (public)
-watchedMovies(limit: Int, offset: Int): [Movie!]!      # requires auth, watched history
-notificationPreferences: [NotificationPreference!]!    # requires auth; merges defaults with stored prefs
+appInfo: AppInfo!                                      # isProduction, vapidPublicKey, quickLoginUsers
+movies: [Movie!]!                                      # unwatched only; personal Elo order when authed
+movie(id: ID!): Movie                                  # public
+me: User
+users: [User!]!                                        # admin only
+user(id: ID!): User                                    # admin only
+auditLogs(limit: Int, offset: Int): [AuditLog!]!       # admin only
+loginHistory(userId: ID, limit: Int): [LoginHistory!]! # admin only
+searchTmdb(query: String!): [TmdbMovie!]!              # needs TMDB_API_KEY
+kometaSchedule: KometaSchedule!                        # admin only
+thisOrThat(excludeIds: [ID!]): ThisOrThatPair!         # pairwise comparison
+myRankings: [MovieRanking!]!
+searchUsers(query: String!): [ConnectionUser!]!
+myConnections: [UserConnection!]!
+pendingConnectionRequests: [UserConnection!]!
+combinedList(connectionId: ID!): CombinedListResult!
+newMoviesFromConnections: [PendingReviewMovie!]!
+soloMovies: [Movie!]!
+passedMovieIds: [ID!]!
+tags: [Tag!]!
+watchedMovies(limit: Int, offset: Int): [Movie!]!      # limit clamped 1..200, default 50
+notificationPreferences: [NotificationPreference!]!
 
 # Mutations
-addMovie(title: String!, tmdb_id: Int): Movie!         # requires auth
-matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!  # requires auth, owner or admin
-markWatched(id: ID!): Movie!                            # requires auth, owner or admin ("Done")
-deleteMovie(id: ID!): Boolean!                          # admin only
-reorderMovie(id: ID!, afterId: ID): Movie!             # admin only (afterId=null → move to top)
-setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!  # requires auth
-removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!  # requires auth
-unwatchMovie(id: ID!): Movie!                          # requires auth, owner or admin (requeue)
-exportKometa(collectionName: String): KometaExportResult!  # admin + production only
-updateKometaSchedule(...): KometaSchedule!             # admin + production only
+addMovie(title: String!, tmdb_id: Int): Movie!
+matchMovie(id: ID!, tmdb_id: Int!, title: String!): Movie!
+markWatched(id: ID!): Movie!                           # owner, admin, OR accepted connection of owner
+unwatchMovie(id: ID!): Movie!                          # owner or admin only (deliberately stricter)
+deleteMovie(id: ID!): Boolean!                         # admin only
+recordComparison(winnerId: ID!, loserId: ID!): ComparisonResult!
+resetMovieComparisons(movieId: ID!): Boolean!
+setMovieInterest(movieId: ID!, interested: Boolean!): SetInterestResult!
+setMovieTag(movieId: ID!, tagSlug: String!, value: String): MovieUserTag!
+removeMovieTag(movieId: ID!, tagSlug: String!): Boolean!
+sendConnectionRequest(addresseeId: ID!): UserConnection!
+respondToConnectionRequest(connectionId: ID!, accept: Boolean!): UserConnection!
+removeConnection(connectionId: ID!): Boolean!
+exportKometa: KometaExportResult!                      # admin + production
+syncMdblist: KometaExportResult!                       # admin, any environment
+updateKometaSchedule(enabled: Boolean, frequency: String, dailyTime: String): KometaSchedule!
+setMdblistApiKey(apiKey: String!): KometaSchedule!
 importFromLetterboxd(url: String!): ImportResult!      # admin only
-login(username: String!, password: String!): AuthPayload!
-createUser / updateUser / deleteUser                   # admin only
-subscribePush(subscription: PushSubscriptionInput!): Boolean!    # requires auth; upsert on endpoint
-unsubscribePush(endpoint: String!): Boolean!                     # requires auth; scoped to user
-updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!  # requires auth
+login / createUser / updateUser / deleteUser
+requestPasswordReset(email: String!) / resetPassword(token: String!, newPassword: String!)
+subscribePush(subscription: PushSubscriptionInput!): Boolean!   # rate-limited 20/hr/user
+unsubscribePush(endpoint: String!): Boolean!
+updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!
+seedMovies: Int!                                       # admin, blocked in production
+backfillTmdbData: Int!                                 # admin
 ```
 
-All GraphQL operations are defined in `src/graphql/queries.ts`.
+**There is no `reorderMovie`.** Drag-to-rank was removed when Elo landed.
+
+## Backend source files
+
+| File                | Purpose                                                                      |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `index.ts`          | Bootstrap, Express, CORS, JWT context + per-request DB revalidation          |
+| `schema.ts`         | GraphQL SDL (`typeDefs`)                                                     |
+| `resolvers.ts`      | All resolvers (~2400 lines) + field resolvers for timestamp conversion       |
+| `db.ts`             | `pg.Pool`, `initializeDatabase()` — runs migrations, seeds admin + test user |
+| `auth.ts`           | bcrypt hashing, JWT generate/verify, `getTokenFromHeader`                    |
+| `elo.ts`            | Elo maths, `applyComparison`, `updateGlobalEloRank`                          |
+| `pairSelection.ts`  | Three-tier pair selection (pure, no DB)                                      |
+| `tmdb.ts`           | Kind-dispatched TMDB adapter (movie + show)                                  |
+| `contentActions.ts` | Cross-kind helpers: `logAudit`, `triggerMdblistSyncInBackground`, kind maps  |
+| `kometaExport.ts`   | MDBList list sync, Kometa YAML, Plex reconciler                              |
+| `mdblist.ts`        | MDBList API client                                                           |
+| `plexClient.ts`     | Plex API client (section resolve, collections by label, delete)              |
+| `push.ts`           | Web Push (VAPID), subscription pruning on 404/410                            |
+| `scheduler.ts`      | Scheduled Kometa export (production only)                                    |
+| `email.ts`          | nodemailer transport for password resets                                     |
 
 ## Component structure
 
 ```
 src/components/
-├── admin/
-│   ├── AdminPanel.tsx       # tabs: Users, Audit Logs, Login History, Kometa, Letterboxd
-│   ├── UserManagement.tsx   # CRUD UI for users
-│   ├── AuditLog.tsx         # paginated audit log viewer
-│   ├── LoginHistory.tsx     # login attempts with IP/user-agent
-│   ├── KometaExport.tsx     # manual export + scheduler config UI
-│   └── LetterboxdImport.tsx # URL input form, shows imported/skipped/tmdb_matched counts
-├── auth/
-│   └── Login.tsx            # username/password form
-├── common/
-│   ├── Navbar.tsx           # Movies/This or That/Combined/History/Admin navigation, Logout
-│   └── Footer.tsx           # deploy timestamp, git branch/hash
-└── home/
-    ├── Homepage.tsx          # movie list, Add Movie, "Done" (mark watched), "Seen it" toggle
-    ├── WatchHistory.tsx      # paginated watched history + "Watch again" requeue
-    └── TmdbMatchFlow.tsx     # TMDB search + match UI for unmatched movies
+├── admin/      AdminPanel, UserManagement, AuditLog, LoginHistory, KometaExport, LetterboxdImport
+├── auth/       Login, ForgotPassword, ResetPassword
+├── common/     Navbar, Footer, ConfirmDialog, OnboardingGuide, Poster
+├── home/       Homepage, MovieRow, MovieCard, AddMovieForm, WatchHistory, WatchHistoryCard,
+│               ThisOrThat, MovieCompareCard, ThisOrThatBanner, CombinedList, ConnectionBanners,
+│               ConnectionInboxModal, ViewSelector, TmdbMatchFlow
+└── settings/   NotificationSettings
 ```
+
+`src/contexts/` — `AuthContext`, `ToastContext`. `src/hooks/useConfirm.ts`. `src/models/` —
+`Movies.ts`, `User.ts`. `src/utils/` — `gravatar`, `pushClient`, `textUtils`, `useDebounce`.
+
+**Navigation has no router.** `App.tsx` holds `type ViewName = 'movies' | 'this-or-that' |
+'combined-list' | 'history' | 'admin'` in `useState` and switches on it. There are no URLs, no deep
+links and no browser history integration. `ViewName` is duplicated verbatim in `Navbar.tsx`.
+`nginx.conf` does have an SPA fallback, so adding URL routing needs no infra change.
+
+**"Combined" in the navbar is the Connections manager** (`CombinedList.tsx`), not a ranked list. The
+actual combined ranking table is inside `Homepage.tsx`, reached via `ViewSelector`.
 
 ## Key conventions
 
-- **No ORM** — raw SQL via `pg` pool (`backend/src/db.ts`). Use parameterised queries (`$1, $2, …`).
-- **Authorization** — check `context.user` (authenticated) or `context.user?.isAdmin` (admin) in resolvers; throw `GraphQLError` with appropriate `extensions.code`.
-- **Field resolvers** — timestamps from Postgres are converted to ISO 8601 in `Movie.date_submitted`, `Movie.watched_at`, `User.created_at/updated_at/last_login_at`, `AuditLog.created_at`, `LoginHistory.created_at`.
-- **Movie.requester** field resolved from `requested_by` FK (display_name or username), falls back to `'Unknown'`.
-- **Frontend state** — auth state lives in `AuthContext`; movie/user data comes from Apollo cache.
-- **Env vars** — frontend uses `REACT_APP_*`; backend uses bare names.
+- **No ORM** — raw SQL via `pg`. Always parameterise values (`$1, $2, …`); never interpolate user
+  input. The only interpolated identifiers are kind→table names from closed `Record<Kind, string>`
+  maps in `contentActions.ts`.
+- **Authorization** — check `context.user` (authed) or `context.user?.isAdmin` (admin) in resolvers;
+  throw `GraphQLError` with `extensions.code` (`UNAUTHENTICATED`, `FORBIDDEN`, `BAD_USER_INPUT`,
+  `NOT_FOUND`, `TOO_MANY_REQUESTS`, `INTERNAL_SERVER_ERROR`).
+- **Field resolvers** convert Postgres timestamps to ISO 8601 (`Movie.date_submitted`,
+  `Movie.watched_at`, `User.*_at`, `AuditLog.created_at`, `LoginHistory.created_at`).
+- **`Movie.requester`** resolves from the `requested_by` FK (`display_name || username`), falling
+  back to the legacy `movies.requester` varchar, then `'Unknown'`.
+- **Posters** are built as `https://image.tmdb.org/t/p/w92${poster_path}` in the `Movie.poster_url`
+  field resolver; This-or-That cards build their own at `w342`.
+- **Best-effort side effects** — `logAudit` and `triggerMdblistSyncInBackground` swallow their own
+  errors so a failed audit or sync never fails a user-visible mutation.
+- **Frontend state** — auth in `AuthContext`; everything else from the Apollo cache. The cache has no
+  `typePolicies`, so mutations rely on `refetchQueries`.
+- **Env vars** — frontend `REACT_APP_*`; backend bare names.
 
 ## UI style guide
 
@@ -130,124 +189,145 @@ Avoid `Requeue`, `Mark watched`, `Mark complete` as user-facing copy.
 
 ### Confirmation severity (`useConfirm` / `ConfirmDialog`)
 
-| Severity | `confirmColor` | When to use                                                                                                           |
-| -------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Danger   | `'danger'`     | Permanent destructive actions: delete movie/user, remove connection, seed (deletes existing data), reset comparisons. |
-| Warning  | `'warning'`    | Recoverable but disruptive actions.                                                                                   |
-| Neutral  | `'primary'`    | Reversible state changes (e.g. requeue from history).                                                                 |
-| Success  | `'success'`    | Affirmative completion (e.g. mark a movie as done).                                                                   |
+| Severity | `confirmColor` | When to use                                                                       |
+| -------- | -------------- | --------------------------------------------------------------------------------- |
+| Danger   | `'danger'`     | Permanent destructive actions: delete movie/user, remove connection, seed, reset. |
+| Warning  | `'warning'`    | Recoverable but disruptive actions.                                               |
+| Neutral  | `'primary'`    | Reversible state changes (e.g. requeue from history).                             |
+| Success  | `'success'`    | Affirmative completion (e.g. mark a movie as done).                               |
 
 Danger and warning confirmations render a leading icon for severity reinforcement.
 
 ### Styling
 
-- Prefer MUI `sx` + theme tokens for Joy components.
-- Use CSS variables (`--mn-*` from `index.css`) only for raw HTML elements (`<table>`, `<th>`, `<td>`, `<a>`) and global styles.
-- Keep table cell/header styles in module-level `React.CSSProperties` constants — avoid per-element inline literals.
+- Prefer MUI `sx` + theme tokens for Joy components. The theme (`src/theme.ts`) defines a **dark
+  scheme only**, with a gold `primary` ramp; `index.tsx` pins `defaultMode="dark"`.
+- Use CSS variables (`--mn-*` from `index.css`) only for raw HTML elements and global styles.
+- Tables are raw `<table>/<tr>/<td>` with inline styles, **not** Joy `<Table>` — which means the
+  `JoyTable` override in `theme.ts` is effectively dead code.
+- Keep table cell/header styles in module-level `React.CSSProperties` constants.
 
-## Database schema (current)
+## Database schema (current — 20 tables)
 
-| Table                           | Notable columns                                                                                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `movies`                        | id, title, requester (text), requested_by (FK→users), date_submitted, rank (NUMERIC 20,10), tmdb_id (nullable int), watched_at (nullable timestamptz) |
-| `users`                         | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                          |
-| `audit_logs`                    | id, actor_id (FK→users), action, target_type, target_id, metadata (JSONB), ip_address, created_at                                                     |
-| `login_history`                 | id, user_id (FK→users), ip_address, user_agent, succeeded, created_at                                                                                 |
-| `kometa_schedule`               | id, enabled, frequency, daily_time, collection_name, last_run_at, updated_at                                                                          |
-| `tags`                          | id, slug (unique, varchar 50), label (varchar 100), value_type ('boolean'\|'number'\|'text'), created_at                                              |
-| `movie_user_tags`               | id, movie_id (FK→movies), user_id (FK→users), tag_id (FK→tags), value (nullable text), created_at, updated_at — UNIQUE(movie_id, user_id, tag_id)     |
-| `push_subscriptions`            | id, user_id (FK→users CASCADE), endpoint (TEXT UNIQUE), p256dh, auth, user_agent, created_at, last_used_at, failure_count                             |
-| `user_notification_preferences` | id, user_id (FK→users CASCADE), event_type (varchar 64), enabled (bool default true), created_at, updated_at — UNIQUE(user_id, event_type)            |
+| Table                           | Notable columns                                                                                                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `movies`                        | id, title, requester (legacy, nullable), requested_by→users, date_submitted, rank (**dead**), elo_rank, tmdb_id, watched_at, poster_path, release_year, director, cast_list[], genre_tags[], tmdb_fetched_at |
+| `users`                         | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                                                                                 |
+| `audit_logs`                    | id, actor_id→users, action, target_type, target_id, metadata (jsonb), ip_address, created_at                                                                                                                 |
+| `login_history`                 | id, user_id→users, ip_address, user_agent, succeeded, created_at                                                                                                                                             |
+| `movie_comparisons`             | id, user_id, winner_id→movies, loser_id→movies, created_at — append-only pick log                                                                                                                            |
+| `user_movie_elo`                | PK (user_id, movie_id), elo_rating numeric(10,4) default 1000, comparison_count, updated_at                                                                                                                  |
+| `movie_interest`                | PK (user_id, movie_id), interested bool — the "pass/skip" flag                                                                                                                                               |
+| `user_connections`              | id, requester_id, addressee_id, status (pending\|accepted\|rejected), CHECK no-self, UNIQUE pair                                                                                                             |
+| `tags`                          | id, slug (unique), label, value_type (boolean\|number\|text) — **shared across kinds**; seeds `seen`                                                                                                         |
+| `movie_user_tags`               | id, movie_id, user_id, tag_id, value, UNIQUE (movie_id, user_id, tag_id)                                                                                                                                     |
+| `password_reset_tokens`         | id, user_id, token_hash (unique), expires_at, used_at                                                                                                                                                        |
+| `push_subscriptions`            | id, user_id, endpoint (unique), p256dh, auth, user_agent, failure_count, last_used_at — **p256dh/auth are secrets, never log**                                                                               |
+| `user_notification_preferences` | id, user_id, event_type, enabled, UNIQUE (user_id, event_type) — absent row means enabled                                                                                                                    |
+| `kometa_schedule`               | **singleton, always `WHERE id = 1`**: enabled, frequency, daily_time, last_run_at, mdblist_api_key (+ 3 dead columns)                                                                                        |
+| `kometa_mdblist_lists`          | list_type (combined\|solo), ref_id (polymorphic, no FK), list_name, mdblist_list_id/url, environment, kind — UNIQUE (list_type, ref_id, environment, kind)                                                   |
+| `shows`                         | Mirrors movies minus rank/requester; adds first_air_year, created_by[], networks[], number_of_seasons, number_of_episodes, status                                                                            |
+| `show_comparisons`              | Mirrors movie_comparisons against `shows`                                                                                                                                                                    |
+| `user_show_elo`                 | PK (user_id, show_id)                                                                                                                                                                                        |
+| `show_interest`                 | PK (user_id, show_id)                                                                                                                                                                                        |
+| `show_user_tags`                | UNIQUE (show_id, user_id, tag_id), FK to shared `tags`                                                                                                                                                       |
+
+The five `show*` tables are **schema-only** — created by PR #102, with no resolver reading or writing
+them yet. Nothing can create or list a show. See `specs/tv-shows.spec.md`.
+
+Dropped along the way (do not resurrect): `movie_votes`, `user_movie_rankings`.
 
 ## Audit log actions
 
-`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_DELETE`, `MOVIE_REORDER`, `MOVIE_TMDB_MATCH`, `MOVIE_INTEREST_SET`, `MOVIE_TAG_SET`, `MOVIE_TAG_REMOVE`, `MOVIE_UNWATCH`, `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `MDBLIST_SYNC`, `MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`, `PUSH_SUBSCRIBE`, `PUSH_UNSUBSCRIBE`, `NOTIFICATION_PREFS_UPDATE`
+`MOVIE_ADD`, `MOVIE_WATCHED`, `MOVIE_UNWATCH`, `MOVIE_DELETE`, `MOVIE_TMDB_MATCH`,
+`MOVIE_INTEREST_SET`, `MOVIE_TAG_SET`, `MOVIE_TAG_REMOVE`, `MOVIE_COMPARISON`,
+`MOVIE_COMPARISON_RESET`, `MOVIE_SEED`, `CONNECTION_REQUEST`, `CONNECTION_ACCEPT`,
+`CONNECTION_AUTO_ACCEPT`, `CONNECTION_REJECT`, `CONNECTION_REMOVE`, `LOGIN_SUCCESS`,
+`PASSWORD_RESET_REQUEST`, `PASSWORD_RESET_SUCCESS`, `PASSWORD_RESET_FAILURE`, `USER_CREATE`,
+`USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `MDBLIST_SYNC`,
+`MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`, `PUSH_SUBSCRIBE`, `PUSH_UNSUBSCRIBE`,
+`NOTIFICATION_PREFS_UPDATE`.
+
+Failed logins are recorded in `login_history` (`succeeded = false`), **not** as an audit action.
 
 ## Key features
 
+### Elo ranking ("This or That")
+
+`thisOrThat` returns a pair chosen by a three-tier algorithm (`pairSelection.ts`: inverse-frequency
+first pick, then seeded peer / Elo-proximity). `recordComparison` writes `movie_comparisons`, upserts
+both `user_movie_elo` rows (K = 32, base 1000), and refreshes `movies.elo_rank` to the cross-user
+average. Full design: `specs/this-or-that.spec.md`.
+
+### Connections, interest and the combined list
+
+Users connect pairwise (`user_connections`). `newMoviesFromConnections` surfaces a connection's
+movies you haven't triaged; `setMovieInterest` records a thumbs-up/pass in `movie_interest`; passed
+movies drop out of your queue. `combinedList(connectionId)` merges both users' Elo into a shared
+ranking, flagging `bothRated`. `soloMovies` are movies no connection is interested in.
+
 ### Watched tracking ("Done")
 
-`markWatched(id)` sets `watched_at = NOW()`. `movies` query returns only `WHERE watched_at IS NULL`. UI labels this action "Done" and confirms with "It'll move to your watch history."
-
-`unwatchMovie(id)` clears `watched_at` and sets `rank = MAX(rank)+1`, putting the movie back at the end of the queue ("Watch again" in the History view).
-
-`watchedMovies(limit, offset)` returns movies with `watched_at IS NOT NULL` for the History view.
+`markWatched` sets `watched_at = NOW()`; the `movies` query returns only `watched_at IS NULL`.
+`unwatchMovie` clears it. Both trigger a background MDBList re-sync so Plex reflects the change.
 
 ### Per-user tag system
 
-Generic, extensible tagging framework for movies. Tags are per-user (Alice can tag Inception as "seen" independently of Bob).
-
-**Tables**: `tags` (definitions) + `movie_user_tags` (per-user, per-movie instances). See migration `1746200000000_create-tags-system.js`.
-
-**Tag types**: `boolean` (tag exists = true), `number`, `text` (value stored in `movie_user_tags.value`).
-
-**Seeded tags**: `seen` ("Seen it") — indicates a user has personally watched the movie before.
-
-**Adding new tags**: `INSERT INTO tags (slug, label, value_type) VALUES ('podcast-ep', 'Podcast Episode', 'number');`
-
-**GraphQL**: `setMovieTag(movieId, tagSlug, value?)` upserts, `removeMovieTag(movieId, tagSlug)` deletes. `Movie.myTags` returns current user's tags; `Movie.userTags` returns all users' tags.
-
-**Frontend**: Eye icon toggle on movie rows for "Seen it". Shows count of users who've seen the movie + tooltip with names. "I've seen this" button appears after adding a movie.
-
-### Drag-and-drop reordering
-
-`reorderMovie(id, afterId?)` uses fractional indexing (midpoint between neighbors). `afterId=null` moves movie to top (`rank / 2`). Frontend uses `@dnd-kit/core` + `@dnd-kit/sortable`.
+`tags` (definitions, shared across kinds) + `movie_user_tags` (per-user instances). Boolean tags are
+represented by row existence. Only `seen` ("Seen it") is seeded. Add a tag with
+`INSERT INTO tags (slug, label, value_type) VALUES ('podcast-ep', 'Podcast Episode', 'number');` —
+no migration or code change needed.
 
 ### TMDB integration
 
-`searchTmdb(query)` hits TMDB API (requires `TMDB_API_KEY`). `matchMovie(id, tmdb_id, title)` links a movie to its TMDB entry. `addMovie` accepts optional `tmdb_id`.
+`backend/src/tmdb.ts` is a kind-dispatched adapter (`searchTmdb`, `fetchTmdbMetadata`,
+`fetchAndStoreTmdbData`) handling both `/movie` and `/tv` endpoints, including the keywords quirk
+(`.keywords` for movies, `.results` for TV). Metadata fetches are fire-and-forget after add/match.
+`backfillTmdbData` retries rows where `tmdb_fetched_at IS NULL`.
 
-### Kometa/Plex integration (production-only)
+> `importFromLetterboxd` bypasses this adapter and calls the TMDB search endpoint directly.
 
-`exportKometa` writes a YAML collection file to `KOMETA_COLLECTIONS_PATH` and optionally POSTs to `KOMETA_TRIGGER_URL`. `scheduler.ts` runs automated exports (hourly or daily); `initScheduler()` called on startup only when `NODE_ENV === 'production'`.
+### MDBList → Kometa → Plex export
 
-Every emitted collection carries `label: MovieNight`. After writing the YAML, `runKometaExport` reconciles Plex (via `backend/src/plexClient.ts`): fetches all Plex collections with that label from the movies section and issues `DELETE /library/collections/{ratingKey}` for any whose title is no longer in the current export — cleaning up orphans left behind when a connection is removed or a `namePrefix` changes. Reconcile is skipped silently if `PLEX_URL`/`PLEX_TOKEN` are unset or Plex is unreachable; individual delete failures are logged and don't fail the export.
+`runKometaExport` builds one MDBList list per accepted connection (`Alice & Bob`) and per user
+(`Just Alice`), prefixed `[DEV] ` outside production, syncs the tmdb_ids to MDBList, writes
+`movienight.yml` for Kometa, then reconciles Plex by **deleting any collection carrying the
+`MovieNight` label that isn't in the current run**. Lists are persisted in `kometa_mdblist_lists`.
+`scheduler.ts` runs this hourly/daily in production only.
 
-### Letterboxd import
+### Web Push
 
-`importFromLetterboxd(url)` fetches the public Letterboxd list, parses film titles from HTML (data-item-name), skips duplicates (case-insensitive), optionally matches to TMDB. Returns `{ imported, skipped, tmdb_matched, errors }`.
+VAPID-based, opt-out per event type. `NOTIFICATION_EVENT_TYPES` in `resolvers.ts` is the whitelist —
+currently just `MOVIE_ADD`, fired to the requester's accepted connections when a movie is added.
+Adding an event type needs no migration. Full design: `specs/push-notifications.spec.md`.
 
-### Push notifications (Web Push / iOS PWA)
+### Password reset
 
-Web Push fan-out when a movie is added. Primary target: iPhone PWA users (iOS 16.4+, requires Add to Home Screen).
-
-**Backend module**: `backend/src/push.ts` — `configurePush()` (reads VAPID env, called at startup), `sendPushToUser(userId, payload)`, `sendPushToConnectionsOf(userId, eventType, payload)`. The latter targets only users with an `accepted` row in `user_connections` (in either direction) and joins against `user_notification_preferences` to skip users who've opted out. Pruning: deletes subscriptions on 404/410; increments `failure_count` on 5xx and deletes when `failure_count >= 5`. Fan-out is fire-and-forget from `addMovie` — failures logged but not awaited.
-
-**GraphQL**: `appInfo.vapidPublicKey` (public key for browser subscribe), `notificationPreferences` (per-user prefs), `subscribePush(subscription)`, `unsubscribePush(endpoint)`, `updateNotificationPreference(eventType, enabled)`. `MOVIE_ADD` is the only seeded event type.
-
-**Frontend**:
-
-- `public/sw.js` — minimal service worker (no caching strategy), shows notification on `push`, focuses/opens window on `notificationclick`.
-- `src/utils/pushClient.ts` — feature detection (`pushSupported`, `isStandalonePWA`, `iosVersion`), `registerServiceWorker`, `subscribeForPush`, `unsubscribeFromPush`.
-- `src/components/settings/NotificationSettings.tsx` — device opt-in/out UI with iOS Add-to-Home-Screen instructions and per-event toggles.
-- Bell icon in Navbar opens the modal.
-- SW registration runs only in production (`process.env.NODE_ENV === 'production'`).
-
-**iOS specifics**: Push requires Safari 16.4+, Home Screen install, and a user gesture to call `Notification.requestPermission()`. The UI gates the subscribe button on `pushSupported && isStandalonePWA` and shows install instructions otherwise.
-
-**Spec**: `specs/push-notifications.spec.md`.
+`requestPasswordReset` always reports success (no account enumeration), stores a hashed token, and
+emails a link via `email.ts`. Requires SMTP config; otherwise it silently no-ops.
 
 ## Environment variables
 
-**Frontend** (`.env`):
+**Frontend** (`.env`): `REACT_APP_GRAPHQL_URL` (defaults `/graphql`), `REACT_APP_GIT_BRANCH`,
+`REACT_APP_GIT_HASH`, `REACT_APP_DEPLOY_TIME` (baked in at Docker build time).
 
-- `REACT_APP_GRAPHQL_URL` — defaults to `/graphql`
-- `REACT_APP_GIT_BRANCH`, `REACT_APP_GIT_HASH`, `REACT_APP_DEPLOY_TIME` — baked in at Docker build time
+**Backend**:
 
-**Backend** (`backend/.env`):
-
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-- `PORT` (default 4000)
-- `JWT_SECRET` — **change in production** (default: `'your-secret-key-change-in-production'`)
-- `ADMIN_PASSWORD` — seeds the default admin user (default `admin123`, **change in production**)
-- `NODE_ENV` — `'production'` enables Kometa features; anything else disables them
-- `TMDB_API_KEY` — optional; enables TMDB search and Letterboxd TMDB matching
-- `KOMETA_COLLECTIONS_PATH` — directory for exported Kometa YAML files
-- `KOMETA_TRIGGER_URL` — optional webhook URL to trigger Kometa after export
-- `PLEX_URL`, `PLEX_TOKEN` — optional; enable the Plex reconciler that deletes MovieNight-labeled Plex collections no longer emitted. Skipped silently if either is unset.
-- `PLEX_MOVIES_SECTION_ID` — optional; movies library section key. Auto-resolved via `/library/sections` if unset.
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — Web Push VAPID keypair. Generate via `npx web-push generate-vapid-keys`. Push notifications are silently disabled if either is missing.
-- `VAPID_SUBJECT` — `mailto:` or `https://` URL identifying the app (defaults to `mailto:admin@movienight.local`).
+| Var                                                        | Purpose                                                                                                                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`              | Postgres connection                                                                                                                                                                         |
+| `PORT`                                                     | default 4000                                                                                                                                                                                |
+| `JWT_SECRET`                                               | **change in production**                                                                                                                                                                    |
+| `ADMIN_PASSWORD`                                           | seeds the `admin` user (default `admin123`)                                                                                                                                                 |
+| `TEST_USER_USERNAME` / `TEST_USER_PASSWORD`                | seeds a test user when `NODE_ENV != production`                                                                                                                                             |
+| `NODE_ENV`                                                 | `production` enables Kometa file export + scheduler                                                                                                                                         |
+| `CORS_ORIGIN`                                              | defaults `http://localhost:3000`                                                                                                                                                            |
+| `TMDB_API_KEY`                                             | enables TMDB search + metadata                                                                                                                                                              |
+| `MDBLIST_API_KEY`                                          | fallback if no key is stored in `kometa_schedule`                                                                                                                                           |
+| `KOMETA_COLLECTIONS_PATH` / `KOMETA_TRIGGER_URL`           | YAML output dir; optional post-export webhook                                                                                                                                               |
+| `PLEX_URL` / `PLEX_TOKEN` / `PLEX_MOVIES_SECTION_ID`       | Plex reconciler; skipped silently if URL or token is unset                                                                                                                                  |
+| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL`          | password-reset email                                                                                                                                                                        |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push. **Not in `.env.example` or `docker-compose.yml`** — push is disabled until they're set (the backend logs "VAPID keys not set"). Generate with `npx web-push generate-vapid-keys`. |
 
 ## Docker profiles
 
@@ -256,76 +336,73 @@ Web Push fan-out when a movie is added. Primary target: iPhone PWA users (iOS 16
 | `development` | db (postgres:15-alpine), backend, frontend (hot-reload)                           |
 | `production`  | Single `movienight` container (ghcr.io image, port 8080→80, 1 CPU / 512 MB limit) |
 
-**Production image**: Multi-stage Dockerfile — node:20-alpine builds React, nginx:alpine serves static files + proxies `/graphql` to `movienight-backend:4000`.
+**Production image**: multi-stage — node:20-alpine builds React, nginx:alpine serves static files and
+proxies `/graphql` to `movienight-backend:4000`.
 
 ## CI/CD
 
-- All branches + all PRs (including draft) → `.github/workflows/ci.yml` — lint, format check, backend tests, frontend tests
-- `dev` branch push → `.github/workflows/test-build.yml` — tests must pass before Docker build (no push), with dorny/paths-filter to skip unchanged layers
-- `master` branch push → `.github/workflows/deploy.yml` — build + push to GHCR, SSH deploy to remote host
+| Workflow          | Trigger                                       | What it does                                                                           |
+| ----------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `ci.yml`          | push to any branch                            | Lint & format check (`prettier --check .`, `eslint src/`), backend + frontend tests    |
+| `test-build.yml`  | push to `dev`                                 | Tests, then Docker build (no push), `dorny/paths-filter` to skip unchanged layers      |
+| `deploy-test.yml` | PR opened/synced/ready (non-draft, same-repo) | Builds `:test` images, deploys to **movienight-test** on the self-hosted `nova` runner |
+| `deploy.yml`      | push to `master`, manual dispatch             | Builds and pushes to GHCR, deploys to nova                                             |
+
+Both deploy workflows run on the **self-hosted `[self-hosted, nova, movienight-*]` runner**, whose
+Docker socket proxy denies `/auth` — so they write GHCR credentials into `~/.docker/config.json`
+rather than running `docker login`. Test environment: `movienight-test.<NOVA_DOMAIN>`, compose file
+at `movienight-test/compose.yaml` in nova-config.
+
+CodeQL also runs on PRs. Note `master` is **not** branch-protected — no check is strictly required
+to merge.
 
 ## Testing
 
-### Running tests
-
 ```bash
-# Backend
-cd backend && npm test                    # run all backend tests
-cd backend && npm test -- --coverage      # with coverage report
-cd backend && npm run test:watch          # watch mode
-
-# Frontend
-npm test -- --watchAll=false              # run all frontend tests
-npm test -- --coverage --watchAll=false   # with coverage report
+cd backend && npm test                    # 361 tests, 21 suites
+cd backend && npm test -- --coverage
+npm test -- --watchAll=false              # frontend
 ```
 
-### Test structure
+Backend suites live in `backend/src/__tests__/` (`auth`, `elo`, `pairSelection`, `scheduler`,
+`email`, `push`, `tmdb`, `contentActions`, `mdblist`, `kometaExport`, `plexClient`, plus
+`resolvers/` split by domain). Frontend tests cover `src/utils/` and `src/contexts/` only.
 
-```
-backend/src/__tests__/
-  auth.test.ts              # bcrypt, JWT, token parsing
-  elo.test.ts               # Elo algorithm + DB mocks
-  pairSelection.test.ts     # pair selection algorithm
-  scheduler.test.ts         # Kometa scheduler
-  email.test.ts             # nodemailer mocking
-  resolvers/
-    __helpers.ts            # shared mocks + context factories
-    field-resolvers.test.ts
-    auth-resolvers.test.ts
-    movie-resolvers.test.ts
-    query-resolvers.test.ts
-    connection-resolvers.test.ts
-    letterboxd-resolvers.test.ts
-    kometa-resolvers.test.ts
-    tag-resolvers.test.ts
-
-src/utils/__tests__/
-  textUtils.test.ts
-  gravatar.test.ts
-src/contexts/__tests__/
-  AuthContext.test.tsx
-```
-
-### Coverage thresholds (enforced in CI)
-
-- **Backend**: 80% statements/lines/functions, 65% branches
-- **Frontend**: no enforced threshold yet (utility + context tests only)
+**Coverage thresholds** (`backend/jest.config.ts`, enforced in CI): 80% statements / lines /
+functions, 65% branches. No frontend threshold.
 
 ### Requirements for new code
 
-- All new backend functions **must** have companion tests
-- All new resolvers must test: happy path, auth/authz check, at least 2 error/edge cases
-- `pool.query` calls must always use parameterized queries (`$1, $2, ...`) — never interpolate user input
-- Run `cd backend && npm test` after writing backend code
-- Run `npm test -- --watchAll=false` after writing frontend code
+- All new backend functions must have companion tests.
+- New resolvers must test happy path, auth/authz, and at least two error/edge cases.
+- `pool.query` must always use parameterised queries.
+- Run `cd backend && npm test` and `npm test -- --watchAll=false` after changes.
+- Prettier is enforced by a Husky pre-commit hook and by CI. Run `npx prettier --write <files>`.
+  Never skip hooks (`--no-verify`) without explicit approval.
 
-### Code consistency
+## Gotchas
 
-- **Prettier** enforced via pre-commit hook (Husky + lint-staged) and CI format check
-- **ESLint** enforced for backend TypeScript (`backend/eslint.config.mjs`)
-- CRA ESLint enforced for frontend
-- Run `npx prettier --write <changed-files>` before committing
-- Never skip pre-commit hooks (`--no-verify`) unless explicitly approved
+Things that look like bugs, or that stale docs have claimed before:
+
+1. **`movies.rank` is dead but `NOT NULL`.** Ordering has used Elo since migration
+   `1745600000000`. The column is still written (`VALUES ($1, $2, 0, $3)`) and recomputed on unwatch,
+   is never exposed in GraphQL, and never read for ordering. Any `INSERT INTO movies` must still
+   supply it.
+2. **`@dnd-kit/*` is in `package.json` but imported nowhere.** Left over from drag-to-rank. There is
+   no drag-and-drop in the app.
+3. **`markWatched` and `unwatchMovie` have deliberately different auth gates** — the former accepts
+   an accepted-connection of the owner, the latter is owner-or-admin. Don't "fix" one in passing.
+4. **`KometaSchedule.exportedLists` reports `movieCount: 0`** — hardcoded at all three query sites,
+   never a real count.
+5. **`kometa_schedule` is a singleton** — every query hardcodes `WHERE id = 1`.
+6. **Three `kometa_mdblist_lists` SELECTs in `resolvers.ts` don't filter by `kind`**, so they will
+   mix show lists in once shows exist. See H-6 in `specs/tv-shows.spec.md`.
+7. **Dead columns**: `kometa_schedule.collection_name`, `.mdblist_list_id`, `.mdblist_list_url`.
+8. **Unused imports in `resolvers.ts`**: `fs`, `path`, `createList`, `syncList`.
+9. **Timestamp types are inconsistent** — tables predating `1742860000000` use `timestamp` without
+   time zone; newer ones use `timestamptz`. `shows.date_submitted` follows the old style to match
+   `movies`.
+10. **`setMdblistApiKey` writes no audit entry**, unlike every other admin config mutation.
 
 ## Existing docs
 
@@ -333,3 +410,6 @@ src/contexts/__tests__/
 - `AUTHENTICATION.md` — JWT flow, default credentials, user management
 - `DEPLOYMENT.md` — CI/CD setup, SSH keys, GHCR config
 - `backend/MIGRATIONS.md` — migration conventions
+- `specs/tv-shows.spec.md` — TV shows feature, phases 1–5
+- `specs/this-or-that.spec.md` — Elo ranking design
+- `specs/push-notifications.spec.md` — Web Push design
