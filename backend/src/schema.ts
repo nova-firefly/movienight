@@ -184,6 +184,97 @@ export const typeDefs = `#graphql
     createdAt: String!
   }
 
+  """A TV show — parallel to Movie, ranked by its own Elo pool (never mixed with movies)."""
+  type Show {
+    id: ID!
+    title: String!
+    requester: String!
+    requested_by: ID
+    date_submitted: String!
+    elo_rank: Float
+    tmdb_id: Int
+    watched_at: String
+    poster_url: String
+    first_air_year: String
+    created_by: [String!]!
+    networks: [String!]!
+    number_of_seasons: Int
+    number_of_episodes: Int
+    status: String
+    myTags: [ShowUserTag!]!
+    userTags: [ShowUserTag!]!
+  }
+
+  """A per-user tag on a show. Boolean tags have null value; number/text tags carry a value."""
+  type ShowUserTag {
+    tag: Tag!
+    user: ConnectionUser!
+    value: String
+    createdAt: String!
+  }
+
+  type TmdbShow {
+    tmdb_id: Int!
+    title: String!
+    first_air_year: String
+    overview: String
+  }
+
+  type ThisOrThatShow {
+    id: ID!
+    title: String!
+    tmdb_id: Int
+    poster_url: String
+    first_air_year: String
+    created_by: [String!]!
+    networks: [String!]!
+    number_of_seasons: Int
+    number_of_episodes: Int
+    cast: [String!]!
+    tags: [String!]!
+  }
+
+  type ThisOrThatShowPair {
+    showA: ThisOrThatShow!
+    showB: ThisOrThatShow!
+  }
+
+  type ShowComparisonResult {
+    winnerId: ID!
+    loserId: ID!
+    winnerElo: Float!
+    loserElo: Float!
+  }
+
+  type ShowRanking {
+    show: Show!
+    eloRating: Float!
+    comparisonCount: Int!
+  }
+
+  type CombinedShowRanking {
+    show: Show!
+    userAElo: Float
+    userBElo: Float
+    combinedElo: Float!
+    bothRated: Boolean!
+  }
+
+  type CombinedShowListResult {
+    connection: UserConnection!
+    rankings: [CombinedShowRanking!]!
+  }
+
+  type PendingReviewShow {
+    show: Show!
+    addedBy: ConnectionUser!
+  }
+
+  type SetShowInterestResult {
+    showId: ID!
+    interested: Boolean!
+  }
+
   type Query {
     appInfo: AppInfo!
     movies: [Movie!]!
@@ -207,6 +298,16 @@ export const typeDefs = `#graphql
     tags: [Tag!]!
     watchedMovies(limit: Int, offset: Int): [Movie!]!
     notificationPreferences: [NotificationPreference!]!
+    shows: [Show!]!
+    show(id: ID!): Show
+    searchTmdbShows(query: String!): [TmdbShow!]!
+    showThisOrThat(excludeIds: [ID!]): ThisOrThatShowPair!
+    myShowRankings: [ShowRanking!]!
+    combinedShowList(connectionId: ID!): CombinedShowListResult!
+    newShowsFromConnections: [PendingReviewShow!]!
+    soloShows: [Show!]!
+    passedShowIds: [ID!]!
+    watchedShows(limit: Int, offset: Int): [Show!]!
   }
 
   type ImportResult {
@@ -259,5 +360,16 @@ export const typeDefs = `#graphql
     subscribePush(subscription: PushSubscriptionInput!): Boolean!
     unsubscribePush(endpoint: String!): Boolean!
     updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!
+    addShow(title: String!, tmdb_id: Int): Show!
+    matchShow(id: ID!, tmdb_id: Int!, title: String!): Show!
+    markShowWatched(id: ID!): Show!
+    unwatchShow(id: ID!): Show!
+    deleteShow(id: ID!): Boolean!
+    recordShowComparison(winnerId: ID!, loserId: ID!): ShowComparisonResult!
+    resetShowComparisons(showId: ID!): Boolean!
+    setShowInterest(showId: ID!, interested: Boolean!): SetShowInterestResult!
+    setShowTag(showId: ID!, tagSlug: String!, value: String): ShowUserTag!
+    removeShowTag(showId: ID!, tagSlug: String!): Boolean!
+    backfillShowTmdbData: Int!
   }
 `;

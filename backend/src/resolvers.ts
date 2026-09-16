@@ -16,14 +16,23 @@ import { rescheduleKometa } from './scheduler';
 import { createList, syncList } from './mdblist';
 import { runKometaExport } from './kometaExport';
 import { applyComparison, updateGlobalEloRank } from './elo';
-import { selectPair, MovieCandidate } from './pairSelection';
+import { selectPair, ContentCandidate } from './pairSelection';
 import { searchTmdb as searchTmdbApi, fetchAndStoreTmdbData } from './tmdb';
-import { logAudit, triggerMdblistSyncInBackground } from './contentActions';
+import {
+  logAudit,
+  triggerMdblistSyncInBackground,
+  assertOwnerOrAdmin,
+  assertOwnerAdminOrConnection,
+  updateWatchedState,
+  setInterest,
+  upsertTag,
+  removeTag,
+} from './contentActions';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
 
-const NOTIFICATION_EVENT_TYPES = ['MOVIE_ADD'] as const;
+const NOTIFICATION_EVENT_TYPES = ['MOVIE_ADD', 'SHOW_ADD'] as const;
 const PUSH_SUBSCRIBE_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 const PUSH_SUBSCRIBE_RATE_LIMIT_MAX = 20;
 const MAX_ENDPOINT_LENGTH = 8 * 1024;
@@ -45,6 +54,29 @@ async function logLoginHistory(
 }
 
 const isProduction = () => process.env.NODE_ENV === 'production';
+
+/**
+ * Fetch the persisted MDBList export lists for a given environment, scoped by
+ * kind so show lists never bleed into a movie schedule's `exportedLists`
+ * (H-6). Phase 2 only surfaces movie lists here; Phase 5 threads `kind`
+ * through the export and can widen this. `itemCount` is not yet tracked per
+ * list, so it is reported as 0 (a pre-existing limitation, not new).
+ */
+async function fetchExportedLists(environment: string, kind: 'movie' | 'show' = 'movie') {
+  const listsResult = await pool.query(
+    `SELECT list_name, list_type, mdblist_list_url
+     FROM kometa_mdblist_lists
+     WHERE environment = $1 AND kind = $2
+     ORDER BY list_type, list_name`,
+    [environment, kind],
+  );
+  return listsResult.rows.map((r: any) => ({
+    name: r.list_name,
+    type: r.list_type,
+    movieCount: 0,
+    mdblistUrl: r.mdblist_list_url ?? null,
+  }));
+}
 
 // ── Rate limiter ─────────────────────────────────────────────────────────────
 interface RateLimitEntry {
@@ -289,16 +321,7 @@ export const resolvers = {
       }
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
       const env = isProduction() ? 'production' : 'development';
-      const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
-        [env],
-      );
-      const exportedLists = listsResult.rows.map((r: any) => ({
-        name: r.list_name,
-        type: r.list_type,
-        movieCount: 0,
-        mdblistUrl: r.mdblist_list_url ?? null,
-      }));
+      const exportedLists = await fetchExportedLists(env);
       if (result.rows.length === 0) {
         return {
           enabled: false,
@@ -368,7 +391,7 @@ export const resolvers = {
 
       // Build a lookup so we can retrieve DB rows after pair selection
       const rowMap = new Map<number, any>();
-      const candidates: MovieCandidate[] = candidatesResult.rows.map((r: any) => {
+      const candidates: ContentCandidate[] = candidatesResult.rows.map((r: any) => {
         rowMap.set(r.id, r);
         return {
           id: r.id,
@@ -381,7 +404,7 @@ export const resolvers = {
 
       const [first, second] = selectPair(candidates);
 
-      const buildMovie = (candidate: MovieCandidate) => {
+      const buildMovie = (candidate: ContentCandidate) => {
         const row = rowMap.get(candidate.id)!;
         return {
           id: String(candidate.id),
@@ -680,6 +703,349 @@ export const resolvers = {
         enabled: overrides.has(eventType) ? overrides.get(eventType) : true,
       }));
     },
+
+    // ── Shows ──────────────────────────────────────────────────────────────
+    // Parallel to the movie queries above; mirror their auth gates, error codes
+    // and shapes against the show tables. Shows have no `rank` column (D-13).
+    shows: async (_: any, __: any, context: any) => {
+      if (context.user) {
+        // Authenticated: order by personal Elo (unrated shows at bottom)
+        const result = await pool.query(
+          `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
+                  s.poster_path, s.first_air_year, s.created_by, s.networks,
+                  s.number_of_seasons, s.number_of_episodes, s.status,
+                  COALESCE(use.elo_rating, s.elo_rank) AS elo_rank,
+                  u.username AS user_username, u.display_name AS user_display_name
+           FROM shows s
+           LEFT JOIN users u ON s.requested_by = u.id
+           LEFT JOIN user_show_elo use ON use.show_id = s.id AND use.user_id = $1
+           WHERE s.watched_at IS NULL
+           ORDER BY use.elo_rating DESC NULLS LAST, s.date_submitted ASC`,
+          [context.user.userId],
+        );
+        return result.rows;
+      }
+      // Unauthenticated: order by global elo_rank
+      const result = await pool.query(
+        `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
+                s.poster_path, s.first_air_year, s.created_by, s.networks,
+                s.number_of_seasons, s.number_of_episodes, s.status, s.elo_rank,
+                u.username AS user_username, u.display_name AS user_display_name
+         FROM shows s
+         LEFT JOIN users u ON s.requested_by = u.id
+         WHERE s.watched_at IS NULL
+         ORDER BY s.elo_rank DESC NULLS LAST, s.date_submitted ASC`,
+      );
+      return result.rows;
+    },
+    show: async (_: any, { id }: { id: string }) => {
+      const result = await pool.query(
+        `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
+                s.poster_path, s.first_air_year, s.created_by, s.networks,
+                s.number_of_seasons, s.number_of_episodes, s.status, s.elo_rank,
+                u.username AS user_username, u.display_name AS user_display_name
+         FROM shows s
+         LEFT JOIN users u ON s.requested_by = u.id
+         WHERE s.id = $1`,
+        [id],
+      );
+      return result.rows[0];
+    },
+    searchTmdbShows: async (_: any, { query }: { query: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      if (!process.env.TMDB_API_KEY) {
+        throw new GraphQLError('TMDB API key not configured', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+      try {
+        const results = await searchTmdbApi('show', query);
+        return results.map((r) => ({
+          tmdb_id: r.tmdb_id,
+          title: r.title,
+          first_air_year: r.release_year,
+          overview: r.overview,
+        }));
+      } catch {
+        throw new GraphQLError('TMDB search failed', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+    },
+    showThisOrThat: async (_: any, { excludeIds }: { excludeIds?: string[] }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const userId = context.user.userId;
+      const excludeIntIds = (excludeIds ?? []).map(Number).filter((n) => !isNaN(n));
+
+      let candidatesResult = await pool.query(
+        `SELECT s.id, s.title, s.tmdb_id,
+                s.poster_path, s.first_air_year, s.created_by, s.networks,
+                s.number_of_seasons, s.number_of_episodes, s.cast_list, s.genre_tags,
+                COALESCE(use.comparison_count, 0) AS user_comparison_count,
+                COALESCE(use.elo_rating, 1000) AS elo_rating
+         FROM shows s
+         LEFT JOIN user_show_elo use ON use.show_id = s.id AND use.user_id = $1
+         WHERE s.watched_at IS NULL
+           AND s.id != ALL($2::int[])`,
+        [userId, excludeIntIds],
+      );
+
+      if (candidatesResult.rows.length < 2) {
+        candidatesResult = await pool.query(
+          `SELECT s.id, s.title, s.tmdb_id,
+                  s.poster_path, s.first_air_year, s.created_by, s.networks,
+                  s.number_of_seasons, s.number_of_episodes, s.cast_list, s.genre_tags,
+                  COALESCE(use.comparison_count, 0) AS user_comparison_count,
+                  COALESCE(use.elo_rating, 1000) AS elo_rating
+           FROM shows s
+           LEFT JOIN user_show_elo use ON use.show_id = s.id AND use.user_id = $1
+           WHERE s.watched_at IS NULL`,
+          [userId],
+        );
+      }
+
+      if (candidatesResult.rows.length < 2) {
+        throw new GraphQLError('Add more shows to start comparing', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const rowMap = new Map<number, any>();
+      const candidates: ContentCandidate[] = candidatesResult.rows.map((r: any) => {
+        rowMap.set(r.id, r);
+        return {
+          id: r.id,
+          title: r.title,
+          tmdb_id: r.tmdb_id,
+          userComparisonCount: Number(r.user_comparison_count),
+          elo_rating: Number(r.elo_rating),
+        };
+      });
+
+      const [first, second] = selectPair(candidates);
+
+      const buildShow = (candidate: ContentCandidate) => {
+        const row = rowMap.get(candidate.id)!;
+        return {
+          id: String(candidate.id),
+          title: candidate.title,
+          tmdb_id: candidate.tmdb_id,
+          poster_url: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
+          first_air_year: row.first_air_year ?? null,
+          created_by: row.created_by ?? [],
+          networks: row.networks ?? [],
+          number_of_seasons: row.number_of_seasons ?? null,
+          number_of_episodes: row.number_of_episodes ?? null,
+          cast: row.cast_list ?? [],
+          tags: row.genre_tags ?? [],
+        };
+      };
+
+      return {
+        showA: buildShow(first),
+        showB: buildShow(second),
+      };
+    },
+    myShowRankings: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const result = await pool.query(
+        `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
+                s.elo_rank, s.poster_path, s.first_air_year, s.created_by, s.networks,
+                s.number_of_seasons, s.number_of_episodes, s.status,
+                u.username AS user_username, u.display_name AS user_display_name,
+                use.elo_rating, use.comparison_count
+         FROM user_show_elo use
+         JOIN shows s ON s.id = use.show_id
+         LEFT JOIN users u ON s.requested_by = u.id
+         WHERE use.user_id = $1 AND s.watched_at IS NULL
+         ORDER BY use.elo_rating DESC`,
+        [context.user.userId],
+      );
+
+      return result.rows.map((r: any) => ({
+        show: r,
+        eloRating: Number(r.elo_rating),
+        comparisonCount: Number(r.comparison_count),
+      }));
+    },
+    combinedShowList: async (_: any, { connectionId }: { connectionId: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const conn = await pool.query(
+        `SELECT uc.id, uc.requester_id, uc.addressee_id, uc.status, uc.created_at,
+                other.id AS other_user_id, other.username, other.display_name
+         FROM user_connections uc
+         JOIN users other ON other.id = CASE WHEN uc.requester_id = $1 THEN uc.addressee_id ELSE uc.requester_id END
+         WHERE uc.id = $2 AND uc.status = 'accepted'
+           AND (uc.requester_id = $1 OR uc.addressee_id = $1)`,
+        [userId, connectionId],
+      );
+      if (conn.rows.length === 0) {
+        throw new GraphQLError('Connection not found or not accepted', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const otherUserId = conn.rows[0].other_user_id;
+      const c = conn.rows[0];
+
+      const result = await pool.query(
+        `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
+                s.elo_rank, s.poster_path, s.first_air_year, s.created_by, s.networks,
+                s.number_of_seasons, s.number_of_episodes, s.status,
+                u.username AS user_username, u.display_name AS user_display_name,
+                use_a.elo_rating AS user_a_elo,
+                use_b.elo_rating AS user_b_elo,
+                CASE
+                  WHEN use_a.elo_rating IS NOT NULL AND use_b.elo_rating IS NOT NULL
+                  THEN (use_a.elo_rating + use_b.elo_rating) / 2
+                  ELSE COALESCE(use_a.elo_rating, use_b.elo_rating)
+                END AS combined_elo,
+                (use_a.elo_rating IS NOT NULL AND use_b.elo_rating IS NOT NULL) AS both_rated
+         FROM shows s
+         LEFT JOIN users u ON s.requested_by = u.id
+         LEFT JOIN user_show_elo use_a ON use_a.show_id = s.id AND use_a.user_id = $1
+         LEFT JOIN user_show_elo use_b ON use_b.show_id = s.id AND use_b.user_id = $2
+         LEFT JOIN show_interest si_self ON si_self.show_id = s.id AND si_self.user_id = $1
+         WHERE s.watched_at IS NULL
+           AND (use_a.elo_rating IS NOT NULL OR use_b.elo_rating IS NOT NULL)
+           AND (si_self.interested IS NULL OR si_self.interested = true)
+         ORDER BY both_rated DESC, combined_elo DESC`,
+        [userId, otherUserId],
+      );
+
+      const connection = {
+        id: c.id,
+        user: { id: c.other_user_id, username: c.username, display_name: c.display_name },
+        status: c.status,
+        direction: c.requester_id === userId ? 'sent' : 'received',
+        created_at: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
+      };
+
+      return {
+        connection,
+        rankings: result.rows.map((r: any) => ({
+          show: r,
+          userAElo: r.user_a_elo != null ? Number(r.user_a_elo) : null,
+          userBElo: r.user_b_elo != null ? Number(r.user_b_elo) : null,
+          combinedElo: Number(r.combined_elo),
+          bothRated: r.both_rated,
+        })),
+      };
+    },
+    newShowsFromConnections: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const result = await pool.query(
+        `SELECT DISTINCT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id,
+                s.watched_at, s.elo_rank, s.poster_path, s.first_air_year, s.created_by,
+                s.networks, s.number_of_seasons, s.number_of_episodes, s.status,
+                u.id AS adder_id, u.username AS adder_username, u.display_name AS adder_display_name
+         FROM shows s
+         JOIN users u ON s.requested_by = u.id
+         JOIN user_connections uc
+           ON uc.status = 'accepted'
+           AND (
+             (uc.requester_id = $1 AND uc.addressee_id = s.requested_by)
+             OR (uc.addressee_id = $1 AND uc.requester_id = s.requested_by)
+           )
+         LEFT JOIN show_interest si ON si.user_id = $1 AND si.show_id = s.id
+         WHERE s.watched_at IS NULL
+           AND s.requested_by <> $1
+           AND si.user_id IS NULL
+         ORDER BY s.date_submitted DESC`,
+        [userId],
+      );
+
+      return result.rows.map((r: any) => ({
+        show: r,
+        addedBy: { id: r.adder_id, username: r.adder_username, display_name: r.adder_display_name },
+      }));
+    },
+    soloShows: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const result = await pool.query(
+        `WITH my_connections AS (
+           SELECT CASE WHEN requester_id = $1 THEN addressee_id ELSE requester_id END AS other_id
+           FROM user_connections
+           WHERE status = 'accepted'
+             AND (requester_id = $1 OR addressee_id = $1)
+         )
+         SELECT s.*
+         FROM shows s
+         WHERE s.requested_by = $1
+           AND s.watched_at IS NULL
+           AND (SELECT COUNT(*) FROM my_connections) > 0
+           AND NOT EXISTS (
+             SELECT 1 FROM my_connections mc
+             WHERE NOT EXISTS (
+               SELECT 1 FROM show_interest si
+               WHERE si.show_id = s.id AND si.user_id = mc.other_id AND si.interested = false
+             )
+           )
+         ORDER BY s.date_submitted DESC`,
+        [userId],
+      );
+
+      return result.rows;
+    },
+    passedShowIds: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const result = await pool.query(
+        `SELECT si.show_id FROM show_interest si
+         JOIN shows s ON s.id = si.show_id AND s.watched_at IS NULL
+         WHERE si.user_id = $1 AND si.interested = false`,
+        [context.user.userId],
+      );
+      return result.rows.map((r: any) => String(r.show_id));
+    },
+    watchedShows: async (
+      _: any,
+      { limit, offset }: { limit?: number; offset?: number },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const safeLimit = Math.min(Math.max(limit ?? 50, 1), 200);
+      const safeOffset = Math.max(offset ?? 0, 0);
+      const result = await pool.query(
+        `SELECT s.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM shows s
+         LEFT JOIN users u ON s.requested_by = u.id
+         WHERE s.watched_at IS NOT NULL
+         ORDER BY s.watched_at DESC
+         LIMIT $1 OFFSET $2`,
+        [safeLimit, safeOffset],
+      );
+      return result.rows;
+    },
   },
   Mutation: {
     addMovie: async (
@@ -881,6 +1247,7 @@ export const resolvers = {
 
       const userId = context.user.userId;
       const { winnerElo, loserElo } = await applyComparison(
+        'movie',
         userId,
         Number(winnerId),
         Number(loserId),
@@ -928,7 +1295,7 @@ export const resolvers = {
       ]);
 
       // Recompute global elo_rank (becomes NULL if no other users have data)
-      await updateGlobalEloRank(mid);
+      await updateGlobalEloRank('movie', mid);
 
       await logAudit(
         userId,
@@ -1149,10 +1516,7 @@ export const resolvers = {
       rescheduleKometa(row.enabled, row.frequency, row.daily_time);
 
       const schedEnv = isProduction() ? 'production' : 'development';
-      const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
-        [schedEnv],
-      );
+      const exportedLists = await fetchExportedLists(schedEnv);
 
       return {
         enabled: row.enabled,
@@ -1164,12 +1528,7 @@ export const resolvers = {
             : new Date(row.last_run_at).toISOString()
           : null,
         mdblistApiKeySet: !!(row.mdblist_api_key || process.env.MDBLIST_API_KEY),
-        exportedLists: listsResult.rows.map((r: any) => ({
-          name: r.list_name,
-          type: r.list_type,
-          movieCount: 0,
-          mdblistUrl: r.mdblist_list_url ?? null,
-        })),
+        exportedLists,
       };
     },
     setMdblistApiKey: async (_: any, { apiKey }: { apiKey: string }, context: any) => {
@@ -1194,10 +1553,7 @@ export const resolvers = {
       const result = await pool.query('SELECT * FROM kometa_schedule WHERE id = 1');
       const row = result.rows[0];
       const apiKeyEnv = isProduction() ? 'production' : 'development';
-      const listsResult = await pool.query(
-        'SELECT list_name, list_type, mdblist_list_url FROM kometa_mdblist_lists WHERE environment = $1 ORDER BY list_type, list_name',
-        [apiKeyEnv],
-      );
+      const exportedLists = await fetchExportedLists(apiKeyEnv);
       return {
         enabled: row.enabled,
         frequency: row.frequency,
@@ -1208,12 +1564,7 @@ export const resolvers = {
             : new Date(row.last_run_at).toISOString()
           : null,
         mdblistApiKeySet: true,
-        exportedLists: listsResult.rows.map((r: any) => ({
-          name: r.list_name,
-          type: r.list_type,
-          movieCount: 0,
-          mdblistUrl: r.mdblist_list_url ?? null,
-        })),
+        exportedLists,
       };
     },
     importFromLetterboxd: async (_: any, { url }: { url: string }, context: any) => {
@@ -2314,6 +2665,406 @@ export const resolvers = {
       );
       return { eventType, enabled };
     },
+
+    // ── Shows ──────────────────────────────────────────────────────────────
+    // Parallel to the movie mutations above; mirror their auth gates, error
+    // codes and audit shape against the show tables. Shared logic (watched
+    // state, auth gates, tag/interest upserts) routes through contentActions.
+    addShow: async (
+      _: any,
+      { title, tmdb_id }: { title: string; tmdb_id?: number },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle || trimmedTitle.length > 500) {
+        throw new GraphQLError('Title must be between 1 and 500 characters', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      const insertResult = await pool.query(
+        'INSERT INTO shows (title, requested_by, tmdb_id) VALUES ($1, $2, $3) RETURNING *',
+        [trimmedTitle, context.user.userId, tmdb_id ?? null],
+      );
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        context.user.userId,
+      ]);
+      const requesterName =
+        userRow.rows[0]?.display_name || userRow.rows[0]?.username || context.user.username;
+      await logAudit(
+        context.user.userId,
+        'SHOW_ADD',
+        'show',
+        String(insertResult.rows[0].id),
+        { title, requester: requesterName },
+        context.ipAddress,
+      );
+      const newShowId = insertResult.rows[0].id;
+      if (tmdb_id) {
+        fetchAndStoreTmdbData('show', newShowId, tmdb_id).catch(() => {});
+      }
+      // Fan out push to the requester's accepted connections only — fire-and-forget.
+      sendPushToConnectionsOf(context.user.userId, 'SHOW_ADD', {
+        title: 'MovieNight',
+        body: `${requesterName} added "${trimmedTitle}" to the shows queue`,
+        url: '/shows',
+        tag: `show-add-${newShowId}`,
+      }).catch((err) => console.error('Push fan-out failed:', err));
+      return {
+        ...insertResult.rows[0],
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
+    matchShow: async (
+      _: any,
+      { id, tmdb_id, title }: { id: string; tmdb_id: number; title: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const showResult = await pool.query(
+        `SELECT s.*, u.username AS user_username, u.display_name AS user_display_name
+         FROM shows s
+         LEFT JOIN users u ON s.requested_by = u.id
+         WHERE s.id = $1`,
+        [id],
+      );
+      const show = showResult.rows[0];
+      if (!show) {
+        throw new GraphQLError('Show not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      assertOwnerOrAdmin(context, show.requested_by);
+      const result = await pool.query(
+        `UPDATE shows SET tmdb_id = $1, title = $2 WHERE id = $3
+         RETURNING *`,
+        [tmdb_id, title, id],
+      );
+      await logAudit(
+        context.user.userId,
+        'SHOW_TMDB_MATCH',
+        'show',
+        String(id),
+        { original_title: show.title, matched_title: title, tmdb_id },
+        context.ipAddress ?? 'unknown',
+      );
+      fetchAndStoreTmdbData('show', Number(id), tmdb_id).catch(() => {});
+      return {
+        ...result.rows[0],
+        user_username: show.user_username,
+        user_display_name: show.user_display_name,
+      };
+    },
+    markShowWatched: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      const showResult = await pool.query('SELECT * FROM shows WHERE id = $1', [id]);
+      if (showResult.rows.length === 0) {
+        throw new GraphQLError('Show not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      await assertOwnerAdminOrConnection(context, showResult.rows[0].requested_by);
+      const show = await updateWatchedState('show', id, true);
+      if (!show) {
+        throw new GraphQLError('Show not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        show.requested_by,
+      ]);
+      await logAudit(
+        context.user.userId,
+        'SHOW_WATCHED',
+        'show',
+        String(id),
+        { title: show.title },
+        context.ipAddress ?? 'unknown',
+      );
+      triggerMdblistSyncInBackground(
+        context.user.userId,
+        context.ipAddress ?? 'unknown',
+        'show_watched',
+        { showId: String(id), title: show.title, tmdbId: show.tmdb_id ?? null },
+      );
+      return {
+        ...show,
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
+    unwatchShow: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const showCheck = await pool.query('SELECT * FROM shows WHERE id = $1', [id]);
+      if (showCheck.rows.length === 0) {
+        throw new GraphQLError('Show not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      if (!showCheck.rows[0].watched_at) {
+        throw new GraphQLError('Show is not marked as watched', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      assertOwnerOrAdmin(context, showCheck.rows[0].requested_by);
+
+      const show = await updateWatchedState('show', id, false);
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        show.requested_by,
+      ]);
+
+      await logAudit(
+        context.user.userId,
+        'SHOW_UNWATCH',
+        'show',
+        String(id),
+        { title: show.title },
+        context.ipAddress ?? 'unknown',
+      );
+      triggerMdblistSyncInBackground(
+        context.user.userId,
+        context.ipAddress ?? 'unknown',
+        'show_unwatch',
+        { showId: String(id), title: show.title, tmdbId: show.tmdb_id ?? null },
+      );
+
+      return {
+        ...show,
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
+    deleteShow: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const showResult = await pool.query('SELECT title FROM shows WHERE id = $1', [id]);
+      const show = showResult.rows[0];
+      const result = await pool.query('DELETE FROM shows WHERE id = $1', [id]);
+      if ((result.rowCount ?? 0) > 0) {
+        await logAudit(
+          context.user.userId,
+          'SHOW_DELETE',
+          'show',
+          id,
+          show ? { title: show.title } : null,
+          context.ipAddress ?? 'unknown',
+        );
+      }
+      return (result.rowCount ?? 0) > 0;
+    },
+    recordShowComparison: async (
+      _: any,
+      { winnerId, loserId }: { winnerId: string; loserId: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const userId = context.user.userId;
+      const { winnerElo, loserElo } = await applyComparison(
+        'show',
+        userId,
+        Number(winnerId),
+        Number(loserId),
+      );
+
+      await logAudit(
+        userId,
+        'SHOW_COMPARISON',
+        'show',
+        String(winnerId),
+        { winnerId, loserId, winnerElo, loserElo },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return { winnerId, loserId, winnerElo, loserElo };
+    },
+    resetShowComparisons: async (_: any, { showId }: { showId: string }, context: any) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+
+      const userId = context.user.userId;
+      const sid = Number(showId);
+
+      const showResult = await pool.query('SELECT id, title FROM shows WHERE id = $1', [sid]);
+      if (showResult.rows.length === 0) {
+        throw new GraphQLError('Show not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      await pool.query(
+        'DELETE FROM show_comparisons WHERE user_id = $1 AND (winner_id = $2 OR loser_id = $2)',
+        [userId, sid],
+      );
+
+      await pool.query('DELETE FROM user_show_elo WHERE user_id = $1 AND show_id = $2', [
+        userId,
+        sid,
+      ]);
+
+      await updateGlobalEloRank('show', sid);
+
+      await logAudit(
+        userId,
+        'SHOW_COMPARISON_RESET',
+        'show',
+        String(showId),
+        { title: showResult.rows[0].title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return true;
+    },
+    setShowInterest: async (
+      _: any,
+      { showId, interested }: { showId: string; interested: boolean },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const showCheck = await pool.query(
+        'SELECT id, title FROM shows WHERE id = $1 AND watched_at IS NULL',
+        [showId],
+      );
+      if (showCheck.rows.length === 0) {
+        throw new GraphQLError('Show not found or already watched', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      await setInterest('show', userId, showId, interested);
+
+      await logAudit(
+        userId,
+        'SHOW_INTEREST_SET',
+        'show',
+        String(showId),
+        { interested, title: showCheck.rows[0].title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return { showId, interested };
+    },
+    setShowTag: async (
+      _: any,
+      { showId, tagSlug, value }: { showId: string; tagSlug: string; value?: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const tagResult = await pool.query('SELECT * FROM tags WHERE slug = $1', [tagSlug]);
+      if (tagResult.rows.length === 0) {
+        throw new GraphQLError('Tag not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      const tag = tagResult.rows[0];
+
+      const showResult = await pool.query('SELECT id, title FROM shows WHERE id = $1', [showId]);
+      if (showResult.rows.length === 0) {
+        throw new GraphQLError('Show not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const row = await upsertTag('show', showId, userId, tag.id, value ?? null);
+
+      const userResult = await pool.query(
+        'SELECT id, username, display_name FROM users WHERE id = $1',
+        [userId],
+      );
+
+      await logAudit(
+        userId,
+        'SHOW_TAG_SET',
+        'show',
+        String(showId),
+        { tag: tagSlug, value: value ?? null, title: showResult.rows[0].title },
+        context.ipAddress ?? 'unknown',
+      );
+
+      const u = userResult.rows[0];
+      return {
+        tag: { id: String(tag.id), slug: tag.slug, label: tag.label, valueType: tag.value_type },
+        user: { id: String(u.id), username: u.username, display_name: u.display_name },
+        value: row.value,
+        createdAt:
+          row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      };
+    },
+    removeShowTag: async (
+      _: any,
+      { showId, tagSlug }: { showId: string; tagSlug: string },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      const userId = context.user.userId;
+
+      const tagResult = await pool.query('SELECT id FROM tags WHERE slug = $1', [tagSlug]);
+      if (tagResult.rows.length === 0) {
+        return false;
+      }
+
+      const showResult = await pool.query('SELECT id, title FROM shows WHERE id = $1', [showId]);
+
+      const rows = await removeTag('show', showId, userId, tagResult.rows[0].id);
+
+      if (rows.length > 0) {
+        await logAudit(
+          userId,
+          'SHOW_TAG_REMOVE',
+          'show',
+          String(showId),
+          { tag: tagSlug, title: showResult.rows[0]?.title },
+          context.ipAddress ?? 'unknown',
+        );
+      }
+
+      return rows.length > 0;
+    },
+    backfillShowTmdbData: async (_: any, __: any, context: any) => {
+      if (!context.user?.isAdmin) {
+        throw new GraphQLError('Not authorized', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+      const result = await pool.query(
+        `SELECT id, tmdb_id FROM shows WHERE tmdb_id IS NOT NULL AND tmdb_fetched_at IS NULL`,
+      );
+      let count = 0;
+      for (const row of result.rows) {
+        await fetchAndStoreTmdbData('show', row.id, row.tmdb_id);
+        count++;
+      }
+      return count;
+    },
   },
   Movie: {
     requester: (parent: any) => {
@@ -2377,6 +3128,72 @@ export const resolvers = {
     poster_url: (parent: any) => {
       return parent.poster_path ? `https://image.tmdb.org/t/p/w92${parent.poster_path}` : null;
     },
+  },
+  Show: {
+    // The shows table has no legacy `requester` varchar (D-13 / FR-SHOW-009),
+    // so resolve from the requested_by join only.
+    requester: (parent: any) => {
+      return parent.user_display_name || parent.user_username || 'Unknown';
+    },
+    myTags: async (parent: any, _: any, context: any) => {
+      if (!context.user) return [];
+      const result = await pool.query(
+        `SELECT sut.*, t.slug, t.label, t.value_type,
+                u.id AS uid, u.username, u.display_name
+         FROM show_user_tags sut
+         JOIN tags t ON sut.tag_id = t.id
+         JOIN users u ON sut.user_id = u.id
+         WHERE sut.show_id = $1 AND sut.user_id = $2`,
+        [parent.id, context.user.userId],
+      );
+      return result.rows.map((r: any) => ({
+        tag: { id: String(r.tag_id), slug: r.slug, label: r.label, valueType: r.value_type },
+        user: { id: String(r.uid), username: r.username, display_name: r.display_name },
+        value: r.value,
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      }));
+    },
+    userTags: async (parent: any) => {
+      const result = await pool.query(
+        `SELECT sut.*, t.slug, t.label, t.value_type,
+                u.id AS uid, u.username, u.display_name
+         FROM show_user_tags sut
+         JOIN tags t ON sut.tag_id = t.id
+         JOIN users u ON sut.user_id = u.id
+         WHERE sut.show_id = $1
+         ORDER BY sut.created_at`,
+        [parent.id],
+      );
+      return result.rows.map((r: any) => ({
+        tag: { id: String(r.tag_id), slug: r.slug, label: r.label, valueType: r.value_type },
+        user: { id: String(r.uid), username: r.username, display_name: r.display_name },
+        value: r.value,
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      }));
+    },
+    date_submitted: (parent: any) => {
+      const date =
+        parent.date_submitted instanceof Date
+          ? parent.date_submitted
+          : new Date(Number(parent.date_submitted));
+      return date.toISOString();
+    },
+    watched_at: (parent: any) => {
+      if (!parent.watched_at) return null;
+      const date =
+        parent.watched_at instanceof Date ? parent.watched_at : new Date(parent.watched_at);
+      return date.toISOString();
+    },
+    elo_rank: (parent: any) => {
+      return parent.elo_rank != null ? Number(parent.elo_rank) : null;
+    },
+    poster_url: (parent: any) => {
+      return parent.poster_path ? `https://image.tmdb.org/t/p/w92${parent.poster_path}` : null;
+    },
+    // created_by / networks are non-null lists in the schema; coalesce the
+    // nullable text[] columns to [] so an unfetched show doesn't error.
+    created_by: (parent: any) => parent.created_by ?? [],
+    networks: (parent: any) => parent.networks ?? [],
   },
   User: {
     created_at: (parent: any) => {

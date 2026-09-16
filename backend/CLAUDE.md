@@ -5,7 +5,7 @@ Apollo Server 4 + Express + PostgreSQL. TypeScript, no ORM, raw `pg` queries.
 See the root `CLAUDE.md` for the GraphQL surface, the full database schema, audit actions and
 project-wide gotchas. This file covers backend-only detail.
 
-> **Last verified:** 2026-09-15 against branch `60a7-tv-shows-ui`.
+> **Last verified:** 2026-09-15 against branch `phase-2-show-graphql` (TV shows Phase 2).
 
 ## Entry point & startup sequence
 

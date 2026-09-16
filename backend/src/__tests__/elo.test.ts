@@ -57,12 +57,22 @@ describe('calculateElo', () => {
 describe('getOrCreateElo', () => {
   it('calls pool.query with upsert SQL and returns rating', async () => {
     mockQuery.mockResolvedValue({ rows: [{ elo_rating: '1000' }] });
-    const result = await getOrCreateElo(1, 5);
+    const result = await getOrCreateElo('movie', 1, 5);
     expect(result).toBe(1000);
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO user_movie_elo'),
       [1, 5, 1000],
     );
+  });
+
+  it('targets the show tables for kind=show', async () => {
+    mockQuery.mockResolvedValue({ rows: [{ elo_rating: '1000' }] });
+    const result = await getOrCreateElo('show', 1, 5);
+    expect(result).toBe(1000);
+    const sql = mockQuery.mock.calls[0][0] as string;
+    expect(sql).toContain('INSERT INTO user_show_elo');
+    expect(sql).toContain('show_id');
+    expect(sql).not.toContain('user_movie_elo');
   });
 });
 
@@ -78,7 +88,7 @@ describe('applyComparison', () => {
       .mockResolvedValueOnce({ rows: [] }) // updateGlobalEloRank winner
       .mockResolvedValueOnce({ rows: [] }); // updateGlobalEloRank loser
 
-    const result = await applyComparison(1, 10, 20);
+    const result = await applyComparison('movie', 1, 10, 20);
     expect(result.winnerElo).toBeGreaterThan(1000);
     expect(result.loserElo).toBeLessThan(1000);
 
@@ -88,15 +98,47 @@ describe('applyComparison', () => {
       [1, 10, 20],
     );
   });
+
+  it('writes to show tables for kind=show and never touches movie tables', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ elo_rating: '1000' }] }) // winner
+      .mockResolvedValueOnce({ rows: [{ elo_rating: '1000' }] }) // loser
+      .mockResolvedValueOnce({ rows: [] }) // update winner
+      .mockResolvedValueOnce({ rows: [] }) // update loser
+      .mockResolvedValueOnce({ rows: [] }) // insert comparison
+      .mockResolvedValueOnce({ rows: [] }) // updateGlobalEloRank winner
+      .mockResolvedValueOnce({ rows: [] }); // updateGlobalEloRank loser
+
+    await applyComparison('show', 1, 10, 20);
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      'INSERT INTO show_comparisons (user_id, winner_id, loser_id) VALUES ($1, $2, $3)',
+      [1, 10, 20],
+    );
+    const allSql = mockQuery.mock.calls.map((c) => c[0] as string).join('\n');
+    expect(allSql).toContain('user_show_elo');
+    expect(allSql).not.toContain('user_movie_elo');
+    expect(allSql).not.toContain('movie_comparisons');
+  });
 });
 
 describe('updateGlobalEloRank', () => {
   it('updates movies elo_rank to average of user ratings', async () => {
     mockQuery.mockResolvedValue({ rows: [] });
-    await updateGlobalEloRank(5);
+    await updateGlobalEloRank('movie', 5);
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE movies SET elo_rank'),
       [5],
     );
+  });
+
+  it('updates shows elo_rank from user_show_elo for kind=show', async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    await updateGlobalEloRank('show', 5);
+    const sql = mockQuery.mock.calls[0][0] as string;
+    expect(sql).toContain('UPDATE shows SET elo_rank');
+    expect(sql).toContain('user_show_elo');
+    expect(sql).toContain('show_id');
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [5]);
   });
 });

@@ -335,3 +335,36 @@ describe('Movie.userTags', () => {
     expect(result[1].user.username).toBe('bob');
   });
 });
+
+// ── Show tags: cross-user isolation ─────────────────────────────────────────
+// Show tags share the `tags` definitions but live in show_user_tags, scoped to
+// (show_id, user_id, tag_id). Each user tags a show independently of others.
+
+describe('Show tag cross-user isolation', () => {
+  const { setShowTag } = resolvers.Mutation as any;
+  const { myTags: showMyTags } = resolvers.Show as any;
+
+  it('setShowTag scopes the upsert to the calling user', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 3, slug: 'seen', label: 'Seen it', value_type: 'boolean' }],
+      }) // tag lookup
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'S' }] }) // show lookup
+      .mockResolvedValueOnce({ rows: [{ id: 7, value: null, created_at: new Date() }] }) // upsert
+      .mockResolvedValueOnce({ rows: [{ id: 42, username: 'alice', display_name: 'Alice' }] }) // user
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    await setShowTag(null, { showId: '1', tagSlug: 'seen' }, authContext({ userId: 42 }));
+    // upsert (3rd call) carries the caller's user id in the params
+    const upsertParams = mockQuery.mock.calls[2][1];
+    expect(upsertParams).toEqual(['1', 42, 3, null]);
+  });
+
+  it('myTags only reads the calling user rows from show_user_tags', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    await showMyTags({ id: 5 }, {}, authContext({ userId: 42 }));
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toContain('FROM show_user_tags');
+    expect(sql).toContain('sut.user_id = $2');
+    expect(params).toEqual([5, 42]);
+  });
+});
