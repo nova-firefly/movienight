@@ -11,7 +11,7 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/joy';
-import { Movie } from '../../models/Movies';
+import { Movie } from '../../models/Content';
 
 type TmdbResult = {
   tmdb_id: number;

@@ -32,8 +32,8 @@ import {
   REMOVE_MOVIE_TAG,
 } from '../../graphql/queries';
 import TmdbMatchFlow from './TmdbMatchFlow';
-import MovieRow from './MovieRow';
-import MovieCard from './MovieCard';
+import ContentRow from './ContentRow';
+import ContentCard from './ContentCard';
 import AddMovieForm from './AddMovieForm';
 import ViewSelector from './ViewSelector';
 import ConnectionBanners from './ConnectionBanners';
@@ -42,7 +42,7 @@ import ThisOrThatBanner from './ThisOrThatBanner';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Poster from '../common/Poster';
 import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
-import { Movie } from '../../models/Movies';
+import { Movie } from '../../models/Content';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -886,9 +886,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   >
                     <tbody>
                       {soloMovies.map((movie) => (
-                        <MovieRow
+                        <ContentRow
                           key={movie.id}
-                          movie={movie}
+                          item={movie}
+                          kind="movie"
                           isAdmin={isAdmin}
                           canMarkWatched={true}
                           onMarkWatched={handleMarkWatched}
@@ -906,9 +907,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {/* Cards — visible on mobile */}
             <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
               {soloMovies.map((movie, idx) => (
-                <MovieCard
+                <ContentCard
                   key={movie.id}
-                  movie={movie}
+                  item={movie}
+                  kind="movie"
                   rank={idx + 1}
                   isAdmin={isAdmin}
                   canMarkWatched={true}
@@ -1033,9 +1035,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                           </tr>
                         ) : (
                           myMovies.map((movie) => (
-                            <MovieRow
+                            <ContentRow
                               key={movie.id}
-                              movie={movie}
+                              item={movie}
+                              kind="movie"
                               isAdmin={isAdmin}
                               canMarkWatched={
                                 isAdmin ||
@@ -1070,9 +1073,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   </Typography>
                 ) : (
                   myMovies.map((movie, idx) => (
-                    <MovieCard
+                    <ContentCard
                       key={movie.id}
-                      movie={movie}
+                      item={movie}
+                      kind="movie"
                       rank={idx + 1}
                       isAdmin={isAdmin}
                       canMarkWatched={
