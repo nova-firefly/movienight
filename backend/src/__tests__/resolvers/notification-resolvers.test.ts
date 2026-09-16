@@ -47,7 +47,10 @@ describe('Query.notificationPreferences', () => {
   it('returns defaults (enabled=true) when no overrides exist', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     const result = await (notificationPreferences as any)(null, {}, authContext());
-    expect(result).toEqual([{ eventType: 'MOVIE_ADD', enabled: true }]);
+    expect(result).toEqual([
+      { eventType: 'MOVIE_ADD', enabled: true },
+      { eventType: 'SHOW_ADD', enabled: true },
+    ]);
   });
 
   it('respects overrides from the DB', async () => {
@@ -55,7 +58,10 @@ describe('Query.notificationPreferences', () => {
       rows: [{ event_type: 'MOVIE_ADD', enabled: false }],
     });
     const result = await (notificationPreferences as any)(null, {}, authContext());
-    expect(result).toEqual([{ eventType: 'MOVIE_ADD', enabled: false }]);
+    expect(result).toEqual([
+      { eventType: 'MOVIE_ADD', enabled: false },
+      { eventType: 'SHOW_ADD', enabled: true },
+    ]);
   });
 });
 

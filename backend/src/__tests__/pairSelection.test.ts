@@ -1,6 +1,6 @@
-import { selectPair, MovieCandidate } from '../pairSelection';
+import { selectPair, ContentCandidate } from '../pairSelection';
 
-function makeCandidate(overrides: Partial<MovieCandidate> & { id: number }): MovieCandidate {
+function makeCandidate(overrides: Partial<ContentCandidate> & { id: number }): ContentCandidate {
   return {
     title: `Movie ${overrides.id}`,
     tmdb_id: null,
@@ -19,11 +19,11 @@ describe('selectPair', () => {
 
   describe('error handling', () => {
     it('throws for empty array', () => {
-      expect(() => selectPair([])).toThrow('Not enough movies');
+      expect(() => selectPair([])).toThrow('Not enough items');
     });
 
     it('throws for single-element array', () => {
-      expect(() => selectPair([makeCandidate({ id: 1 })])).toThrow('Not enough movies');
+      expect(() => selectPair([makeCandidate({ id: 1 })])).toThrow('Not enough items');
     });
   });
 

@@ -1,6 +1,7 @@
 # Feature: TV Shows as a Second Content Kind
 
-**Status:** Phase 1 landed (PR #102). Phases 2–5 not started.
+**Status:** Phase 1 landed (PR #102). Phase 2 (backend GraphQL surface) implemented on branch
+`phase-2-show-graphql`. Phases 3–5 not started.
 **Mockup:** `specs/mockups/tv-shows-ui.html` (merged in `cd1cc87`)
 
 > **Provenance note.** The original implementation plan for this feature was lost — it lived in a
@@ -632,7 +633,8 @@ And no movie query returns show rows
 4. **Phase 5** — export. Independent of 3 and 4; can run in parallel with the frontend work.
 
 Fix **H-6** (the three unscoped `kometa_mdblist_lists` selects) in whichever of Phase 2 or Phase 5
-lands first — it is three lines and prevents a silent data-mixing bug.
+lands first — it is three lines and prevents a silent data-mixing bug. **Done in Phase 2:** extracted
+to `fetchExportedLists(environment, kind='movie')` in `resolvers.ts`, filtering `AND kind = $2`.
 
 ---
 

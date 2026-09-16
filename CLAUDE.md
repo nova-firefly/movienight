@@ -4,8 +4,8 @@ A full-stack movie suggestion app: React + TypeScript frontend, Apollo GraphQL b
 database. Containerized with Docker Compose. Movies are ranked by pairwise Elo, shared with
 "connections", and exported to Plex via MDBList + Kometa.
 
-> **Last verified:** 2026-09-15 against branch `60a7-tv-shows-ui`. If something here contradicts the
-> code, trust the code and fix this file.
+> **Last verified:** 2026-09-15 against branch `phase-2-show-graphql` (TV shows Phase 2). If
+> something here contradicts the code, trust the code and fix this file.
 
 ## Quick orientation
 
@@ -79,6 +79,17 @@ passedMovieIds: [ID!]!
 tags: [Tag!]!
 watchedMovies(limit: Int, offset: Int): [Movie!]!      # limit clamped 1..200, default 50
 notificationPreferences: [NotificationPreference!]!
+# Shows — parallel to movies, separate Elo pool (never mixed). See tv-shows.spec.md.
+shows: [Show!]!                                        # unwatched only; personal Elo order when authed
+show(id: ID!): Show                                    # public
+searchTmdbShows(query: String!): [TmdbShow!]!          # needs TMDB_API_KEY; /search/tv
+showThisOrThat(excludeIds: [ID!]): ThisOrThatShowPair!
+myShowRankings: [ShowRanking!]!
+combinedShowList(connectionId: ID!): CombinedShowListResult!
+newShowsFromConnections: [PendingReviewShow!]!
+soloShows: [Show!]!
+passedShowIds: [ID!]!
+watchedShows(limit: Int, offset: Int): [Show!]!        # limit clamped 1..200, default 50
 
 # Mutations
 addMovie(title: String!, tmdb_id: Int): Movie!
@@ -106,29 +117,41 @@ unsubscribePush(endpoint: String!): Boolean!
 updateNotificationPreference(eventType: String!, enabled: Boolean!): NotificationPreference!
 seedMovies: Int!                                       # admin, blocked in production
 backfillTmdbData: Int!                                 # admin
+# Shows — mirror the movie mutations against the show tables
+addShow(title: String!, tmdb_id: Int): Show!           # fires SHOW_ADD push to accepted connections
+matchShow(id: ID!, tmdb_id: Int!, title: String!): Show!   # owner or admin
+markShowWatched(id: ID!): Show!                        # owner, admin, OR accepted connection of owner
+unwatchShow(id: ID!): Show!                            # owner or admin only (deliberately stricter)
+deleteShow(id: ID!): Boolean!                          # admin only
+recordShowComparison(winnerId: ID!, loserId: ID!): ShowComparisonResult!
+resetShowComparisons(showId: ID!): Boolean!
+setShowInterest(showId: ID!, interested: Boolean!): SetShowInterestResult!
+setShowTag(showId: ID!, tagSlug: String!, value: String): ShowUserTag!
+removeShowTag(showId: ID!, tagSlug: String!): Boolean!
+backfillShowTmdbData: Int!                             # admin
 ```
 
 **There is no `reorderMovie`.** Drag-to-rank was removed when Elo landed.
 
 ## Backend source files
 
-| File                | Purpose                                                                      |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `index.ts`          | Bootstrap, Express, CORS, JWT context + per-request DB revalidation          |
-| `schema.ts`         | GraphQL SDL (`typeDefs`)                                                     |
-| `resolvers.ts`      | All resolvers (~2400 lines) + field resolvers for timestamp conversion       |
-| `db.ts`             | `pg.Pool`, `initializeDatabase()` — runs migrations, seeds admin + test user |
-| `auth.ts`           | bcrypt hashing, JWT generate/verify, `getTokenFromHeader`                    |
-| `elo.ts`            | Elo maths, `applyComparison`, `updateGlobalEloRank`                          |
-| `pairSelection.ts`  | Three-tier pair selection (pure, no DB)                                      |
-| `tmdb.ts`           | Kind-dispatched TMDB adapter (movie + show)                                  |
-| `contentActions.ts` | Cross-kind helpers: `logAudit`, `triggerMdblistSyncInBackground`, kind maps  |
-| `kometaExport.ts`   | MDBList list sync, Kometa YAML, Plex reconciler                              |
-| `mdblist.ts`        | MDBList API client                                                           |
-| `plexClient.ts`     | Plex API client (section resolve, collections by label, delete)              |
-| `push.ts`           | Web Push (VAPID), subscription pruning on 404/410                            |
-| `scheduler.ts`      | Scheduled Kometa export (production only)                                    |
-| `email.ts`          | nodemailer transport for password resets                                     |
+| File                | Purpose                                                                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`          | Bootstrap, Express, CORS, JWT context + per-request DB revalidation                                                                                                                            |
+| `schema.ts`         | GraphQL SDL (`typeDefs`)                                                                                                                                                                       |
+| `resolvers.ts`      | All resolvers (~2400 lines) + field resolvers for timestamp conversion                                                                                                                         |
+| `db.ts`             | `pg.Pool`, `initializeDatabase()` — runs migrations, seeds admin + test user                                                                                                                   |
+| `auth.ts`           | bcrypt hashing, JWT generate/verify, `getTokenFromHeader`                                                                                                                                      |
+| `elo.ts`            | Elo maths; `getOrCreateElo`/`applyComparison`/`updateGlobalEloRank` are kind-parameterised                                                                                                     |
+| `pairSelection.ts`  | Three-tier pair selection (pure, no DB); `ContentCandidate`, kind-agnostic                                                                                                                     |
+| `tmdb.ts`           | Kind-dispatched TMDB adapter (movie + show)                                                                                                                                                    |
+| `contentActions.ts` | Cross-kind helpers: `logAudit`, `triggerMdblistSyncInBackground`, kind maps, `assertOwnerOrAdmin`/`assertOwnerAdminOrConnection`, `updateWatchedState`, `setInterest`, `upsertTag`/`removeTag` |
+| `kometaExport.ts`   | MDBList list sync, Kometa YAML, Plex reconciler                                                                                                                                                |
+| `mdblist.ts`        | MDBList API client                                                                                                                                                                             |
+| `plexClient.ts`     | Plex API client (section resolve, collections by label, delete)                                                                                                                                |
+| `push.ts`           | Web Push (VAPID), subscription pruning on 404/410                                                                                                                                              |
+| `scheduler.ts`      | Scheduled Kometa export (production only)                                                                                                                                                      |
+| `email.ts`          | nodemailer transport for password resets                                                                                                                                                       |
 
 ## Component structure
 
@@ -232,8 +255,10 @@ Danger and warning confirmations render a leading icon for severity reinforcemen
 | `show_interest`                 | PK (user_id, show_id)                                                                                                                                                                                        |
 | `show_user_tags`                | UNIQUE (show_id, user_id, tag_id), FK to shared `tags`                                                                                                                                                       |
 
-The five `show*` tables are **schema-only** — created by PR #102, with no resolver reading or writing
-them yet. Nothing can create or list a show. See `specs/tv-shows.spec.md`.
+The five `show*` tables now have a full GraphQL surface (Phase 2): the `show*` queries and mutations
+above mirror their movie twins against these tables, with a strictly separate Elo pool. Frontend
+(Phase 4) and Kometa/MDBList/Plex show export (Phase 5) are not built yet — shows are usable via the
+API but have no UI and are not exported to Plex. See `specs/tv-shows.spec.md`.
 
 Dropped along the way (do not resurrect): `movie_votes`, `user_movie_rankings`.
 
@@ -246,7 +271,9 @@ Dropped along the way (do not resurrect): `movie_votes`, `user_movie_rankings`.
 `PASSWORD_RESET_REQUEST`, `PASSWORD_RESET_SUCCESS`, `PASSWORD_RESET_FAILURE`, `USER_CREATE`,
 `USER_UPDATE`, `USER_DELETE`, `KOMETA_EXPORT`, `KOMETA_SCHEDULE_EXPORT`, `MDBLIST_SYNC`,
 `MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`, `PUSH_SUBSCRIBE`, `PUSH_UNSUBSCRIBE`,
-`NOTIFICATION_PREFS_UPDATE`.
+`NOTIFICATION_PREFS_UPDATE`, `SHOW_ADD`, `SHOW_WATCHED`, `SHOW_UNWATCH`, `SHOW_DELETE`,
+`SHOW_TMDB_MATCH`, `SHOW_INTEREST_SET`, `SHOW_TAG_SET`, `SHOW_TAG_REMOVE`, `SHOW_COMPARISON`,
+`SHOW_COMPARISON_RESET`.
 
 Failed logins are recorded in `login_history` (`succeeded = false`), **not** as an audit action.
 
@@ -298,8 +325,8 @@ no migration or code change needed.
 ### Web Push
 
 VAPID-based, opt-out per event type. `NOTIFICATION_EVENT_TYPES` in `resolvers.ts` is the whitelist —
-currently just `MOVIE_ADD`, fired to the requester's accepted connections when a movie is added.
-Adding an event type needs no migration. Full design: `specs/push-notifications.spec.md`.
+`MOVIE_ADD` and `SHOW_ADD`, each fired to the requester's accepted connections when a movie/show is
+added. Adding an event type needs no migration. Full design: `specs/push-notifications.spec.md`.
 
 ### Password reset
 
@@ -392,11 +419,12 @@ Things that look like bugs, or that stale docs have claimed before:
    no drag-and-drop in the app.
 3. **`markWatched` and `unwatchMovie` have deliberately different auth gates** — the former accepts
    an accepted-connection of the owner, the latter is owner-or-admin. Don't "fix" one in passing.
-4. **`KometaSchedule.exportedLists` reports `movieCount: 0`** — hardcoded at all three query sites,
-   never a real count.
+4. **`KometaSchedule.exportedLists` reports `movieCount: 0`** — the count is still hardcoded (now in
+   the shared `fetchExportedLists` helper), never a real count.
 5. **`kometa_schedule` is a singleton** — every query hardcodes `WHERE id = 1`.
-6. **Three `kometa_mdblist_lists` SELECTs in `resolvers.ts` don't filter by `kind`**, so they will
-   mix show lists in once shows exist. See H-6 in `specs/tv-shows.spec.md`.
+6. **`kometa_mdblist_lists` reads are now `kind`-scoped** (H-6 fixed): `fetchExportedLists` in
+   `resolvers.ts` filters `WHERE environment = $1 AND kind = $2`, defaulting to `'movie'`. Phase 5
+   threads `kind` through the export and can widen this to surface show lists too.
 7. **Dead columns**: `kometa_schedule.collection_name`, `.mdblist_list_id`, `.mdblist_list_url`.
 8. **Unused imports in `resolvers.ts`**: `fs`, `path`, `createList`, `syncList`.
 9. **Timestamp types are inconsistent** — tables predating `1742860000000` use `timestamp` without

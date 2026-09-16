@@ -2,7 +2,7 @@ const K = 5; // established threshold
 const EP_POOL_MIN = 5; // minimum EP candidate pool size
 const SEED_ELO_BAND = 150; // +/- Elo around median for seeded "peer" pick
 
-export interface MovieCandidate {
+export interface ContentCandidate {
   id: number;
   title: string;
   tmdb_id: number | null;
@@ -10,19 +10,19 @@ export interface MovieCandidate {
   elo_rating: number;
 }
 
-export function selectPair(movies: MovieCandidate[]): [MovieCandidate, MovieCandidate] {
-  if (movies.length < 2) throw new Error('Not enough movies');
+export function selectPair(candidates: ContentCandidate[]): [ContentCandidate, ContentCandidate] {
+  if (candidates.length < 2) throw new Error('Not enough items');
 
-  const epPoolSize = Math.max(EP_POOL_MIN, Math.floor(movies.length * 0.1));
+  const epPoolSize = Math.max(EP_POOL_MIN, Math.floor(candidates.length * 0.1));
 
   // Tier 1: IFW first pick
-  const weights = movies.map((m) => 1 / (m.userComparisonCount + 1));
-  const first = weightedRandomPick(movies, weights);
+  const weights = candidates.map((m) => 1 / (m.userComparisonCount + 1));
+  const first = weightedRandomPick(candidates, weights);
 
-  const rest = movies.filter((m) => m.id !== first.id);
+  const rest = candidates.filter((m) => m.id !== first.id);
   const established = rest.filter((m) => m.userComparisonCount >= K);
 
-  let second: MovieCandidate;
+  let second: ContentCandidate;
 
   if (first.userComparisonCount < K && established.length >= K) {
     // Tier 2: seeded pick
@@ -61,8 +61,8 @@ function randomPick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function medianElo(movies: MovieCandidate[]): number {
-  const sorted = [...movies].map((m) => m.elo_rating).sort((a, b) => a - b);
+function medianElo(candidates: ContentCandidate[]): number {
+  const sorted = [...candidates].map((m) => m.elo_rating).sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
