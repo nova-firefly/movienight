@@ -162,6 +162,9 @@ async function getSoloTmdbIds(userId: number): Promise<number[]> {
   return result.rows.map((r: any) => r.tmdb_id);
 }
 
+// Lists are scoped per content kind; this export only handles movies today.
+const LIST_KIND = 'movie';
+
 /** Get or create an MDBList list for a given type/ref/environment, persisting in kometa_mdblist_lists. */
 async function getOrCreateMdbList(
   apiKey: string,
@@ -171,8 +174,8 @@ async function getOrCreateMdbList(
   environment: string,
 ): Promise<{ listId: number; listUrl: string }> {
   const existing = await pool.query(
-    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3',
-    [listType, refId, environment],
+    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3 AND kind = $4',
+    [listType, refId, environment, LIST_KIND],
   );
 
   if (existing.rows.length > 0 && existing.rows[0].mdblist_list_id) {
@@ -185,11 +188,11 @@ async function getOrCreateMdbList(
   const listInfo = await createList(apiKey, name);
 
   await pool.query(
-    `INSERT INTO kometa_mdblist_lists (list_type, ref_id, list_name, mdblist_list_id, mdblist_list_url, environment)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (list_type, ref_id, environment) DO UPDATE
+    `INSERT INTO kometa_mdblist_lists (list_type, ref_id, list_name, mdblist_list_id, mdblist_list_url, environment, kind)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (list_type, ref_id, environment, kind) DO UPDATE
        SET mdblist_list_id = $4, mdblist_list_url = $5, list_name = $3, updated_at = NOW()`,
-    [listType, refId, name, listInfo.id, listInfo.url, environment],
+    [listType, refId, name, listInfo.id, listInfo.url, environment, LIST_KIND],
   );
 
   return { listId: listInfo.id, listUrl: listInfo.url };
@@ -206,8 +209,8 @@ async function findExistingMdbList(
   environment: string,
 ): Promise<{ listId: number; listUrl: string } | null> {
   const result = await pool.query(
-    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3',
-    [listType, refId, environment],
+    'SELECT mdblist_list_id, mdblist_list_url FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3 AND kind = $4',
+    [listType, refId, environment, LIST_KIND],
   );
   if (result.rows.length > 0 && result.rows[0].mdblist_list_id) {
     return {

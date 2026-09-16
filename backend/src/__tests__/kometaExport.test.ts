@@ -553,6 +553,56 @@ describe('runKometaExport', () => {
     expect(insertCall).toBeDefined();
     expect(insertCall![1]).toContain('development');
   });
+
+  it('scopes list lookups and upserts to kind=movie', async () => {
+    // getAcceptedConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    // getOrCreateMdbList: SELECT existing
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockCreateList.mockResolvedValueOnce({
+      id: 99,
+      slug: 's',
+      url: 'https://mdblist.com/lists/u/s',
+    });
+    // INSERT
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockSyncList.mockResolvedValueOnce(undefined);
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await runKometaExport({ ...defaultOptions, collectionsPath: null });
+
+    const selectCall = mockQuery.mock.calls.find(
+      (call: any[]) =>
+        typeof call[0] === 'string' &&
+        call[0].startsWith('SELECT') &&
+        call[0].includes('kometa_mdblist_lists'),
+    );
+    expect(selectCall![0]).toContain('kind = $4');
+    expect(selectCall![1]).toEqual(['combined', 10, 'production', 'movie']);
+
+    // Conflict target must match the (list_type, ref_id, environment, kind)
+    // unique constraint, or Postgres rejects the upsert.
+    const insertCall = mockQuery.mock.calls.find(
+      (call: any[]) => typeof call[0] === 'string' && call[0].includes('INSERT INTO'),
+    );
+    expect(insertCall![0]).toContain('ON CONFLICT (list_type, ref_id, environment, kind)');
+    expect(insertCall![1][6]).toBe('movie');
+  });
 });
 
 describe('runKometaExport Plex reconciler', () => {

@@ -17,6 +17,8 @@ import { createList, syncList } from './mdblist';
 import { runKometaExport } from './kometaExport';
 import { applyComparison, updateGlobalEloRank } from './elo';
 import { selectPair, MovieCandidate } from './pairSelection';
+import { searchTmdb as searchTmdbApi, fetchAndStoreTmdbData } from './tmdb';
+import { logAudit, triggerMdblistSyncInBackground } from './contentActions';
 
 const USER_COLS =
   'id, username, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at';
@@ -25,24 +27,6 @@ const NOTIFICATION_EVENT_TYPES = ['MOVIE_ADD'] as const;
 const PUSH_SUBSCRIBE_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 const PUSH_SUBSCRIBE_RATE_LIMIT_MAX = 20;
 const MAX_ENDPOINT_LENGTH = 8 * 1024;
-
-async function logAudit(
-  actorId: number | null,
-  action: string,
-  targetType: string | null,
-  targetId: string | null,
-  metadata: object | null,
-  ipAddress: string,
-): Promise<void> {
-  try {
-    await pool.query(
-      'INSERT INTO audit_logs (actor_id, action, target_type, target_id, metadata, ip_address) VALUES ($1, $2, $3, $4, $5, $6)',
-      [actorId, action, targetType, targetId, metadata, ipAddress],
-    );
-  } catch (err) {
-    console.error('Failed to write audit log:', err);
-  }
-}
 
 async function logLoginHistory(
   userId: number | null,
@@ -132,87 +116,6 @@ setInterval(
   15 * 60 * 1000,
 ).unref();
 
-// ── TMDB metadata: fetch from API and persist to DB ──────────────────────────
-
-async function fetchAndStoreTmdbData(movieId: number, tmdbId: number): Promise<void> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return;
-
-  try {
-    const [movieRes, creditsRes, keywordsRes] = await Promise.all([
-      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}&language=en-US`),
-      fetch(
-        `https://api.themoviedb.org/3/movie/${tmdbId}/credits?api_key=${apiKey}&language=en-US`,
-      ),
-      fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${apiKey}`),
-    ]);
-
-    const movie = movieRes.ok ? ((await movieRes.json()) as any) : null;
-    const credits = creditsRes.ok ? ((await creditsRes.json()) as any) : null;
-    const keywords = keywordsRes.ok ? ((await keywordsRes.json()) as any) : null;
-
-    const genres: string[] = movie?.genres?.map((g: any) => g.name) ?? [];
-    const keywordNames: string[] = keywords?.keywords?.map((k: any) => k.name) ?? [];
-    const tags = [...genres, ...keywordNames.filter((k) => !genres.includes(k))].slice(0, 5);
-
-    const posterPath = movie?.poster_path ?? null;
-    const releaseYear = movie?.release_date ? movie.release_date.split('-')[0] : null;
-    const director = credits?.crew?.find((c: any) => c.job === 'Director')?.name ?? null;
-    const castList = (credits?.cast ?? []).slice(0, 3).map((c: any) => c.name);
-
-    await pool.query(
-      `UPDATE movies
-       SET poster_path = $1, release_year = $2, director = $3,
-           cast_list = $4, genre_tags = $5, tmdb_fetched_at = NOW()
-       WHERE id = $6`,
-      [posterPath, releaseYear, director, castList, tags, movieId],
-    );
-  } catch (err) {
-    console.error('TMDB fetch+store failed for movie %d (tmdb %d):', movieId, tmdbId, err);
-  }
-}
-
-// ── MDBList background re-sync ───────────────────────────────────────────────
-// Re-syncs MDBList lists after a movie's watched state changes, so that
-// MDBList (and consequently the Kometa-pulled collection) drops watched movies
-// and re-adds them on unwatch. Best-effort: errors are logged, never thrown.
-async function triggerMdblistSyncInBackground(
-  actorId: number,
-  ipAddress: string,
-  trigger: string,
-  movieMetadata: Record<string, any>,
-): Promise<void> {
-  try {
-    const schedRow = await pool.query('SELECT mdblist_api_key FROM kometa_schedule WHERE id = 1');
-    const mdblistApiKey = schedRow.rows[0]?.mdblist_api_key || process.env.MDBLIST_API_KEY;
-    if (!mdblistApiKey) return;
-
-    const prod = isProduction();
-    const { lists } = await runKometaExport({
-      collectionsPath: null,
-      mdblistApiKey,
-      namePrefix: prod ? '' : '[DEV] ',
-      environment: prod ? 'production' : 'development',
-    });
-
-    await logAudit(
-      actorId,
-      'MDBLIST_AUTO_SYNC',
-      'mdblist',
-      null,
-      {
-        trigger,
-        ...movieMetadata,
-        listCount: lists.length,
-        totalMovies: lists.reduce((sum, l) => sum + l.movieCount, 0),
-      },
-      ipAddress,
-    );
-  } catch (err) {
-    console.error('[MDBList auto-sync] Failed:', err);
-  }
-}
-
 export const resolvers = {
   Query: {
     appInfo: () => ({
@@ -239,26 +142,18 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      const apiKey = process.env.TMDB_API_KEY;
-      if (!apiKey) {
+      if (!process.env.TMDB_API_KEY) {
         throw new GraphQLError('TMDB API key not configured', {
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
         });
       }
-      const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      try {
+        return await searchTmdbApi('movie', query);
+      } catch {
         throw new GraphQLError('TMDB search failed', {
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
         });
       }
-      const data = (await response.json()) as any;
-      return (data.results as any[]).slice(0, 10).map((movie: any) => ({
-        tmdb_id: movie.id,
-        title: movie.title,
-        release_year: movie.release_date ? movie.release_date.split('-')[0] : null,
-        overview: movie.overview || null,
-      }));
     },
     movies: async (_: any, __: any, context: any) => {
       if (context.user) {
@@ -823,7 +718,7 @@ export const resolvers = {
       // Fetch and store TMDB metadata in the background
       const newMovieId = insertResult.rows[0].id;
       if (tmdb_id) {
-        fetchAndStoreTmdbData(newMovieId, tmdb_id).catch(() => {});
+        fetchAndStoreTmdbData('movie', newMovieId, tmdb_id).catch(() => {});
       }
       // Fan out push notifications to the requester's accepted connections only —
       // fire-and-forget so mutation latency isn't held up by push round-trips.
@@ -881,7 +776,7 @@ export const resolvers = {
         context.ipAddress ?? 'unknown',
       );
       // Fetch and store TMDB metadata in the background
-      fetchAndStoreTmdbData(Number(id), tmdb_id).catch(() => {});
+      fetchAndStoreTmdbData('movie', Number(id), tmdb_id).catch(() => {});
       return {
         ...result.rows[0],
         user_username: movie.user_username,
@@ -1882,7 +1777,7 @@ export const resolvers = {
           [movie.title, requestedBy, movie.tmdb_id],
         );
         // Fire-and-forget TMDB fetch for each seeded movie
-        fetchAndStoreTmdbData(ins.rows[0].id, movie.tmdb_id).catch(() => {});
+        fetchAndStoreTmdbData('movie', ins.rows[0].id, movie.tmdb_id).catch(() => {});
       }
 
       await logAudit(
@@ -1908,7 +1803,7 @@ export const resolvers = {
       );
       let count = 0;
       for (const row of result.rows) {
-        await fetchAndStoreTmdbData(row.id, row.tmdb_id);
+        await fetchAndStoreTmdbData('movie', row.id, row.tmdb_id);
         count++;
       }
       return count;
