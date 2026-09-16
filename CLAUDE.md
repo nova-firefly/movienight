@@ -137,14 +137,15 @@ src/components/
 ├── admin/      AdminPanel, UserManagement, AuditLog, LoginHistory, KometaExport, LetterboxdImport
 ├── auth/       Login, ForgotPassword, ResetPassword
 ├── common/     Navbar, Footer, ConfirmDialog, OnboardingGuide, Poster
-├── home/       Homepage, MovieRow, MovieCard, AddMovieForm, WatchHistory, WatchHistoryCard,
+├── home/       Homepage, ContentRow, ContentCard, AddMovieForm, WatchHistory, WatchHistoryCard,
 │               ThisOrThat, MovieCompareCard, ThisOrThatBanner, CombinedList, ConnectionBanners,
 │               ConnectionInboxModal, ViewSelector, TmdbMatchFlow
 └── settings/   NotificationSettings
 ```
 
 `src/contexts/` — `AuthContext`, `ToastContext`. `src/hooks/useConfirm.ts`. `src/models/` —
-`Movies.ts`, `User.ts`. `src/utils/` — `gravatar`, `pushClient`, `textUtils`, `useDebounce`.
+`Content.ts` (`Movie`, `Show`, `ContentItem`, `ContentKind`, tag types), `User.ts`. `src/utils/` —
+`gravatar`, `pushClient`, `textUtils`, `useDebounce`.
 
 **Navigation has no router.** `App.tsx` holds `type ViewName = 'movies' | 'this-or-that' |
 'combined-list' | 'history' | 'admin'` in `useState` and switches on it. There are no URLs, no deep

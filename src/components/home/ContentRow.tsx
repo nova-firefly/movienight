@@ -1,11 +1,14 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/joy';
 import { Check, Eye, EyeOff, X } from 'lucide-react';
-import { Movie } from '../../models/Movies';
+import { ContentItem, ContentKind } from '../../models/Content';
 import Poster from '../common/Poster';
 
-export interface MovieRowProps {
-  movie: Movie;
+export interface ContentRowProps {
+  item: ContentItem;
+  // Threaded now so Phase 4 (kind-aware TMDB links, kind chip) is a small diff.
+  // Every callsite passes "movie" in this phase; behaviour is unchanged.
+  kind: ContentKind;
   isAdmin: boolean;
   canMarkWatched: boolean;
   onMarkWatched: (id: string, title: string) => void;
@@ -54,8 +57,8 @@ const recentlyAddedRowStyle: React.CSSProperties = {
   boxShadow: 'inset 3px 0 0 var(--joy-palette-primary-400)',
 };
 
-const MovieRow: React.FC<MovieRowProps> = ({
-  movie,
+const ContentRow: React.FC<ContentRowProps> = ({
+  item,
   isAdmin,
   canMarkWatched,
   onMarkWatched,
@@ -64,11 +67,11 @@ const MovieRow: React.FC<MovieRowProps> = ({
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
-  const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
-  const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
+  const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
+  const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
   const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
-  const seenLabel = isSeen ? `Remove "Seen it" from ${movie.title}` : `Mark ${movie.title} as seen`;
+  const seenLabel = isSeen ? `Remove "Seen it" from ${item.title}` : `Mark ${item.title} as seen`;
   const seenTooltip =
     seenCount > 0
       ? `Seen by: ${seenNames.join(', ')}`
@@ -81,9 +84,9 @@ const MovieRow: React.FC<MovieRowProps> = ({
       {/* Title */}
       <td style={cellStyle}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Poster url={movie.poster_url} size="xs" />
+          <Poster url={item.poster_url} size="xs" />
           <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {movie.title}
+            {item.title}
           </Typography>
         </Box>
       </td>
@@ -91,14 +94,14 @@ const MovieRow: React.FC<MovieRowProps> = ({
       {/* Suggested by */}
       <td style={cellStyleNarrow}>
         <Chip size="sm" variant="soft" color="neutral" sx={{ fontWeight: 500 }}>
-          {movie.requester}
+          {item.requester}
         </Chip>
       </td>
 
       {/* Date */}
       <td style={cellStyleNoWrap}>
         <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-          {new Date(movie.date_submitted).toLocaleDateString(undefined, {
+          {new Date(item.date_submitted).toLocaleDateString(undefined, {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -108,12 +111,12 @@ const MovieRow: React.FC<MovieRowProps> = ({
 
       {/* TMDB */}
       <td style={cellStyleCenter}>
-        {movie.tmdb_id ? (
+        {item.tmdb_id ? (
           <a
-            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+            href={`https://www.themoviedb.org/movie/${item.tmdb_id}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
+            aria-label={`View ${item.title} on TMDB (opens in new tab)`}
             style={{ color: 'var(--joy-palette-primary-500)', fontSize: '0.75rem' }}
           >
             ↗
@@ -129,7 +132,7 @@ const MovieRow: React.FC<MovieRowProps> = ({
               size="sm"
               variant={isSeen ? 'soft' : 'plain'}
               color={isSeen ? 'warning' : 'neutral'}
-              onClick={() => onToggleSeen(movie.id, isSeen)}
+              onClick={() => onToggleSeen(item.id, isSeen)}
               aria-label={seenLabel}
               aria-pressed={isSeen}
               sx={{
@@ -166,9 +169,9 @@ const MovieRow: React.FC<MovieRowProps> = ({
               size="sm"
               color="success"
               variant="plain"
-              onClick={() => onMarkWatched(movie.id, movie.title)}
-              aria-label={`Mark "${movie.title}" as done`}
-              title={`Mark "${movie.title}" as done`}
+              onClick={() => onMarkWatched(item.id, item.title)}
+              aria-label={`Mark "${item.title}" as done`}
+              title={`Mark "${item.title}" as done`}
               sx={{
                 opacity: 0.5,
                 transition: 'opacity 0.15s',
@@ -184,9 +187,9 @@ const MovieRow: React.FC<MovieRowProps> = ({
               size="sm"
               color="danger"
               variant="plain"
-              onClick={() => onDelete(movie.id, movie.title)}
-              aria-label={`Remove "${movie.title}"`}
-              title={`Remove "${movie.title}"`}
+              onClick={() => onDelete(item.id, item.title)}
+              aria-label={`Remove "${item.title}"`}
+              title={`Remove "${item.title}"`}
               sx={{
                 opacity: 0.5,
                 transition: 'opacity 0.15s',
@@ -202,4 +205,4 @@ const MovieRow: React.FC<MovieRowProps> = ({
   );
 };
 
-export default MovieRow;
+export default ContentRow;

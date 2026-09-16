@@ -1,11 +1,14 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
 import { Check, Eye, EyeOff, X } from 'lucide-react';
-import { Movie } from '../../models/Movies';
+import { ContentItem, ContentKind } from '../../models/Content';
 import Poster from '../common/Poster';
 
-interface MovieCardProps {
-  movie: Movie;
+export interface ContentCardProps {
+  item: ContentItem;
+  // Threaded now so Phase 4 (kind-aware TMDB links, kind chip) is a small diff.
+  // Every callsite passes "movie" in this phase; behaviour is unchanged.
+  kind: ContentKind;
   rank?: number;
   isAdmin: boolean;
   canMarkWatched: boolean;
@@ -16,8 +19,8 @@ interface MovieCardProps {
   isRecentlyAdded?: boolean;
 }
 
-const MovieCard: React.FC<MovieCardProps> = ({
-  movie,
+const ContentCard: React.FC<ContentCardProps> = ({
+  item,
   rank,
   isAdmin,
   canMarkWatched,
@@ -27,8 +30,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
-  const isSeen = movie.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
-  const seenByUsers = (movie.userTags ?? []).filter((t) => t.tag.slug === 'seen');
+  const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
+  const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
   const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
 
@@ -64,18 +67,18 @@ const MovieCard: React.FC<MovieCardProps> = ({
           </Typography>
         )}
         {/* Poster */}
-        <Poster url={movie.poster_url} size="sm" />
+        <Poster url={item.poster_url} size="sm" />
 
         {/* Details */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {movie.title}
-            {movie.tmdb_id && (
+            {item.title}
+            {item.tmdb_id && (
               <a
-                href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+                href={`https://www.themoviedb.org/movie/${item.tmdb_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
+                aria-label={`View ${item.title} on TMDB (opens in new tab)`}
                 style={{
                   color: 'var(--joy-palette-primary-500)',
                   fontSize: '0.7rem',
@@ -93,10 +96,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
               color="neutral"
               sx={{ fontWeight: 500, fontSize: '0.65rem' }}
             >
-              {movie.requester}
+              {item.requester}
             </Chip>
             <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-              {new Date(movie.date_submitted).toLocaleDateString(undefined, {
+              {new Date(item.date_submitted).toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
               })}
@@ -133,9 +136,9 @@ const MovieCard: React.FC<MovieCardProps> = ({
                 size="sm"
                 variant={isSeen ? 'soft' : 'plain'}
                 color={isSeen ? 'warning' : 'neutral'}
-                onClick={() => onToggleSeen(movie.id, isSeen)}
+                onClick={() => onToggleSeen(item.id, isSeen)}
                 aria-label={
-                  isSeen ? `Remove "Seen it" from ${movie.title}` : `Mark ${movie.title} as seen`
+                  isSeen ? `Remove "Seen it" from ${item.title}` : `Mark ${item.title} as seen`
                 }
                 aria-pressed={isSeen}
                 sx={{
@@ -167,8 +170,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
               size="sm"
               color="success"
               variant="soft"
-              onClick={() => onMarkWatched(movie.id, movie.title)}
-              aria-label={`Mark "${movie.title}" as done`}
+              onClick={() => onMarkWatched(item.id, item.title)}
+              aria-label={`Mark "${item.title}" as done`}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
               <Check size={16} strokeWidth={2.5} />
@@ -179,8 +182,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
               size="sm"
               color="danger"
               variant="soft"
-              onClick={() => onDelete(movie.id, movie.title)}
-              aria-label={`Remove "${movie.title}"`}
+              onClick={() => onDelete(item.id, item.title)}
+              aria-label={`Remove "${item.title}"`}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
               <X size={16} strokeWidth={2.5} />
@@ -192,4 +195,4 @@ const MovieCard: React.FC<MovieCardProps> = ({
   );
 };
 
-export default MovieCard;
+export default ContentCard;
