@@ -39,15 +39,23 @@ jest.mock('./components/common/Navbar', () => ({ Navbar: () => <div>Navbar</div>
 jest.mock('./components/common/Footer', () => ({ Footer: () => <div>Footer</div> }));
 
 import App from './App';
+import { KindProvider } from './contexts/KindContext';
+
+const renderApp = () =>
+  render(
+    <KindProvider>
+      <App />
+    </KindProvider>,
+  );
 
 describe('App', () => {
   it('renders without crashing', () => {
-    render(<App />);
+    renderApp();
     expect(screen.getByTestId('homepage')).toBeInTheDocument();
   });
 
   it('renders Navbar and Footer', () => {
-    render(<App />);
+    renderApp();
     expect(screen.getByText('Navbar')).toBeInTheDocument();
     expect(screen.getByText('Footer')).toBeInTheDocument();
   });

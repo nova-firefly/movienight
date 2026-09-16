@@ -89,7 +89,7 @@ const CombinedList: React.FC = () => {
             Connections
           </Typography>
           <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Connect with friends to see combined movie rankings on the home page
+            Connect with friends to see combined rankings on the home page
           </Typography>
         </Box>
 

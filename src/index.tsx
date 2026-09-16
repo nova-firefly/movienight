@@ -8,6 +8,7 @@ import reportWebVitals from './reportWebVitals';
 import client from './graphql/client';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { KindProvider } from './contexts/KindContext';
 import theme from './theme';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
@@ -18,7 +19,9 @@ root.render(
       <ToastProvider>
         <ApolloProvider client={client}>
           <AuthProvider>
-            <App />
+            <KindProvider>
+              <App />
+            </KindProvider>
           </AuthProvider>
         </ApolloProvider>
       </ToastProvider>

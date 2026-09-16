@@ -1,5 +1,10 @@
 export type ContentKind = 'movie' | 'show';
 
+// The kind-agnostic view within the app. Kind is orthogonal (D-7): the same
+// view renders for either kind. `admin` is kind-agnostic. Shared by App and
+// Navbar so the two never drift.
+export type ViewName = 'queue' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
+
 export type MovieUserTag = {
   tag: { slug: string; label: string };
   user: { id: string; display_name?: string | null; username: string };

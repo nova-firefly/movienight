@@ -1,13 +1,13 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/joy';
 import { Check, Eye, EyeOff, X } from 'lucide-react';
-import { ContentItem, ContentKind } from '../../models/Content';
+import { ContentItem, ContentKind, Show } from '../../models/Content';
+import { tmdbUrl } from '../../utils/tmdb';
+import { KindChip, showMetaLine, kindAccent, ReservedProgressSlot } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentRowProps {
   item: ContentItem;
-  // Threaded now so Phase 4 (kind-aware TMDB links, kind chip) is a small diff.
-  // Every callsite passes "movie" in this phase; behaviour is unchanged.
   kind: ContentKind;
   isAdmin: boolean;
   canMarkWatched: boolean;
@@ -59,6 +59,7 @@ const recentlyAddedRowStyle: React.CSSProperties = {
 
 const ContentRow: React.FC<ContentRowProps> = ({
   item,
+  kind,
   isAdmin,
   canMarkWatched,
   onMarkWatched,
@@ -67,6 +68,8 @@ const ContentRow: React.FC<ContentRowProps> = ({
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
+  const show = kind === 'show' ? (item as Show) : null;
+  const meta = show ? showMetaLine(show) : '';
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -82,12 +85,35 @@ const ContentRow: React.FC<ContentRowProps> = ({
   return (
     <tr style={isRecentlyAdded ? recentlyAddedRowStyle : undefined}>
       {/* Title */}
-      <td style={cellStyle}>
+      <td style={{ ...cellStyle, borderLeft: `3px solid ${kindAccent(kind)}` }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Poster url={item.poster_url} size="xs" />
-          <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {item.title}
-          </Typography>
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                {item.title}
+              </Typography>
+              <KindChip kind={kind} />
+            </Box>
+            {show && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  mt: 0.25,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {meta && (
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                    {meta}
+                  </Typography>
+                )}
+                <ReservedProgressSlot />
+              </Box>
+            )}
+          </Box>
         </Box>
       </td>
 
@@ -113,7 +139,7 @@ const ContentRow: React.FC<ContentRowProps> = ({
       <td style={cellStyleCenter}>
         {item.tmdb_id ? (
           <a
-            href={`https://www.themoviedb.org/movie/${item.tmdb_id}`}
+            href={tmdbUrl(kind, item.tmdb_id)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`View ${item.title} on TMDB (opens in new tab)`}

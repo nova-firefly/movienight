@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLazyQuery, useMutation } from '@apollo/client';
-import { SEARCH_TMDB, MATCH_MOVIE, GET_MOVIES } from '../../graphql/queries';
+import {
+  SEARCH_TMDB,
+  MATCH_MOVIE,
+  GET_MOVIES,
+  SEARCH_TMDB_SHOWS,
+  MATCH_SHOW,
+  GET_SHOWS,
+} from '../../graphql/queries';
 import {
   Modal,
   ModalDialog,
@@ -11,7 +18,7 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/joy';
-import { Movie } from '../../models/Content';
+import { ContentItem, ContentKind } from '../../models/Content';
 
 type TmdbResult = {
   tmdb_id: number;
@@ -21,11 +28,13 @@ type TmdbResult = {
 };
 
 interface Props {
-  movies: Movie[];
+  kind: ContentKind;
+  movies: ContentItem[];
   onClose: () => void;
 }
 
-const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
+const TmdbMatchFlow: React.FC<Props> = ({ kind, movies, onClose }) => {
+  const isShow = kind === 'show';
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<TmdbResult[]>([]);
 
@@ -33,17 +42,28 @@ const TmdbMatchFlow: React.FC<Props> = ({ movies, onClose }) => {
 
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [searchTmdb, { loading: searching }] = useLazyQuery(SEARCH_TMDB, {
-    onCompleted: (d) => {
-      setResults(d.searchTmdb || []);
-      setSearchError(null);
+  const [searchTmdb, { loading: searching }] = useLazyQuery(
+    isShow ? SEARCH_TMDB_SHOWS : SEARCH_TMDB,
+    {
+      onCompleted: (d) => {
+        const raw = isShow ? d.searchTmdbShows : d.searchTmdb;
+        setResults(
+          (raw || []).map((r: any) => ({
+            tmdb_id: r.tmdb_id,
+            title: r.title,
+            release_year: isShow ? r.first_air_year : r.release_year,
+            overview: r.overview,
+          })),
+        );
+        setSearchError(null);
+      },
+      onError: (e) => setSearchError(e.message),
+      fetchPolicy: 'network-only',
     },
-    onError: (e) => setSearchError(e.message),
-    fetchPolicy: 'network-only',
-  });
+  );
 
-  const [matchMovie, { loading: matching }] = useMutation(MATCH_MOVIE, {
-    refetchQueries: [{ query: GET_MOVIES }],
+  const [matchMovie, { loading: matching }] = useMutation(isShow ? MATCH_SHOW : MATCH_MOVIE, {
+    refetchQueries: [{ query: isShow ? GET_SHOWS : GET_MOVIES }],
   });
 
   useEffect(() => {

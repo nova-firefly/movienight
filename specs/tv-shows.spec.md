@@ -1,7 +1,7 @@
 # Feature: TV Shows as a Second Content Kind
 
-**Status:** Phase 1 landed (PR #102). Phase 2 (backend GraphQL surface) implemented on branch
-`phase-2-show-graphql`. Phases 3–5 not started.
+**Status:** Phases 1–3 landed (PR #102, #103, #104). Phase 4 (frontend: URL routing, KindContext,
+navbar toggle, kind-aware views) implemented on branch `phase-4-frontend`. Phase 5 not started.
 **Mockup:** `specs/mockups/tv-shows-ui.html` (merged in `cd1cc87`)
 
 > **Provenance note.** The original implementation plan for this feature was lost — it lived in a

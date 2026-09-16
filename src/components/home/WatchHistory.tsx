@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -10,9 +10,20 @@ import {
   Tooltip,
   CircularProgress,
 } from '@mui/joy';
-import { WATCHED_MOVIES, UNWATCH_MOVIE, MARK_WATCHED, GET_MOVIES } from '../../graphql/queries';
+import {
+  WATCHED_MOVIES,
+  UNWATCH_MOVIE,
+  MARK_WATCHED,
+  GET_MOVIES,
+  WATCHED_SHOWS,
+  UNWATCH_SHOW,
+  MARK_SHOW_WATCHED,
+  GET_SHOWS,
+} from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
+import { useKind } from '../../contexts/KindContext';
 import { useToast } from '../../contexts/ToastContext';
+import { tmdbUrl } from '../../utils/tmdb';
 import Poster from '../common/Poster';
 import WatchHistoryCard from './WatchHistoryCard';
 
@@ -20,29 +31,42 @@ const PAGE_SIZE = 25;
 
 const WatchHistory: React.FC = () => {
   const { user } = useAuth();
+  const { kind } = useKind();
   const { showError, showUndo } = useToast();
   const isAdmin = user?.is_admin ?? false;
   const [offset, setOffset] = useState(0);
 
-  const { data, loading } = useQuery(WATCHED_MOVIES, {
+  const isShow = kind === 'show';
+  const nounPlural = isShow ? 'shows' : 'movies';
+  const WATCHED_OP = isShow ? WATCHED_SHOWS : WATCHED_MOVIES;
+  const UNWATCH_OP = isShow ? UNWATCH_SHOW : UNWATCH_MOVIE;
+  const MARK_OP = isShow ? MARK_SHOW_WATCHED : MARK_WATCHED;
+  const GET_LIST = isShow ? GET_SHOWS : GET_MOVIES;
+
+  // Reset to the first page when the kind changes.
+  useEffect(() => {
+    setOffset(0);
+  }, [kind]);
+
+  const { data, loading } = useQuery(WATCHED_OP, {
     variables: { limit: PAGE_SIZE, offset },
     fetchPolicy: 'cache-and-network',
   });
 
-  const [unwatchMovie] = useMutation(UNWATCH_MOVIE, {
+  const [unwatchMovie] = useMutation(UNWATCH_OP, {
     refetchQueries: [
-      { query: WATCHED_MOVIES, variables: { limit: PAGE_SIZE, offset } },
-      { query: GET_MOVIES },
+      { query: WATCHED_OP, variables: { limit: PAGE_SIZE, offset } },
+      { query: GET_LIST },
     ],
   });
-  const [markWatched] = useMutation(MARK_WATCHED, {
+  const [markWatched] = useMutation(MARK_OP, {
     refetchQueries: [
-      { query: WATCHED_MOVIES, variables: { limit: PAGE_SIZE, offset } },
-      { query: GET_MOVIES },
+      { query: WATCHED_OP, variables: { limit: PAGE_SIZE, offset } },
+      { query: GET_LIST },
     ],
   });
 
-  const movies = data?.watchedMovies ?? [];
+  const movies = (isShow ? data?.watchedShows : data?.watchedMovies) ?? [];
 
   const handleUnwatch = async (id: string, title: string) => {
     try {
@@ -75,7 +99,7 @@ const WatchHistory: React.FC = () => {
             Watch History
           </Typography>
           <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Movies you&rsquo;ve already watched together
+            {isShow ? 'Shows' : 'Movies'} you&rsquo;ve already watched together
           </Typography>
         </Box>
 
@@ -87,7 +111,7 @@ const WatchHistory: React.FC = () => {
 
         {!loading && movies.length === 0 && (
           <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', py: 6 }}>
-            No movies watched yet. Get watching!
+            No {nounPlural} watched yet. Get watching!
           </Typography>
         )}
 
@@ -169,7 +193,7 @@ const WatchHistory: React.FC = () => {
                                 </Typography>
                                 {movie.tmdb_id && (
                                   <a
-                                    href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+                                    href={tmdbUrl(kind, movie.tmdb_id)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label={`View ${movie.title} on TMDB (opens in new tab)`}
@@ -251,6 +275,7 @@ const WatchHistory: React.FC = () => {
               {movies.map((movie: any) => (
                 <WatchHistoryCard
                   key={movie.id}
+                  kind={kind}
                   movie={movie}
                   canUnwatch={isAdmin || String(movie.requested_by) === String(user?.id)}
                   onUnwatch={handleUnwatch}

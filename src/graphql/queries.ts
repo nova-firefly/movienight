@@ -683,3 +683,327 @@ export const UNWATCH_MOVIE = gql`
     }
   }
 `;
+
+// ── Shows ────────────────────────────────────────────────────────────────
+// Parallel to the movie operations above, against the show root fields. Show
+// selection sets add the TV-specific meta the queue/history rows render
+// (first_air_year, seasons, episodes, status).
+
+const SHOW_TAG_FIELDS = `
+  myTags {
+    tag {
+      slug
+      label
+    }
+  }
+  userTags {
+    tag {
+      slug
+      label
+    }
+    user {
+      id
+      display_name
+      username
+    }
+  }
+`;
+
+export const GET_SHOWS = gql`
+  query GetShows {
+    shows {
+      id
+      title
+      requester
+      requested_by
+      date_submitted
+      elo_rank
+      tmdb_id
+      poster_url
+      first_air_year
+      created_by
+      networks
+      number_of_seasons
+      number_of_episodes
+      status
+      ${SHOW_TAG_FIELDS}
+    }
+  }
+`;
+
+export const ADD_SHOW = gql`
+  mutation AddShow($title: String!, $tmdb_id: Int) {
+    addShow(title: $title, tmdb_id: $tmdb_id) {
+      id
+      title
+      requester
+      date_submitted
+      elo_rank
+      tmdb_id
+    }
+  }
+`;
+
+export const SEARCH_TMDB_SHOWS = gql`
+  query SearchTmdbShows($query: String!) {
+    searchTmdbShows(query: $query) {
+      tmdb_id
+      title
+      first_air_year
+      overview
+    }
+  }
+`;
+
+export const MATCH_SHOW = gql`
+  mutation MatchShow($id: ID!, $tmdb_id: Int!, $title: String!) {
+    matchShow(id: $id, tmdb_id: $tmdb_id, title: $title) {
+      id
+      title
+      requester
+      date_submitted
+      elo_rank
+      tmdb_id
+    }
+  }
+`;
+
+export const MARK_SHOW_WATCHED = gql`
+  mutation MarkShowWatched($id: ID!) {
+    markShowWatched(id: $id) {
+      id
+      watched_at
+    }
+  }
+`;
+
+export const UNWATCH_SHOW = gql`
+  mutation UnwatchShow($id: ID!) {
+    unwatchShow(id: $id) {
+      id
+      title
+      watched_at
+    }
+  }
+`;
+
+export const DELETE_SHOW = gql`
+  mutation DeleteShow($id: ID!) {
+    deleteShow(id: $id)
+  }
+`;
+
+export const SHOW_THIS_OR_THAT = gql`
+  query ShowThisOrThat($excludeIds: [ID!]) {
+    showThisOrThat(excludeIds: $excludeIds) {
+      showA {
+        id
+        title
+        tmdb_id
+        poster_url
+        first_air_year
+        created_by
+        networks
+        number_of_seasons
+        number_of_episodes
+        cast
+        tags
+      }
+      showB {
+        id
+        title
+        tmdb_id
+        poster_url
+        first_air_year
+        created_by
+        networks
+        number_of_seasons
+        number_of_episodes
+        cast
+        tags
+      }
+    }
+  }
+`;
+
+export const MY_SHOW_RANKINGS = gql`
+  query MyShowRankings {
+    myShowRankings {
+      show {
+        id
+        title
+        tmdb_id
+        elo_rank
+      }
+      eloRating
+      comparisonCount
+    }
+  }
+`;
+
+export const RECORD_SHOW_COMPARISON = gql`
+  mutation RecordShowComparison($winnerId: ID!, $loserId: ID!) {
+    recordShowComparison(winnerId: $winnerId, loserId: $loserId) {
+      winnerId
+      loserId
+      winnerElo
+      loserElo
+    }
+  }
+`;
+
+export const RESET_SHOW_COMPARISONS = gql`
+  mutation ResetShowComparisons($showId: ID!) {
+    resetShowComparisons(showId: $showId)
+  }
+`;
+
+export const SET_SHOW_INTEREST = gql`
+  mutation SetShowInterest($showId: ID!, $interested: Boolean!) {
+    setShowInterest(showId: $showId, interested: $interested) {
+      showId
+      interested
+    }
+  }
+`;
+
+export const SOLO_SHOWS = gql`
+  query SoloShows {
+    soloShows {
+      id
+      title
+      requester
+      requested_by
+      date_submitted
+      tmdb_id
+      poster_url
+      first_air_year
+      number_of_seasons
+      number_of_episodes
+      status
+    }
+  }
+`;
+
+export const PASSED_SHOW_IDS = gql`
+  query PassedShowIds {
+    passedShowIds
+  }
+`;
+
+export const SET_SHOW_TAG = gql`
+  mutation SetShowTag($showId: ID!, $tagSlug: String!, $value: String) {
+    setShowTag(showId: $showId, tagSlug: $tagSlug, value: $value) {
+      tag {
+        slug
+        label
+      }
+      user {
+        id
+        display_name
+        username
+      }
+      value
+      createdAt
+    }
+  }
+`;
+
+export const REMOVE_SHOW_TAG = gql`
+  mutation RemoveShowTag($showId: ID!, $tagSlug: String!) {
+    removeShowTag(showId: $showId, tagSlug: $tagSlug)
+  }
+`;
+
+export const WATCHED_SHOWS = gql`
+  query WatchedShows($limit: Int, $offset: Int) {
+    watchedShows(limit: $limit, offset: $offset) {
+      id
+      title
+      requester
+      requested_by
+      date_submitted
+      watched_at
+      tmdb_id
+      poster_url
+      first_air_year
+      number_of_seasons
+      number_of_episodes
+      status
+    }
+  }
+`;
+
+export const COMBINED_SHOW_LIST = gql`
+  query CombinedShowList($connectionId: ID!) {
+    combinedShowList(connectionId: $connectionId) {
+      connection {
+        id
+        user {
+          id
+          username
+          display_name
+        }
+      }
+      rankings {
+        show {
+          id
+          title
+          tmdb_id
+          elo_rank
+          first_air_year
+          number_of_seasons
+          number_of_episodes
+          status
+          userTags {
+            tag {
+              slug
+            }
+            user {
+              id
+            }
+          }
+        }
+        userAElo
+        userBElo
+        combinedElo
+        bothRated
+      }
+    }
+  }
+`;
+
+export const NEW_SHOWS_FROM_CONNECTIONS = gql`
+  query NewShowsFromConnections {
+    newShowsFromConnections {
+      show {
+        id
+        title
+        tmdb_id
+        date_submitted
+        poster_url
+        first_air_year
+        number_of_seasons
+        number_of_episodes
+        status
+        userTags {
+          tag {
+            slug
+            label
+          }
+          user {
+            id
+            username
+            display_name
+          }
+          value
+        }
+      }
+      addedBy {
+        id
+        username
+        display_name
+      }
+    }
+  }
+`;

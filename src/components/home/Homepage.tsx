@@ -30,6 +30,17 @@ import {
   PASSED_MOVIE_IDS,
   SET_MOVIE_TAG,
   REMOVE_MOVIE_TAG,
+  GET_SHOWS,
+  DELETE_SHOW,
+  MARK_SHOW_WATCHED,
+  UNWATCH_SHOW,
+  COMBINED_SHOW_LIST,
+  NEW_SHOWS_FROM_CONNECTIONS,
+  SET_SHOW_INTEREST,
+  SOLO_SHOWS,
+  PASSED_SHOW_IDS,
+  SET_SHOW_TAG,
+  REMOVE_SHOW_TAG,
 } from '../../graphql/queries';
 import TmdbMatchFlow from './TmdbMatchFlow';
 import ContentRow from './ContentRow';
@@ -42,10 +53,12 @@ import ThisOrThatBanner from './ThisOrThatBanner';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Poster from '../common/Poster';
 import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
-import { Movie } from '../../models/Content';
+import { ContentItem } from '../../models/Content';
 import { useAuth } from '../../contexts/AuthContext';
+import { useKind } from '../../contexts/KindContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
+import { tmdbUrl } from '../../utils/tmdb';
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -56,9 +69,28 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections }) => {
   const { isAuthenticated, user } = useAuth();
+  const { kind } = useKind();
   const { showError, showUndo } = useToast();
   const { confirm, dialogProps } = useConfirm();
   const isAdmin = user?.is_admin ?? false;
+
+  // Per-kind operation + copy bundle. Show ops mirror movie ops in shape, so
+  // the rest of the component is kind-agnostic once it reads from here.
+  const isShow = kind === 'show';
+  const noun = isShow ? 'show' : 'movie';
+  const nounPlural = isShow ? 'shows' : 'movies';
+  const idVar = isShow ? 'showId' : 'movieId';
+  const GET_LIST = isShow ? GET_SHOWS : GET_MOVIES;
+  const MARK_OP = isShow ? MARK_SHOW_WATCHED : MARK_WATCHED;
+  const UNWATCH_OP = isShow ? UNWATCH_SHOW : UNWATCH_MOVIE;
+  const DELETE_OP = isShow ? DELETE_SHOW : DELETE_MOVIE;
+  const SET_TAG_OP = isShow ? SET_SHOW_TAG : SET_MOVIE_TAG;
+  const REMOVE_TAG_OP = isShow ? REMOVE_SHOW_TAG : REMOVE_MOVIE_TAG;
+  const SET_INTEREST_OP = isShow ? SET_SHOW_INTEREST : SET_MOVIE_INTEREST;
+  const COMBINED_OP = isShow ? COMBINED_SHOW_LIST : COMBINED_LIST;
+  const NEW_FROM_CONN_OP = isShow ? NEW_SHOWS_FROM_CONNECTIONS : NEW_MOVIES_FROM_CONNECTIONS;
+  const SOLO_OP = isShow ? SOLO_SHOWS : SOLO_MOVIES;
+  const PASSED_OP = isShow ? PASSED_SHOW_IDS : PASSED_MOVIE_IDS;
 
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -87,39 +119,39 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     skip: !isAuthenticated,
     pollInterval: 10000,
   });
-  const { data: combinedData, loading: combinedLoading } = useQuery(COMBINED_LIST, {
+  const { data: combinedData, loading: combinedLoading } = useQuery(COMBINED_OP, {
     variables: { connectionId: selectedConnectionId },
     skip: !selectedConnectionId || selectedConnectionId === 'solo',
     fetchPolicy: 'cache-and-network',
   });
 
-  // Movie interest data (only when authenticated)
-  const { data: pendingMoviesData } = useQuery(NEW_MOVIES_FROM_CONNECTIONS, {
+  // Interest / connection data (only when authenticated)
+  const { data: pendingMoviesData } = useQuery(NEW_FROM_CONN_OP, {
     skip: !isAuthenticated,
     pollInterval: 10000,
   });
-  const { data: soloData } = useQuery(SOLO_MOVIES, {
+  const { data: soloData } = useQuery(SOLO_OP, {
     skip: !isAuthenticated,
     pollInterval: 15000,
   });
-  const { data: passedData } = useQuery(PASSED_MOVIE_IDS, {
+  const { data: passedData } = useQuery(PASSED_OP, {
     skip: !isAuthenticated,
     pollInterval: 10000,
   });
-  const [setMovieTag] = useMutation(SET_MOVIE_TAG, {
-    refetchQueries: [{ query: GET_MOVIES }],
+  const [setMovieTag] = useMutation(SET_TAG_OP, {
+    refetchQueries: [{ query: GET_LIST }],
   });
-  const [removeMovieTag] = useMutation(REMOVE_MOVIE_TAG, {
-    refetchQueries: [{ query: GET_MOVIES }],
+  const [removeMovieTag] = useMutation(REMOVE_TAG_OP, {
+    refetchQueries: [{ query: GET_LIST }],
   });
 
-  const [setMovieInterest] = useMutation(SET_MOVIE_INTEREST, {
+  const [setMovieInterest] = useMutation(SET_INTEREST_OP, {
     refetchQueries: [
-      { query: NEW_MOVIES_FROM_CONNECTIONS },
-      { query: SOLO_MOVIES },
-      { query: PASSED_MOVIE_IDS },
+      { query: NEW_FROM_CONN_OP },
+      { query: SOLO_OP },
+      { query: PASSED_OP },
       ...(selectedConnectionId && selectedConnectionId !== 'solo'
-        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        ? [{ query: COMBINED_OP, variables: { connectionId: selectedConnectionId } }]
         : []),
     ],
   });
@@ -133,42 +165,50 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
   const isSoloView = selectedConnectionId === 'solo';
   const isCombinedView = selectedConnectionId !== null && !isSoloView;
-  const pendingMovies = pendingMoviesData?.newMoviesFromConnections || [];
-  const soloMovies: Movie[] = soloData?.soloMovies ?? [];
-  const passedMovieIds: Set<string> = new Set(passedData?.passedMovieIds ?? []);
+  // Normalise the show/movie field name so downstream (inbox modal) is kind-agnostic.
+  const pendingMovies = (
+    (isShow
+      ? pendingMoviesData?.newShowsFromConnections
+      : pendingMoviesData?.newMoviesFromConnections) || []
+  ).map((p: any) => ({ ...p, movie: p.movie ?? p.show }));
+  const soloMovies: ContentItem[] = (isShow ? soloData?.soloShows : soloData?.soloMovies) ?? [];
+  const passedMovieIds: Set<string> = new Set(
+    (isShow ? passedData?.passedShowIds : passedData?.passedMovieIds) ?? [],
+  );
+  const combined = (isShow ? combinedData?.combinedShowList : combinedData?.combinedList) ?? null;
 
-  const { data, loading: moviesLoading } = useQuery(GET_MOVIES, { pollInterval: 5000 });
+  const { data, loading: moviesLoading } = useQuery(GET_LIST, { pollInterval: 5000 });
 
-  const [markWatched] = useMutation(MARK_WATCHED, {
+  const [markWatched] = useMutation(MARK_OP, {
     refetchQueries: [
-      { query: GET_MOVIES },
+      { query: GET_LIST },
       ...(selectedConnectionId && selectedConnectionId !== 'solo'
-        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        ? [{ query: COMBINED_OP, variables: { connectionId: selectedConnectionId } }]
         : []),
     ],
   });
-  const [unwatchMovie] = useMutation(UNWATCH_MOVIE, {
+  const [unwatchMovie] = useMutation(UNWATCH_OP, {
     refetchQueries: [
-      { query: GET_MOVIES },
+      { query: GET_LIST },
       ...(selectedConnectionId && selectedConnectionId !== 'solo'
-        ? [{ query: COMBINED_LIST, variables: { connectionId: selectedConnectionId } }]
+        ? [{ query: COMBINED_OP, variables: { connectionId: selectedConnectionId } }]
         : []),
     ],
   });
-  const [deleteMovie] = useMutation(DELETE_MOVIE, {
-    refetchQueries: [{ query: GET_MOVIES }],
+  const [deleteMovie] = useMutation(DELETE_OP, {
+    refetchQueries: [{ query: GET_LIST }],
   });
   const [seedMovies, { loading: seeding }] = useMutation(SEED_MOVIES, {
-    refetchQueries: [{ query: GET_MOVIES }],
+    refetchQueries: [{ query: GET_LIST }],
   });
   const { data: appInfoData } = useQuery(GET_APP_INFO, { fetchPolicy: 'cache-first' });
   const isProd = appInfoData?.appInfo?.isProduction ?? true;
 
-  const allMovies: Movie[] = data?.movies ?? [];
+  const allMovies: ContentItem[] = (isShow ? data?.shows : data?.movies) ?? [];
   const recentlyAddedSet = new Set(recentlyAddedIds);
   const recentlyAddedMovies = recentlyAddedIds
     .map((id) => allMovies.find((m) => String(m.id) === id))
-    .filter((m): m is Movie => m != null);
+    .filter((m): m is ContentItem => m != null);
   // Keep just-added movies in the main list — their data-rank is at the bottom of
   // the queue (MAX(rank)+1) and the user should see that. They also appear in the
   // highlighted "Just added" strip above for quick post-add actions.
@@ -229,9 +269,9 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   const handleToggleSeen = async (id: string, currentlySeen: boolean) => {
     try {
       if (currentlySeen) {
-        await removeMovieTag({ variables: { movieId: id, tagSlug: 'seen' } });
+        await removeMovieTag({ variables: { [idVar]: id, tagSlug: 'seen' } });
       } else {
-        await setMovieTag({ variables: { movieId: id, tagSlug: 'seen' } });
+        await setMovieTag({ variables: { [idVar]: id, tagSlug: 'seen' } });
       }
     } catch (err: any) {
       showError(`Error updating tag: ${err.message}`);
@@ -269,11 +309,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   };
 
   const handleSetInterest = (movieId: string, interested: boolean) => {
-    setMovieInterest({ variables: { movieId, interested } });
+    setMovieInterest({ variables: { [idVar]: movieId, interested } });
   };
 
   const handleSetSeenTag = async (movieId: string) => {
-    await setMovieTag({ variables: { movieId, tagSlug: 'seen' } });
+    await setMovieTag({ variables: { [idVar]: movieId, tagSlug: 'seen' } });
   };
 
   // Column count for colSpan calculations
@@ -299,7 +339,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* Page header */}
         <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
           <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
-            Movie List
+            {isShow ? 'TV Shows' : 'Movie List'}
           </Typography>
           <Box
             sx={{
@@ -313,11 +353,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               {isMySuggestionsView
                 ? myMovies.length === 0
-                  ? 'No movies yet — suggest one!'
-                  : `${myMovies.length} movie${myMovies.length !== 1 ? 's' : ''} you've suggested`
+                  ? `No ${nounPlural} yet — suggest one!`
+                  : `${myMovies.length} ${noun}${myMovies.length !== 1 ? 's' : ''} you've suggested`
                 : movies.length === 0
-                  ? 'No movies yet — suggest one!'
-                  : `${movies.length} movie${movies.length !== 1 ? 's' : ''} in the queue`}
+                  ? `No ${nounPlural} yet — suggest one!`
+                  : `${movies.length} ${noun}${movies.length !== 1 ? 's' : ''} in the queue`}
             </Typography>
             {movies.length >= 2 && (
               <ThisOrThatBanner
@@ -379,7 +419,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* My Suggestions subtitle */}
         {isAuthenticated && isMySuggestionsView && (
           <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 2 }}>
-            Movies you've suggested for the group
+            {isShow ? 'Shows' : 'Movies'} you've suggested for the group
           </Typography>
         )}
 
@@ -400,8 +440,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           />
         )}
 
-        {/* Add movie form */}
-        {isAuthenticated && <AddMovieForm onMovieAdded={handleMovieAdded} />}
+        {/* Add form */}
+        {isAuthenticated && <AddMovieForm kind={kind} onMovieAdded={handleMovieAdded} />}
 
         {/* Recently added — highlighted cards */}
         {recentlyAddedMovies.length > 0 && (
@@ -437,7 +477,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                         {movie.title}
                         {movie.tmdb_id && (
                           <a
-                            href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+                            href={tmdbUrl(kind, movie.tmdb_id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
@@ -535,19 +575,23 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               size="sm"
               onClick={() => setMatchFlowOpen(true)}
             >
-              Match {unmatchedMovies.length} unmatched movie
+              Match {unmatchedMovies.length} unmatched {noun}
               {unmatchedMovies.length !== 1 ? 's' : ''} with TMDB
             </Button>
           </Box>
         )}
         {matchFlowOpen && (
-          <TmdbMatchFlow movies={unmatchedMovies} onClose={() => setMatchFlowOpen(false)} />
+          <TmdbMatchFlow
+            kind={kind}
+            movies={unmatchedMovies}
+            onClose={() => setMatchFlowOpen(false)}
+          />
         )}
 
         {/* Unauthenticated prompt */}
         {!isAuthenticated && movies.length === 0 && (
           <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 4 }}>
-            Sign in to suggest movies.
+            Sign in to suggest {nounPlural}.
           </Typography>
         )}
 
@@ -555,8 +599,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {isCombinedView && (
           <>
             <Typography level="body-sm" sx={{ textAlign: 'center', color: 'neutral.400', mb: 2 }}>
-              Movies ranked by combining both your This or That picks. The more you each compare,
-              the better the ranking.
+              {isShow ? 'Shows' : 'Movies'} ranked by combining both your This or That picks. The
+              more you each compare, the better the ranking.
             </Typography>
 
             {combinedLoading && (
@@ -564,17 +608,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 <CircularProgress size="sm" />
               </Box>
             )}
-            {!combinedLoading && combinedData?.combinedList && (
+            {!combinedLoading && combined && (
               <>
                 {(() => {
-                  const allRankings = combinedData.combinedList.rankings;
+                  const allRankings = combined.rankings;
                   const myId = String(user?.id ?? '');
-                  const otherId = String(combinedData.combinedList.connection.user.id);
+                  const otherId = String(combined.connection.user.id);
                   const filteredRankings =
                     combinedSeenFilter === 'all'
                       ? allRankings
                       : allRankings.filter((r: any) => {
-                          const seenTags = (r.movie.userTags ?? []).filter(
+                          const seenTags = ((r.movie ?? r.show).userTags ?? []).filter(
                             (t: any) => t.tag.slug === 'seen',
                           );
                           const meSeen = seenTags.some((t: any) => String(t.user.id) === myId);
@@ -675,8 +719,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                 </th>
                                 <th style={combinedThStyle}>You</th>
                                 <th style={combinedThStyle}>
-                                  {combinedData.combinedList.connection.user.display_name ||
-                                    combinedData.combinedList.connection.user.username}
+                                  {combined.connection.user.display_name ||
+                                    combined.connection.user.username}
                                 </th>
                                 <th style={combinedThStyle}>Combined</th>
                                 <th style={combinedThStyle} aria-label="Actions"></th>
@@ -695,12 +739,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       padding: '32px 16px',
                                     }}
                                   >
-                                    No movies match this filter.
+                                    No match this filter.
                                   </td>
                                 </tr>
                               ) : (
                                 filteredRankings.map((r: any, idx: number) => (
-                                  <tr key={r.movie.id}>
+                                  <tr key={(r.movie ?? r.show).id}>
                                     <td
                                       style={{
                                         ...combinedTdStyle,
@@ -721,7 +765,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                     <td style={combinedTdStyle}>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                                          {r.movie.title}
+                                          {(r.movie ?? r.show).title}
                                         </Typography>
                                         {!r.bothRated && (
                                           <Tooltip
@@ -779,7 +823,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                     >
                                       {isAuthenticated && (
                                         <Tooltip
-                                          title={`Mark "${r.movie.title}" as watched together`}
+                                          title={`Mark "${(r.movie ?? r.show).title}" as watched together`}
                                           arrow
                                         >
                                           <IconButton
@@ -788,15 +832,13 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                             variant="plain"
                                             onClick={() =>
                                               handleMarkWatchedCombined(
-                                                r.movie.id,
-                                                r.movie.title,
-                                                combinedData.combinedList.connection.user
-                                                  .display_name ||
-                                                  combinedData.combinedList.connection.user
-                                                    .username,
+                                                (r.movie ?? r.show).id,
+                                                (r.movie ?? r.show).title,
+                                                combined.connection.user.display_name ||
+                                                  combined.connection.user.username,
                                               )
                                             }
-                                            aria-label={`Mark "${r.movie.title}" as watched together`}
+                                            aria-label={`Mark "${(r.movie ?? r.show).title}" as watched together`}
                                             sx={{
                                               opacity: 0.5,
                                               transition: 'opacity 0.15s',
@@ -818,7 +860,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
                       {/* Sparse data CTA */}
                       {(() => {
-                        const rankings = combinedData.combinedList.rankings;
+                        const rankings = combined.rankings;
                         const needsRanking = rankings.filter((r: any) => !r.bothRated).length;
                         return needsRanking > rankings.length / 2 ? (
                           <Sheet
@@ -860,7 +902,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           <>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-                Movies your connections passed on — these are all yours to watch solo!
+                {isShow ? 'Shows' : 'Movies'} your connections passed on — these are all yours to
+                watch solo!
               </Typography>
             </Box>
 
@@ -889,7 +932,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                         <ContentRow
                           key={movie.id}
                           item={movie}
-                          kind="movie"
+                          kind={kind}
                           isAdmin={isAdmin}
                           canMarkWatched={true}
                           onMarkWatched={handleMarkWatched}
@@ -910,7 +953,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 <ContentCard
                   key={movie.id}
                   item={movie}
-                  kind="movie"
+                  kind={kind}
                   rank={idx + 1}
                   isAdmin={isAdmin}
                   canMarkWatched={true}
@@ -1029,8 +1072,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                               }}
                             >
                               {isAuthenticated
-                                ? "You haven't suggested any movies yet. Use the search bar above to add one!"
-                                : 'No movies yet. Be the first to suggest one!'}
+                                ? `You haven't suggested any  yet. Use the search bar above to add one!`
+                                : `No  yet. Be the first to suggest one!`}
                             </td>
                           </tr>
                         ) : (
@@ -1038,7 +1081,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                             <ContentRow
                               key={movie.id}
                               item={movie}
-                              kind="movie"
+                              kind={kind}
                               isAdmin={isAdmin}
                               canMarkWatched={
                                 isAdmin ||
@@ -1068,15 +1111,15 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     sx={{ textAlign: 'center', color: 'text.tertiary', py: 6 }}
                   >
                     {isAuthenticated
-                      ? "You haven't suggested any movies yet. Use the search bar above to add one!"
-                      : 'No movies yet. Be the first to suggest one!'}
+                      ? `You haven't suggested any  yet. Use the search bar above to add one!`
+                      : `No  yet. Be the first to suggest one!`}
                   </Typography>
                 ) : (
                   myMovies.map((movie, idx) => (
                     <ContentCard
                       key={movie.id}
                       item={movie}
-                      kind="movie"
+                      kind={kind}
                       rank={idx + 1}
                       isAdmin={isAdmin}
                       canMarkWatched={
@@ -1096,8 +1139,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           </>
         )}
 
-        {/* Seed button — admin only, test env only */}
-        {isAdmin && !isProd && (
+        {/* Seed button — admin only, test env only, movies only (no seedShows) */}
+        {isAdmin && !isProd && !isShow && (
           <Box sx={{ textAlign: 'center', mt: 3 }}>
             <Button
               variant="outlined"

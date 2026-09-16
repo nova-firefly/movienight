@@ -6,16 +6,38 @@ import {
   MY_RANKINGS,
   RESET_MOVIE_COMPARISONS,
   GET_MOVIES,
+  SHOW_THIS_OR_THAT,
+  RECORD_SHOW_COMPARISON,
+  MY_SHOW_RANKINGS,
+  RESET_SHOW_COMPARISONS,
+  GET_SHOWS,
 } from '../../graphql/queries';
 import { Box, Typography, Button, Sheet, Chip, Skeleton } from '@mui/joy';
 import MovieCompareCard from './MovieCompareCard';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useKind } from '../../contexts/KindContext';
 
 type Tab = 'compare' | 'rankings';
 
+// Normalise a thisOrThat / showThisOrThat payload to a common { movieA, movieB }
+// shape so the rest of the component is kind-agnostic.
+function extractPair(data: any): { movieA: any; movieB: any } | null {
+  const p = data?.thisOrThat ?? data?.showThisOrThat;
+  if (!p) return null;
+  return { movieA: p.movieA ?? p.showA, movieB: p.movieB ?? p.showB };
+}
+
 const ThisOrThat: React.FC = () => {
   const { confirm, dialogProps } = useConfirm();
+  const { kind } = useKind();
+  const isShow = kind === 'show';
+  const noun = isShow ? 'show' : 'movie';
+  const nounPlural = isShow ? 'shows' : 'movies';
+  const idVar = isShow ? 'showId' : 'movieId';
+  const GET_LIST = isShow ? GET_SHOWS : GET_MOVIES;
+  const RANKINGS_OP = isShow ? MY_SHOW_RANKINGS : MY_RANKINGS;
+
   const [tab, setTab] = useState<Tab>('compare');
   const [sessionCount, setSessionCount] = useState(0);
   const [seenIds, setSeenIds] = useState<string[]>([]);
@@ -26,25 +48,31 @@ const ThisOrThat: React.FC = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [pairError, setPairError] = useState<any>(null);
 
-  const [fetchPair] = useLazyQuery(THIS_OR_THAT, { fetchPolicy: 'network-only' });
+  const [fetchPair] = useLazyQuery(isShow ? SHOW_THIS_OR_THAT : THIS_OR_THAT, {
+    fetchPolicy: 'network-only',
+  });
 
   // Pre-fetched next pair
   const prefetchedRef = useRef<any>(null);
   const prefetchingRef = useRef(false);
 
-  const [recordComparison, { loading: recording }] = useMutation(RECORD_COMPARISON, {
-    refetchQueries: [{ query: GET_MOVIES }],
-  });
+  const [recordComparison, { loading: recording }] = useMutation(
+    isShow ? RECORD_SHOW_COMPARISON : RECORD_COMPARISON,
+    { refetchQueries: [{ query: GET_LIST }] },
+  );
 
   const {
     data: rankingsData,
     loading: rankingsLoading,
     refetch: refetchRankings,
-  } = useQuery(MY_RANKINGS, { skip: tab !== 'rankings' });
+  } = useQuery(RANKINGS_OP, { skip: tab !== 'rankings' });
 
-  const [resetComparisons] = useMutation(RESET_MOVIE_COMPARISONS, {
-    refetchQueries: [{ query: MY_RANKINGS }, { query: GET_MOVIES }],
-  });
+  const [resetComparisons] = useMutation(
+    isShow ? RESET_SHOW_COMPARISONS : RESET_MOVIE_COMPARISONS,
+    {
+      refetchQueries: [{ query: RANKINGS_OP }, { query: GET_LIST }],
+    },
+  );
 
   // Pre-fetch the next pair in the background
   const prefetchNext = useCallback(
@@ -54,7 +82,7 @@ const ThisOrThat: React.FC = () => {
       prefetchedRef.current = null;
       fetchPair({ variables: { excludeIds } })
         .then((result) => {
-          prefetchedRef.current = result.data?.thisOrThat ?? null;
+          prefetchedRef.current = extractPair(result.data);
           prefetchingRef.current = false;
         })
         .catch(() => {
@@ -69,8 +97,9 @@ const ThisOrThat: React.FC = () => {
     (excludeIds: string[] = []) => {
       fetchPair({ variables: { excludeIds } })
         .then((result) => {
-          if (result.data?.thisOrThat) {
-            setCurrentPair(result.data.thisOrThat);
+          const p = extractPair(result.data);
+          if (p) {
+            setCurrentPair(p);
             setPairError(null);
           }
           if (result.error) {
@@ -88,7 +117,15 @@ const ThisOrThat: React.FC = () => {
     [fetchPair],
   );
 
-  // Load first pair on mount
+  // Reset when the content kind changes so we don't show a stale pair.
+  useEffect(() => {
+    setCurrentPair(null);
+    setPairError(null);
+    setInitialLoading(true);
+    prefetchedRef.current = null;
+  }, [kind]);
+
+  // Load first pair on mount (and after a kind switch, since fetchPair changes).
   useEffect(() => {
     loadPair();
   }, [loadPair]);
@@ -141,11 +178,13 @@ const ThisOrThat: React.FC = () => {
     });
     if (!ok) return;
     try {
-      await resetComparisons({ variables: { movieId } });
+      await resetComparisons({ variables: { [idVar]: movieId } });
     } catch (err: any) {
       console.error('Failed to reset:', err);
     }
   };
+
+  const rankings = rankingsData?.myRankings ?? rankingsData?.myShowRankings ?? [];
 
   const isNotEnoughMovies = pairError?.graphQLErrors?.some(
     (e: any) => e.extensions?.code === 'BAD_USER_INPUT',
@@ -178,8 +217,8 @@ const ThisOrThat: React.FC = () => {
             This or That
           </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mb: { xs: 1, sm: 1.5 } }}>
-            Pick which movie you'd rather watch. Your choices build a personal ranking that combines
-            with your connections' picks.
+            Pick which {noun} you'd rather watch. Your choices build a personal ranking that
+            combines with your connections' picks.
           </Typography>
         </Box>
 
@@ -224,7 +263,7 @@ const ThisOrThat: React.FC = () => {
             {isNotEnoughMovies && (
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-                  Add more movies to start comparing.
+                  Add more {nounPlural} to start comparing.
                 </Typography>
               </Box>
             )}
@@ -289,6 +328,7 @@ const ThisOrThat: React.FC = () => {
                 <Box sx={{ flex: 1, maxWidth: { sm: 360 }, display: 'flex' }}>
                   <MovieCompareCard
                     key={pair.movieA.id}
+                    kind={kind}
                     movie={pair.movieA}
                     onPick={handlePick}
                     disabled={recording || fading}
@@ -313,6 +353,7 @@ const ThisOrThat: React.FC = () => {
                 <Box sx={{ flex: 1, maxWidth: { sm: 360 }, display: 'flex' }}>
                   <MovieCompareCard
                     key={pair.movieB.id}
+                    kind={kind}
                     movie={pair.movieB}
                     onPick={handlePick}
                     disabled={recording || fading}
@@ -341,16 +382,15 @@ const ThisOrThat: React.FC = () => {
               </Box>
             )}
 
-            {!rankingsLoading &&
-              (!rankingsData?.myRankings || rankingsData.myRankings.length === 0) && (
-                <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-                    No rankings yet. Compare some movies to see your preferences!
-                  </Typography>
-                </Box>
-              )}
+            {!rankingsLoading && rankings.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+                  No rankings yet. Compare some {nounPlural} to see your preferences!
+                </Typography>
+              </Box>
+            )}
 
-            {!rankingsLoading && rankingsData?.myRankings?.length > 0 && (
+            {!rankingsLoading && rankings.length > 0 && (
               <Sheet
                 variant="outlined"
                 sx={{ borderRadius: 'md', overflow: 'clip', borderColor: 'var(--mn-border-vis)' }}
@@ -372,51 +412,54 @@ const ThisOrThat: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {rankingsData.myRankings.map((r: any, idx: number) => (
-                        <tr key={r.movie.id}>
-                          <td style={{ ...tdStyle, textAlign: 'center', width: 48 }}>
-                            <Typography
-                              level="body-xs"
-                              sx={{
-                                fontWeight: 700,
-                                color: idx < 3 ? 'primary.400' : 'text.tertiary',
-                              }}
-                            >
-                              {idx + 1}
-                            </Typography>
-                          </td>
-                          <td style={tdStyle}>
-                            <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                              {r.movie.title}
-                            </Typography>
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: 'center' }}>
-                            <Chip
-                              size="sm"
-                              variant="soft"
-                              color={r.eloRating >= 1000 ? 'success' : 'warning'}
-                            >
-                              {Math.round(r.eloRating)}
-                            </Chip>
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: 'center' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                              {r.comparisonCount}
-                            </Typography>
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: 'right' }}>
-                            <Button
-                              variant="plain"
-                              color="danger"
-                              size="sm"
-                              onClick={() => handleReset(r.movie.id, r.movie.title)}
-                              sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
-                            >
-                              Reset
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {rankings.map((r: any, idx: number) => {
+                        const item = r.movie ?? r.show;
+                        return (
+                          <tr key={item.id}>
+                            <td style={{ ...tdStyle, textAlign: 'center', width: 48 }}>
+                              <Typography
+                                level="body-xs"
+                                sx={{
+                                  fontWeight: 700,
+                                  color: idx < 3 ? 'primary.400' : 'text.tertiary',
+                                }}
+                              >
+                                {idx + 1}
+                              </Typography>
+                            </td>
+                            <td style={tdStyle}>
+                              <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                                {item.title}
+                              </Typography>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <Chip
+                                size="sm"
+                                variant="soft"
+                                color={r.eloRating >= 1000 ? 'success' : 'warning'}
+                              >
+                                {Math.round(r.eloRating)}
+                              </Chip>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                                {r.comparisonCount}
+                              </Typography>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'right' }}>
+                              <Button
+                                variant="plain"
+                                color="danger"
+                                size="sm"
+                                onClick={() => handleReset(item.id, item.title)}
+                                sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
+                              >
+                                Reset
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </Box>

@@ -11,16 +11,15 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { useAuth } from './contexts/AuthContext';
+import { useKind } from './contexts/KindContext';
 import { registerServiceWorker } from './utils/pushClient';
 
 const GIT_BRANCH = process.env.REACT_APP_GIT_BRANCH;
 const IS_TEST_ENV = GIT_BRANCH && GIT_BRANCH !== 'master';
 
-type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
-
 const App = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [currentView, setCurrentView] = React.useState<ViewName>('movies');
+  const { view: currentView, navigate } = useKind();
   const [showLogin, setShowLogin] = React.useState(false);
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [resetToken, setResetToken] = React.useState<string | null>(() => {
@@ -108,8 +107,8 @@ const App = () => {
 
     return (
       <HomePage
-        onShowThisOrThat={() => setCurrentView('this-or-that')}
-        onShowConnections={() => setCurrentView('combined-list')}
+        onShowThisOrThat={() => navigate('this-or-that')}
+        onShowConnections={() => navigate('combined-list')}
       />
     );
   };
@@ -142,15 +141,7 @@ const App = () => {
         </Box>
       )}
 
-      <Navbar
-        currentView={currentView}
-        onShowMovies={() => setCurrentView('movies')}
-        onShowThisOrThat={() => setCurrentView('this-or-that')}
-        onShowCombinedList={() => setCurrentView('combined-list')}
-        onShowHistory={() => setCurrentView('history')}
-        onShowAdmin={() => setCurrentView('admin')}
-        onShowLogin={() => setShowLogin(true)}
-      />
+      <Navbar onShowLogin={() => setShowLogin(true)} />
 
       {renderView()}
 
