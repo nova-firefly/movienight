@@ -436,9 +436,12 @@ Add to `src/index.css:2-16`:
 --mn-kind-show-tint: #e0f2fe;
 ```
 
-These are **kind affordance** colors only — the toggle, the row left-border, the kind chip and the
-navbar underline. The app's gold `primary` palette (`theme.ts:11-33`) is unchanged; do not restyle
-buttons or links per kind. The tints are light-mode values from the mockup and need dark-mode
+These are **kind affordance** colors — the toggle, the row left-border, the kind chip and the navbar
+underline. **Superseded during Phase 4 review (product decision):** the original "gold `primary`
+palette stays unchanged; do not restyle buttons/links per kind" guidance was reversed — on Shows the
+whole `primary` palette is repainted gold → blue via `KindPalette` + `SHOW_PALETTE_VARS` (`theme.ts`)
+overriding `--joy-palette-primary-*` on `:root`. The tints are light-mode values from the mockup and
+need dark-mode
 equivalents (the app is dark-only, `index.tsx:16`); use a low-alpha overlay of the accent instead.
 
 ### 4.5 Views

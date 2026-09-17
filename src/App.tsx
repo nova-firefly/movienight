@@ -10,6 +10,7 @@ import { ResetPassword } from './components/auth/ResetPassword';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
+import { KindPalette } from './components/common/KindPalette';
 import { useAuth } from './contexts/AuthContext';
 import { useKind } from './contexts/KindContext';
 import { registerServiceWorker } from './utils/pushClient';
@@ -122,6 +123,9 @@ const App = () => {
         bgcolor: 'background.body',
       }}
     >
+      {/* Repaints the primary palette blue while Shows is active */}
+      <KindPalette />
+
       {/* Test environment banner */}
       {IS_TEST_ENV && (
         <Box

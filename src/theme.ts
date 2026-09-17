@@ -154,3 +154,37 @@ const theme = extendTheme({
 });
 
 export default theme;
+
+// Shows repaint the whole `primary` palette from gold → sky blue. These override
+// the Joy-generated `--joy-palette-primary-*` custom properties on :root while the
+// Shows kind is active (see KindPalette), so every `primary.*` reference and the
+// mainChannel-based rgba() composites switch together. Mirrors the gold scale's
+// structure so solid/outlined/soft/plain variants all track. `--mn-gold` (raw
+// HTML focus outlines / selection) is repainted too for consistency.
+export const SHOW_PALETTE_VARS: Record<string, string> = {
+  '--joy-palette-primary-50': '#f0f9ff',
+  '--joy-palette-primary-100': '#e0f2fe',
+  '--joy-palette-primary-200': '#bae6fd',
+  '--joy-palette-primary-300': '#7dd3fc',
+  '--joy-palette-primary-400': '#38bdf8',
+  '--joy-palette-primary-500': '#0ea5e9',
+  '--joy-palette-primary-600': '#0284c7',
+  '--joy-palette-primary-700': '#0369a1',
+  '--joy-palette-primary-800': '#075985',
+  '--joy-palette-primary-900': '#0c4a6e',
+  '--joy-palette-primary-mainChannel': '14 165 233',
+  '--joy-palette-primary-solidBg': '#0ea5e9',
+  '--joy-palette-primary-solidColor': '#0d0f1a',
+  '--joy-palette-primary-solidHoverBg': '#38bdf8',
+  '--joy-palette-primary-solidActiveBg': '#0284c7',
+  '--joy-palette-primary-outlinedBorder': '#0ea5e9',
+  '--joy-palette-primary-outlinedColor': '#0ea5e9',
+  '--joy-palette-primary-outlinedHoverBg': 'rgba(14, 165, 233, 0.10)',
+  '--joy-palette-primary-softBg': 'rgba(14, 165, 233, 0.15)',
+  '--joy-palette-primary-softColor': '#7dd3fc',
+  '--joy-palette-primary-softHoverBg': 'rgba(14, 165, 233, 0.22)',
+  '--joy-palette-primary-plainColor': '#0ea5e9',
+  '--joy-palette-primary-plainHoverBg': 'rgba(14, 165, 233, 0.10)',
+  '--joy-palette-focusVisible': 'rgba(14, 165, 233, 0.5)',
+  '--mn-gold': '#0ea5e9',
+};

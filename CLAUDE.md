@@ -182,8 +182,10 @@ and persists to `localStorage.contentKind`. `App.tsx` and `Navbar.tsx` read the 
 **Kind is global.** A Movies/Shows segmented toggle in the navbar cascades to every view. Each
 kind-scoped view swaps its GraphQL ops by kind (show ops mirror movie ops); `ContentRow`/
 `ContentCard` render a kind accent left-border, a `KindChip`, and — for shows — a season/episode
-meta line plus a reserved (empty) episode-progress slot. Kind accent tokens: `--mn-kind-*` in
-`index.css`.
+meta line plus an episode-progress chip (hidden until populated). Kind accent tokens: `--mn-kind-*`
+in `index.css`. While Shows is active, `KindPalette` (rendered in `App.tsx`) repaints the whole Joy
+`primary` palette gold → blue by overriding the `--joy-palette-primary-*` custom properties on
+`:root` (values in `SHOW_PALETTE_VARS` in `theme.ts`); Movies keep the default gold.
 
 **"Combined" in the navbar is the Connections manager** (`CombinedList.tsx`), not a ranked list. The
 actual combined ranking table is inside `Homepage.tsx`, reached via `ViewSelector`.
