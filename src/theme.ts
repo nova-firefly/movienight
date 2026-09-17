@@ -187,4 +187,5 @@ export const SHOW_PALETTE_VARS: Record<string, string> = {
   '--joy-palette-primary-plainHoverBg': 'rgba(14, 165, 233, 0.10)',
   '--joy-palette-focusVisible': 'rgba(14, 165, 233, 0.5)',
   '--mn-gold': '#0ea5e9',
+  '--mn-selection': 'rgba(14, 165, 233, 0.25)',
 };

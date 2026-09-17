@@ -8,6 +8,7 @@
   --mn-border-vis: #2a2e4a;
   --mn-gold: #f5c518;
   --mn-gold-dim: #c9a000;
+  --mn-selection: rgba(245, 197, 24, 0.25);
   --mn-text-primary: #f0f2f8;
   --mn-text-secondary: #9097b8;
   --mn-text-muted: #565a7a;
@@ -70,7 +71,7 @@ code {
 
 /* ── Selection highlight ───────────────────────────────────────────────── */
 ::selection {
-  background: rgba(245, 197, 24, 0.25);
+  background: var(--mn-selection);
   color: var(--mn-text-primary);
 }
 
