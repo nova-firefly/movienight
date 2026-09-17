@@ -45,6 +45,9 @@ export type Show = {
   number_of_seasons?: number | null;
   number_of_episodes?: number | null;
   status?: string | null;
+  // Reserved for the episode-progress feature (not yet populated by the API).
+  // e.g. "S2 · E4"; when present, the row shows an EpisodeProgressChip.
+  episode_progress?: string | null;
   myTags?: ShowUserTag[];
   userTags?: ShowUserTag[];
 };

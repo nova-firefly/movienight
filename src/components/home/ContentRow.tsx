@@ -3,7 +3,7 @@ import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/joy';
 import { Check, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, kindAccent, ReservedProgressSlot } from './kindAffordance';
+import { KindChip, showMetaLine, kindAccent, EpisodeProgressChip } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentRowProps {
@@ -70,6 +70,7 @@ const ContentRow: React.FC<ContentRowProps> = ({
 }) => {
   const show = kind === 'show' ? (item as Show) : null;
   const meta = show ? showMetaLine(show) : '';
+  const progress = show?.episode_progress ?? null;
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -95,7 +96,7 @@ const ContentRow: React.FC<ContentRowProps> = ({
               </Typography>
               <KindChip kind={kind} />
             </Box>
-            {show && (
+            {show && (meta || progress) && (
               <Box
                 sx={{
                   display: 'flex',
@@ -110,7 +111,7 @@ const ContentRow: React.FC<ContentRowProps> = ({
                     {meta}
                   </Typography>
                 )}
-                <ReservedProgressSlot />
+                <EpisodeProgressChip value={progress} />
               </Box>
             )}
           </Box>

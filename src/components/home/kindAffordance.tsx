@@ -50,26 +50,27 @@ export function showMetaLine(show: Show): string {
   return parts.join(' · ');
 }
 
-// Reserved, empty episode-progress slot (D-12 / FR-SHOW-023). Ships at a fixed
-// size so a later "S2·E4" chip can drop in without reflowing the row.
-export const ReservedProgressSlot: React.FC = () => (
-  <Box
-    aria-hidden
-    sx={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minWidth: 44,
-      height: 18,
-      px: 0.5,
-      border: '1px dashed var(--mn-border-vis)',
-      borderRadius: 'sm',
-      fontSize: '0.55rem',
-      fontWeight: 700,
-      color: 'var(--mn-text-muted)',
-      letterSpacing: '0.06em',
-    }}
-  >
-    S · E
-  </Box>
-);
+// Episode-progress chip (e.g. "S2 · E4"). Renders nothing until a value exists,
+// so it stays invisible until the episode-progress feature (issue: TV Shows —
+// episode progress) populates `Show.episode_progress`. The layout row that hosts
+// it collapses when empty, so there is no placeholder clutter (D-12 intent —
+// reserve the concept, not visible space).
+export const EpisodeProgressChip: React.FC<{ value?: string | null }> = ({ value }) => {
+  if (!value) return null;
+  return (
+    <Chip
+      size="sm"
+      variant="soft"
+      sx={{
+        '--Chip-minHeight': '18px',
+        fontSize: '0.6rem',
+        fontWeight: 700,
+        bgcolor: 'var(--mn-kind-show-tint)',
+        color: 'var(--mn-kind-show)',
+        flexShrink: 0,
+      }}
+    >
+      {value}
+    </Chip>
+  );
+};

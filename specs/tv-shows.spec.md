@@ -476,8 +476,11 @@ shall render the Shows history with the Shows segment selected.
 **FR-SHOW-022: Kind is always visible.** Every content row shall carry both the kind accent border
 and a kind chip with icon and text, so kind is distinguishable without relying on color.
 
-**FR-SHOW-023: Reserved progress slot.** Show rows shall render the empty `S · E` slot at fixed
-size, so a later episode-progress chip does not reflow the row.
+**FR-SHOW-023: Episode-progress chip.** Show rows shall render an `EpisodeProgressChip` **only when
+`Show.episode_progress` is present**; when absent the chip renders nothing and its row collapses.
+(Superseded during Phase 4 review: the original "always-visible empty `S · E` placeholder" from D-12
+was dropped as clutter, per product decision — the reserve-the-concept intent stands, but not a
+visible empty box. The chip lights up when the episode-progress feature lands.)
 
 ---
 
