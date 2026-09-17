@@ -1,129 +1,110 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography, IconButton, Divider } from '@mui/joy';
-import { Bell, HelpCircle, Menu, X } from 'lucide-react';
+import { Bell, Film, HelpCircle, Menu, Tv, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useKind } from '../../contexts/KindContext';
+import { ContentKind, ViewName } from '../../models/Content';
 import { getGravatarUrl } from '../../utils/gravatar';
 import { OnboardingModal } from './OnboardingGuide';
 import { NotificationSettingsModal } from '../settings/NotificationSettings';
 
-type ViewName = 'movies' | 'this-or-that' | 'combined-list' | 'history' | 'admin';
-
 interface NavbarProps {
-  currentView: ViewName;
-  onShowMovies: () => void;
-  onShowThisOrThat: () => void;
-  onShowCombinedList: () => void;
-  onShowHistory: () => void;
-  onShowAdmin: () => void;
   onShowLogin: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  currentView,
-  onShowMovies,
-  onShowThisOrThat,
-  onShowCombinedList,
-  onShowHistory,
-  onShowAdmin,
-  onShowLogin,
-}) => {
+const kindAccentVar = (kind: ContentKind) =>
+  kind === 'show' ? 'var(--mn-kind-show)' : 'var(--mn-kind-movie)';
+const kindTintVar = (kind: ContentKind) =>
+  kind === 'show' ? 'var(--mn-kind-show-tint)' : 'var(--mn-kind-movie-tint)';
+
+export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
   const { isAuthenticated, user, logout } = useAuth();
+  const { kind, view: currentView, setKind, navigate } = useKind();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  const go = (view: ViewName) => {
+    navigate(view);
+    setMobileOpen(false);
+  };
+
+  const navButton = (view: ViewName, label: string, subtle = false) => (
+    <Button
+      variant={currentView === view ? 'soft' : 'plain'}
+      color="neutral"
+      size="sm"
+      onClick={() => go(view)}
+      sx={{
+        fontWeight: 600,
+        color: currentView === view ? 'primary.400' : subtle ? 'text.tertiary' : 'text.secondary',
+        '&:hover': { color: 'primary.300' },
+        ...(subtle ? { fontSize: '0.8rem' } : {}),
+      }}
+    >
+      {label}
+    </Button>
+  );
+
   const navItems = (
     <>
-      <Button
-        variant={currentView === 'movies' ? 'soft' : 'plain'}
-        color="neutral"
-        size="sm"
-        onClick={() => {
-          onShowMovies();
-          setMobileOpen(false);
-        }}
-        sx={{
-          fontWeight: 600,
-          color: currentView === 'movies' ? 'primary.400' : 'text.secondary',
-          '&:hover': { color: 'primary.300' },
-        }}
-      >
-        Movies
-      </Button>
-      {isAuthenticated && (
-        <Button
-          variant={currentView === 'this-or-that' ? 'soft' : 'plain'}
-          color="neutral"
-          size="sm"
-          onClick={() => {
-            onShowThisOrThat();
-            setMobileOpen(false);
-          }}
-          sx={{
-            fontWeight: 600,
-            color: currentView === 'this-or-that' ? 'primary.400' : 'text.secondary',
-            '&:hover': { color: 'primary.300' },
-          }}
-        >
-          This or That
-        </Button>
-      )}
-      {isAuthenticated && (
-        <Button
-          variant={currentView === 'combined-list' ? 'soft' : 'plain'}
-          color="neutral"
-          size="sm"
-          onClick={() => {
-            onShowCombinedList();
-            setMobileOpen(false);
-          }}
-          sx={{
-            fontWeight: 600,
-            color: currentView === 'combined-list' ? 'primary.400' : 'text.secondary',
-            '&:hover': { color: 'primary.300' },
-          }}
-        >
-          Combined
-        </Button>
-      )}
-      {isAuthenticated && (
-        <Button
-          variant={currentView === 'history' ? 'soft' : 'plain'}
-          color="neutral"
-          size="sm"
-          onClick={() => {
-            onShowHistory();
-            setMobileOpen(false);
-          }}
-          sx={{
-            fontWeight: 600,
-            color: currentView === 'history' ? 'primary.400' : 'text.tertiary',
-            '&:hover': { color: 'primary.300' },
-            fontSize: '0.8rem',
-          }}
-        >
-          History
-        </Button>
-      )}
-      {isAuthenticated && user?.is_admin && (
-        <Button
-          variant={currentView === 'admin' ? 'soft' : 'plain'}
-          color="neutral"
-          size="sm"
-          onClick={() => {
-            onShowAdmin();
-            setMobileOpen(false);
-          }}
-          sx={{
-            fontWeight: 600,
-            color: currentView === 'admin' ? 'primary.400' : 'text.secondary',
-            '&:hover': { color: 'primary.300' },
-          }}
-        >
-          Admin
-        </Button>
-      )}
+      {navButton('queue', 'Queue')}
+      {isAuthenticated && navButton('this-or-that', 'This or That')}
+      {isAuthenticated && navButton('combined-list', 'Combined')}
+      {isAuthenticated && navButton('history', 'History', true)}
+      {isAuthenticated && user?.is_admin && navButton('admin', 'Admin')}
     </>
+  );
+
+  // Segmented Movies/Shows toggle (D-7). Icon + text so kind is never
+  // conveyed by colour alone (WCAG 1.4.1). Always visible.
+  const kindToggle = (
+    <Box
+      role="tablist"
+      aria-label="Content type"
+      sx={{
+        display: 'inline-flex',
+        borderRadius: 'sm',
+        overflow: 'hidden',
+        border: '1px solid var(--mn-border-vis)',
+      }}
+    >
+      {(['movie', 'show'] as ContentKind[]).map((k) => {
+        const active = kind === k;
+        const Icon = k === 'movie' ? Film : Tv;
+        return (
+          <Box
+            component="button"
+            type="button"
+            role="tab"
+            aria-selected={active}
+            key={k}
+            onClick={() => {
+              setKind(k);
+              setMobileOpen(false);
+            }}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1.25,
+              py: 0.5,
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              fontFamily: 'inherit',
+              bgcolor: active ? kindTintVar(k) : 'transparent',
+              color: active ? kindAccentVar(k) : 'var(--mn-text-secondary)',
+              transition: 'background-color 0.15s, color 0.15s',
+            }}
+          >
+            <Icon size={15} strokeWidth={2.25} aria-hidden />
+            {k === 'movie' ? 'Movies' : 'Shows'}
+          </Box>
+        );
+      })}
+    </Box>
   );
 
   return (
@@ -137,8 +118,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           bgcolor: 'rgba(13, 15, 26, 0.96)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
+          borderBottom: '2px solid',
+          borderColor: kindAccentVar(kind),
           px: { xs: 2, sm: 3 },
           py: 1.25,
           display: 'flex',
@@ -158,13 +139,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               cursor: 'pointer',
               userSelect: 'none',
             }}
-            onClick={() => {
-              onShowMovies();
-              setMobileOpen(false);
-            }}
+            onClick={() => go('queue')}
           >
             MovieNight
           </Typography>
+          {/* Kind toggle — desktop */}
+          <Box sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>{kindToggle}</Box>
           {/* Desktop nav links */}
           <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>{navItems}</Box>
         </Box>
@@ -285,18 +265,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClose={() => setHelpOpen(false)}
         onShowConnections={() => {
           setHelpOpen(false);
-          onShowCombinedList();
-          setMobileOpen(false);
+          go('combined-list');
         }}
         onShowThisOrThat={() => {
           setHelpOpen(false);
-          onShowThisOrThat();
-          setMobileOpen(false);
+          go('this-or-that');
         }}
         onShowMovies={() => {
           setHelpOpen(false);
-          onShowMovies();
-          setMobileOpen(false);
+          go('queue');
         }}
       />
 
@@ -314,6 +291,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             py: 2,
           }}
         >
+          <Box sx={{ alignSelf: 'flex-start' }}>{kindToggle}</Box>
           {navItems}
           {isAuthenticated && (
             <>

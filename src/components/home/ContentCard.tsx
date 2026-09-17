@@ -1,7 +1,9 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
 import { Check, Eye, EyeOff, X } from 'lucide-react';
-import { ContentItem, ContentKind } from '../../models/Content';
+import { ContentItem, ContentKind, Show } from '../../models/Content';
+import { tmdbUrl } from '../../utils/tmdb';
+import { KindChip, showMetaLine, kindAccent, EpisodeProgressChip } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentCardProps {
@@ -21,6 +23,7 @@ export interface ContentCardProps {
 
 const ContentCard: React.FC<ContentCardProps> = ({
   item,
+  kind,
   rank,
   isAdmin,
   canMarkWatched,
@@ -30,6 +33,9 @@ const ContentCard: React.FC<ContentCardProps> = ({
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
+  const show = kind === 'show' ? (item as Show) : null;
+  const meta = show ? showMetaLine(show) : '';
+  const progress = show?.episode_progress ?? null;
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -44,6 +50,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
         p: 1.5,
         borderColor: isRecentlyAdded ? 'primary.400' : 'var(--mn-border-vis)',
         borderWidth: isRecentlyAdded ? 1.5 : 1,
+        borderLeft: `3px solid ${kindAccent(kind)}`,
         bgcolor: isRecentlyAdded
           ? 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)'
           : undefined,
@@ -75,7 +82,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
             {item.title}
             {item.tmdb_id && (
               <a
-                href={`https://www.themoviedb.org/movie/${item.tmdb_id}`}
+                href={tmdbUrl(kind, item.tmdb_id)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`View ${item.title} on TMDB (opens in new tab)`}
@@ -89,7 +96,8 @@ const ContentCard: React.FC<ContentCardProps> = ({
               </a>
             )}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
+            <KindChip kind={kind} />
             <Chip
               size="sm"
               variant="soft"
@@ -105,6 +113,18 @@ const ContentCard: React.FC<ContentCardProps> = ({
               })}
             </Typography>
           </Box>
+          {show && (meta || progress) && (
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
+            >
+              {meta && (
+                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                  {meta}
+                </Typography>
+              )}
+              <EpisodeProgressChip value={progress} />
+            </Box>
+          )}
         </Box>
       </Box>
 

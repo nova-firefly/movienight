@@ -36,6 +36,7 @@ interface NotificationPreference {
 
 const EVENT_LABELS: Record<string, string> = {
   MOVIE_ADD: 'New movies added by others',
+  SHOW_ADD: 'New shows added by others',
 };
 
 type SupportState = 'unsupported' | 'ios-too-old' | 'ios-not-installed' | 'ok';

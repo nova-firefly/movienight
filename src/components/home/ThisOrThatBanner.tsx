@@ -1,5 +1,6 @@
 import React from 'react';
 import { Chip } from '@mui/joy';
+import { useKind } from '../../contexts/KindContext';
 
 interface ThisOrThatBannerProps {
   hasEloData: boolean;
@@ -12,6 +13,7 @@ const ThisOrThatBanner: React.FC<ThisOrThatBannerProps> = ({
   isAuthenticated,
   onShowThisOrThat,
 }) => {
+  const { kind } = useKind();
   if (!isAuthenticated || !onShowThisOrThat) return null;
 
   return (
@@ -29,7 +31,7 @@ const ThisOrThatBanner: React.FC<ThisOrThatBannerProps> = ({
         '&:hover': { opacity: 1 },
       }}
     >
-      {hasEloData ? '▸ Keep ranking' : '▸ Rank movies'}
+      {hasEloData ? '▸ Keep ranking' : `▸ Rank ${kind === 'show' ? 'shows' : 'movies'}`}
     </Chip>
   );
 };

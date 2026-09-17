@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/joy';
 import { X } from 'lucide-react';
+import { useKind } from '../../contexts/KindContext';
 
 export const ONBOARDING_DISMISSED_KEY = 'onboarding_dismissed';
 
@@ -28,11 +29,11 @@ interface Step {
   actionKey?: 'connect' | 'rank' | 'watch';
 }
 
-const STEPS: Step[] = [
+const getSteps = (nounPlural: string, PageLabel: string): Step[] => [
   {
     emoji: '🎬',
     title: 'Suggest',
-    description: 'Use the search bar on the home page to add movies you want to watch.',
+    description: `Use the search bar on the home page to add ${nounPlural} you want to watch.`,
   },
   {
     emoji: '🤝',
@@ -44,20 +45,26 @@ const STEPS: Step[] = [
   {
     emoji: '⚖️',
     title: 'Rank',
-    description: 'Compare movies in This or That to build your preference list.',
+    description: `Compare ${nounPlural} in This or That to build your preference list.`,
     actionLabel: 'Open This or That',
     actionKey: 'rank',
   },
   {
     emoji: '🍿',
     title: 'Watch',
-    description: 'Pick a connection on the Movies page to see your combined rankings.',
+    description: `Pick a connection on the ${PageLabel} page to see your combined rankings.`,
     actionLabel: 'See combined rankings',
     actionKey: 'watch',
   },
 ];
 
 const StepList: React.FC<StepActions> = ({ onShowConnections, onShowThisOrThat, onShowMovies }) => {
+  const { kind } = useKind();
+  const isShow = kind === 'show';
+  const noun = isShow ? 'show' : 'movie';
+  const nounPlural = isShow ? 'shows' : 'movies';
+  const pageLabel = isShow ? 'Shows' : 'Movies';
+
   const handlerFor = (key?: Step['actionKey']) => {
     if (key === 'connect') return onShowConnections;
     if (key === 'rank') return onShowThisOrThat;
@@ -65,14 +72,14 @@ const StepList: React.FC<StepActions> = ({ onShowConnections, onShowThisOrThat, 
     return undefined;
   };
 
-  const [lead, ...rest] = STEPS;
+  const [lead, ...rest] = getSteps(nounPlural, pageLabel);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
       {/* Step 1 — lead-in, no emoji column, heavier heading */}
       <Box>
         <Typography level="title-md" sx={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
-          Start by suggesting a movie.
+          Start by suggesting a {noun}.
         </Typography>
         <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.25 }}>
           {lead.description}
@@ -123,34 +130,38 @@ const StepList: React.FC<StepActions> = ({ onShowConnections, onShowThisOrThat, 
   );
 };
 
-const ExtraTips: React.FC = () => (
-  <Box>
-    <Typography level="title-sm" sx={{ fontWeight: 700, mb: 1 }}>
-      A few extras
-    </Typography>
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-        <Typography component="span" sx={{ fontWeight: 700 }}>
-          Watch Alone
-        </Typography>{' '}
-        — movies your connections passed on, all yours to enjoy solo.
+const ExtraTips: React.FC = () => {
+  const { kind } = useKind();
+  const nounPlural = kind === 'show' ? 'shows' : 'movies';
+  return (
+    <Box>
+      <Typography level="title-sm" sx={{ fontWeight: 700, mb: 1 }}>
+        A few extras
       </Typography>
-      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-        <Typography component="span" sx={{ fontWeight: 700 }}>
-          History
-        </Typography>{' '}
-        — everything you've already watched.
-      </Typography>
-      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-        Tap the{' '}
-        <Typography component="span" sx={{ fontWeight: 700 }}>
-          ?
-        </Typography>{' '}
-        in the header any time to revisit this.
-      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+          <Typography component="span" sx={{ fontWeight: 700 }}>
+            Watch Alone
+          </Typography>{' '}
+          — {nounPlural} your connections passed on, all yours to enjoy solo.
+        </Typography>
+        <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+          <Typography component="span" sx={{ fontWeight: 700 }}>
+            History
+          </Typography>{' '}
+          — everything you've already watched.
+        </Typography>
+        <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+          Tap the{' '}
+          <Typography component="span" sx={{ fontWeight: 700 }}>
+            ?
+          </Typography>{' '}
+          in the header any time to revisit this.
+        </Typography>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 interface OnboardingCardProps extends StepActions {
   onDismiss: () => void;

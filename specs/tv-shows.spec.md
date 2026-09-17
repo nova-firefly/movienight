@@ -1,7 +1,7 @@
 # Feature: TV Shows as a Second Content Kind
 
-**Status:** Phase 1 landed (PR #102). Phase 2 (backend GraphQL surface) implemented on branch
-`phase-2-show-graphql`. Phases 3–5 not started.
+**Status:** Phases 1–3 landed (PR #102, #103, #104). Phase 4 (frontend: URL routing, KindContext,
+navbar toggle, kind-aware views) implemented on branch `phase-4-frontend`. Phase 5 not started.
 **Mockup:** `specs/mockups/tv-shows-ui.html` (merged in `cd1cc87`)
 
 > **Provenance note.** The original implementation plan for this feature was lost — it lived in a
@@ -436,9 +436,12 @@ Add to `src/index.css:2-16`:
 --mn-kind-show-tint: #e0f2fe;
 ```
 
-These are **kind affordance** colors only — the toggle, the row left-border, the kind chip and the
-navbar underline. The app's gold `primary` palette (`theme.ts:11-33`) is unchanged; do not restyle
-buttons or links per kind. The tints are light-mode values from the mockup and need dark-mode
+These are **kind affordance** colors — the toggle, the row left-border, the kind chip and the navbar
+underline. **Superseded during Phase 4 review (product decision):** the original "gold `primary`
+palette stays unchanged; do not restyle buttons/links per kind" guidance was reversed — on Shows the
+whole `primary` palette is repainted gold → blue via `KindPalette` + `SHOW_PALETTE_VARS` (`theme.ts`)
+overriding `--joy-palette-primary-*` on `:root`. The tints are light-mode values from the mockup and
+need dark-mode
 equivalents (the app is dark-only, `index.tsx:16`); use a low-alpha overlay of the accent instead.
 
 ### 4.5 Views
@@ -476,8 +479,11 @@ shall render the Shows history with the Shows segment selected.
 **FR-SHOW-022: Kind is always visible.** Every content row shall carry both the kind accent border
 and a kind chip with icon and text, so kind is distinguishable without relying on color.
 
-**FR-SHOW-023: Reserved progress slot.** Show rows shall render the empty `S · E` slot at fixed
-size, so a later episode-progress chip does not reflow the row.
+**FR-SHOW-023: Episode-progress chip.** Show rows shall render an `EpisodeProgressChip` **only when
+`Show.episode_progress` is present**; when absent the chip renders nothing and its row collapses.
+(Superseded during Phase 4 review: the original "always-visible empty `S · E` placeholder" from D-12
+was dropped as clutter, per product decision — the reserve-the-concept intent stands, but not a
+visible empty box. The chip lights up when the episode-progress feature lands.)
 
 ---
 

@@ -1,14 +1,22 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
+import { ContentKind } from '../../models/Content';
+import { tmdbUrl } from '../../utils/tmdb';
 import Poster from '../common/Poster';
 
 interface WatchHistoryCardProps {
+  kind: ContentKind;
   movie: any;
   canUnwatch: boolean;
   onUnwatch: (id: string, title: string) => void;
 }
 
-const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({ movie, canUnwatch, onUnwatch }) => (
+const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({
+  kind,
+  movie,
+  canUnwatch,
+  onUnwatch,
+}) => (
   <Sheet
     variant="outlined"
     sx={{
@@ -28,7 +36,7 @@ const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({ movie, canUnwatch, 
           {movie.title}
           {movie.tmdb_id && (
             <a
-              href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+              href={tmdbUrl(kind, movie.tmdb_id)}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`View ${movie.title} on TMDB (opens in new tab)`}

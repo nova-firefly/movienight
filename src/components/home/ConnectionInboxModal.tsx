@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, ModalDialog, ModalClose, Box, Button, Typography, Sheet, Chip } from '@mui/joy';
 import { useToast } from '../../contexts/ToastContext';
+import { useKind } from '../../contexts/KindContext';
+import { tmdbUrl } from '../../utils/tmdb';
 import Poster from '../common/Poster';
 
 const formatRelativeDate = (iso: string): string => {
@@ -33,6 +35,8 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
   onSetSeenTag,
 }) => {
   const { showSuccess } = useToast();
+  const { kind } = useKind();
+  const noun = kind === 'show' ? 'show' : 'movie';
   // movieId → confirmation message shown after responding
   const [responded, setResponded] = useState<Record<string, string>>({});
 
@@ -82,7 +86,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
           </Box>
           <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
             {remaining > 0
-              ? 'Tap one button per movie — say if you want to watch it together or pass.'
+              ? `Tap one button per ${noun} — say if you want to watch it together or pass.`
               : 'All caught up!'}
           </Typography>
         </Box>
@@ -149,7 +153,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                             {item.movie.title}
                             {item.movie.tmdb_id && (
                               <a
-                                href={`https://www.themoviedb.org/movie/${item.movie.tmdb_id}`}
+                                href={tmdbUrl(kind, item.movie.tmdb_id)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{

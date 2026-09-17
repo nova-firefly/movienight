@@ -166,14 +166,26 @@ src/components/
 └── settings/   NotificationSettings
 ```
 
-`src/contexts/` — `AuthContext`, `ToastContext`. `src/hooks/useConfirm.ts`. `src/models/` —
-`Content.ts` (`Movie`, `Show`, `ContentItem`, `ContentKind`, tag types), `User.ts`. `src/utils/` —
-`gravatar`, `pushClient`, `textUtils`, `useDebounce`.
+`src/contexts/` — `AuthContext`, `ToastContext`, `KindContext`. `src/hooks/useConfirm.ts`.
+`src/models/` — `Content.ts` (`Movie`, `Show`, `ContentItem`, `ContentKind`, `ViewName`, tag types),
+`User.ts`. `src/utils/` — `gravatar`, `pushClient`, `textUtils`, `useDebounce`, `paths` (URL ↔
+`{kind, view}`), `tmdb` (`tmdbUrl(kind, id)`).
 
-**Navigation has no router.** `App.tsx` holds `type ViewName = 'movies' | 'this-or-that' |
-'combined-list' | 'history' | 'admin'` in `useState` and switches on it. There are no URLs, no deep
-links and no browser history integration. `ViewName` is duplicated verbatim in `Navbar.tsx`.
-`nginx.conf` does have an SPA fallback, so adding URL routing needs no infra change.
+**Navigation is URL-driven, no router.** `KindContext` (in `src/index.tsx`, inside `AuthProvider`)
+owns the `{ kind, view }` route, derived from `location.pathname` via `parsePath` and updated with
+`history.pushState` + a `popstate` listener — no react-router. Movies live under `/movies…`, shows
+under `/shows…` (`/movies`, `/shows/this-or-that`, `/shows/combined`, `/movies/history`, `/admin`).
+`useKind()` exposes `{ kind, view, setKind, navigate }`; `setKind` preserves the current view (D-7)
+and persists to `localStorage.contentKind`. `App.tsx` and `Navbar.tsx` read the route from
+`useKind()`. `nginx.conf`'s SPA fallback makes deep links refresh-safe.
+
+**Kind is global.** A Movies/Shows segmented toggle in the navbar cascades to every view. Each
+kind-scoped view swaps its GraphQL ops by kind (show ops mirror movie ops); `ContentRow`/
+`ContentCard` render a kind accent left-border, a `KindChip`, and — for shows — a season/episode
+meta line plus an episode-progress chip (hidden until populated). Kind accent tokens: `--mn-kind-*`
+in `index.css`. While Shows is active, `KindPalette` (rendered in `App.tsx`) repaints the whole Joy
+`primary` palette gold → blue by overriding the `--joy-palette-primary-*` custom properties on
+`:root` (values in `SHOW_PALETTE_VARS` in `theme.ts`); Movies keep the default gold.
 
 **"Combined" in the navbar is the Connections manager** (`CombinedList.tsx`), not a ranked list. The
 actual combined ranking table is inside `Homepage.tsx`, reached via `ViewSelector`.

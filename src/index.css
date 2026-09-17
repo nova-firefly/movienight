@@ -8,11 +8,21 @@
   --mn-border-vis: #2a2e4a;
   --mn-gold: #f5c518;
   --mn-gold-dim: #c9a000;
+  --mn-selection: rgba(245, 197, 24, 0.25);
   --mn-text-primary: #f0f2f8;
   --mn-text-secondary: #9097b8;
   --mn-text-muted: #565a7a;
   --mn-danger: #e04040;
   --mn-success: #4caf82;
+
+  /* Kind affordance accents (movies vs shows). Used only for the navbar
+     toggle, row left-border, kind chip and navbar underline — never to
+     restyle the app's gold primary. The app is dark-only, so the "tint" is a
+     low-alpha overlay of the accent rather than the mockup's light-mode wash. */
+  --mn-kind-movie: #f59e0b;
+  --mn-kind-movie-tint: rgba(245, 158, 11, 0.12);
+  --mn-kind-show: #0ea5e9;
+  --mn-kind-show-tint: rgba(14, 165, 233, 0.12);
 }
 
 /* ── Reset & base ──────────────────────────────────────────────────────── */
@@ -61,7 +71,7 @@ code {
 
 /* ── Selection highlight ───────────────────────────────────────────────── */
 ::selection {
-  background: rgba(245, 197, 24, 0.25);
+  background: var(--mn-selection);
   color: var(--mn-text-primary);
 }
 
