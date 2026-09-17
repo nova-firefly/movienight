@@ -247,7 +247,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         }
       });
     } catch (err: any) {
-      showError(`Error marking movie as done: ${err.message}`);
+      showError(`Error marking  as done: `);
     }
   };
 
@@ -262,7 +262,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         }
       });
     } catch (err: any) {
-      showError(`Error marking movie as done: ${err.message}`);
+      showError(`Error marking  as done: `);
     }
   };
 
@@ -280,7 +280,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const handleDelete = async (id: string, movieTitle: string) => {
     const ok = await confirm({
-      title: 'Remove movie?',
+      title: `Remove ?`,
       message: `"${movieTitle}" will be permanently removed from the list.`,
       confirmText: 'Remove',
       confirmColor: 'danger',
@@ -289,7 +289,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
     try {
       await deleteMovie({ variables: { id } });
     } catch (err: any) {
-      showError(`Error removing movie: ${err.message}`);
+      showError(`Error removing : `);
     }
   };
 
@@ -650,7 +650,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                             size="sm"
                             onClick={onShowThisOrThat}
                           >
-                            Rank movies
+                            Rank {nounPlural}
                           </Button>
                         )}
                       </Box>
@@ -668,7 +668,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       >
                         <Box sx={{ overflowX: 'auto' }}>
                           <table
-                            aria-label="Combined movie rankings"
+                            aria-label={`Combined  rankings`}
                             style={{
                               width: '100%',
                               minWidth: 360,
@@ -769,7 +769,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                         </Typography>
                                         {!r.bothRated && (
                                           <Tooltip
-                                            title="Only one of you has ranked this movie in This or That"
+                                            title={`Only one of you has ranked this  in This or That`}
                                             arrow
                                           >
                                             <Chip size="sm" variant="soft" color="neutral">
@@ -874,7 +874,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                             }}
                           >
                             <Typography level="body-sm" sx={{ fontWeight: 600, mb: 1 }}>
-                              Rankings work best when you've both compared more movies
+                              Rankings work best when you've both compared more {nounPlural}
                             </Typography>
                             {onShowThisOrThat && (
                               <Button
@@ -919,7 +919,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               >
                 <Box sx={{ overflowX: 'auto' }}>
                   <table
-                    aria-label="Solo movies"
+                    aria-label={`Solo `}
                     style={{
                       width: '100%',
                       minWidth: 540,
@@ -1016,7 +1016,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 >
                   <Box sx={{ overflowX: 'auto' }}>
                     <table
-                      aria-label={isMySuggestionsView ? 'My suggested movies' : 'Movie queue'}
+                      aria-label={isMySuggestionsView ? `My suggested ` : ` queue`}
                       style={{
                         width: '100%',
                         minWidth: 540,
