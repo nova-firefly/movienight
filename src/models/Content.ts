@@ -52,6 +52,9 @@ export type Show = {
   next_season?: number | null;
   next_episode?: number | null;
   episode_progress?: string | null;
+  // Per-season episode counts from TMDB (specials excluded, ascending by season).
+  // Used to bound the Episode picker in the progress editor. Empty until fetched.
+  seasons?: { season: number; episodeCount: number }[];
   myTags?: ShowUserTag[];
   userTags?: ShowUserTag[];
 };

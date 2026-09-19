@@ -37,7 +37,7 @@ const {
   passedShowIds,
   watchedShows,
 } = resolvers.Query as any;
-const { requester, created_by, networks, myTags, userTags, episode_progress } =
+const { requester, created_by, networks, myTags, userTags, episode_progress, seasons } =
   resolvers.Show as any;
 
 beforeEach(() => {
@@ -784,6 +784,18 @@ describe('Show field resolvers', () => {
     expect(episode_progress({ next_season: null, next_episode: null })).toBeNull();
     expect(episode_progress({ next_season: 2, next_episode: null })).toBeNull();
     expect(episode_progress({ next_season: null, next_episode: 4 })).toBeNull();
+  });
+
+  it('seasons maps the JSONB count map to an ascending typed list', () => {
+    expect(seasons({ season_episode_counts: { '2': 10, '1': 9 } })).toEqual([
+      { season: 1, episodeCount: 9 },
+      { season: 2, episodeCount: 10 },
+    ]);
+  });
+
+  it('seasons returns [] when season_episode_counts is null or absent', () => {
+    expect(seasons({ season_episode_counts: null })).toEqual([]);
+    expect(seasons({})).toEqual([]);
   });
 
   it('myTags returns [] for an anonymous caller without querying', async () => {

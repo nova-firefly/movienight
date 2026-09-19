@@ -729,6 +729,10 @@ export const GET_SHOWS = gql`
       next_season
       next_episode
       episode_progress
+      seasons {
+        season
+        episodeCount
+      }
       ${SHOW_TAG_FIELDS}
     }
   }
@@ -898,6 +902,10 @@ export const SOLO_SHOWS = gql`
       next_season
       next_episode
       episode_progress
+      seasons {
+        season
+        episodeCount
+      }
     }
   }
 `;

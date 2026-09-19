@@ -207,8 +207,16 @@ export const typeDefs = `#graphql
     next_episode: Int
     """Derived "S{next_season} · E{next_episode}" chip label; null unless both are set."""
     episode_progress: String
+    """Per-season episode counts from TMDB (specials excluded), ascending by season. Empty until fetched."""
+    seasons: [ShowSeason!]!
     myTags: [ShowUserTag!]!
     userTags: [ShowUserTag!]!
+  }
+
+  """One season's episode count, used to bound the manual progress editor's episode picker."""
+  type ShowSeason {
+    season: Int!
+    episodeCount: Int!
   }
 
   """A per-user tag on a show. Boolean tags have null value; number/text tags carry a value."""

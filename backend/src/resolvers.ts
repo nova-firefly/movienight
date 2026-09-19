@@ -714,7 +714,7 @@ export const resolvers = {
           `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                   s.poster_path, s.first_air_year, s.created_by, s.networks,
                   s.number_of_seasons, s.number_of_episodes, s.status,
-                  s.next_season, s.next_episode,
+                  s.next_season, s.next_episode, s.season_episode_counts,
                   COALESCE(use.elo_rating, s.elo_rank) AS elo_rank,
                   u.username AS user_username, u.display_name AS user_display_name
            FROM shows s
@@ -732,7 +732,7 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status, s.elo_rank,
-                s.next_season, s.next_episode,
+                s.next_season, s.next_episode, s.season_episode_counts,
                 u.username AS user_username, u.display_name AS user_display_name
          FROM shows s
          LEFT JOIN users u ON s.requested_by = u.id
@@ -3141,7 +3141,9 @@ export const resolvers = {
         });
       }
       const result = await pool.query(
-        `SELECT id, tmdb_id FROM shows WHERE tmdb_id IS NOT NULL AND tmdb_fetched_at IS NULL`,
+        `SELECT id, tmdb_id FROM shows
+           WHERE tmdb_id IS NOT NULL
+             AND (tmdb_fetched_at IS NULL OR season_episode_counts IS NULL)`,
       );
       let count = 0;
       for (const row of result.rows) {
@@ -3285,6 +3287,20 @@ export const resolvers = {
     episode_progress: (parent: any) => {
       if (parent.next_season == null || parent.next_episode == null) return null;
       return `S${parent.next_season} · E${parent.next_episode}`;
+    },
+    // Per-season episode counts (D-21). `season_episode_counts` is a JSONB map
+    // { "<season>": <count> }; expose it as a season-ascending list. Empty when
+    // the column is null (show not yet TMDB-fetched).
+    seasons: (parent: any) => {
+      const counts = parent.season_episode_counts;
+      if (!counts || typeof counts !== 'object') return [];
+      return Object.entries(counts as Record<string, number>)
+        .map(([season, episodeCount]) => ({
+          season: Number(season),
+          episodeCount: Number(episodeCount),
+        }))
+        .filter((s) => Number.isFinite(s.season) && Number.isFinite(s.episodeCount))
+        .sort((a, b) => a.season - b.season);
     },
   },
   User: {

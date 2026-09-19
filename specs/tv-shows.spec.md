@@ -69,6 +69,7 @@ Combined, History) follows that selection.
 | **D-18** | `setShowProgress` auth gate = **owner / admin / accepted-connection**, identical to `markShowWatched`.                                                                                                            | Progress is one shared value, so "whoever can mark it watched can say where we're up to" is the consistent household rule. Reuses `assertOwnerAdminOrConnection`. Deliberately wider than `unwatchShow`'s owner-or-admin gate.                                                                                                                                                                                                                               |
 | **D-19** | Ordering prepends `(next_season IS NOT NULL) DESC` to the existing show-queue `ORDER BY` (both authed and anon). No separate "Continue watching" section in the first cut.                                        | In-progress-first is the acceptance criterion; a one-clause sort delivers it. A visually distinct "Continue watching" group is deferred as pure UI polish — the chip already marks in-progress rows.                                                                                                                                                                                                                                                         |
 | **D-20** | The progress editor uses **Season/Episode dropdowns**: Season bounded by `number_of_seasons`, Episode by `number_of_episodes` (the series total). No per-season episode cap.                                      | Dropdowns of valid numbers beat free-text — no typos, no out-of-range values. The data model stores only series totals, not a per-season breakdown, so the episode bound is the series total (a safe superset), not the selected season's count. A tight per-season cap would need new TMDB data (`seasons[].episode_count`) — deferred as disproportionate. Unfetched shows fall back to generous constants; any already-set value is always kept in range. |
+| **D-21** | Store TMDB per-season episode counts as a JSONB map `season_episode_counts` on `shows` (specials excluded); the progress editor's Episode picker narrows to the selected season's count when known.               | Answers the D-20 limitation. TMDB `/tv/{id}` already returns `seasons[].episode_count`, so no extra request. A JSONB map is simpler than a `show_seasons` table for read-only reference data with no relational queries. `backfillShowTmdbData` also re-fetches shows missing the map, so existing shows can be populated. Falls back to the series total when the map is absent (unfetched shows).                                                          |
 
 ### Terminology
 
@@ -491,12 +492,14 @@ and a kind chip with icon and text, so kind is distinguishable without relying o
 was dropped as clutter, per product decision — the reserve-the-concept intent stands, but not a
 visible empty box.)
 
-**Landed (issue #107, D-16–D-19).** `Show.episode_progress` is now populated: it derives to
+**Landed (issue #107, D-16–D-21).** `Show.episode_progress` is now populated: it derives to
 `S{next_season} · E{next_episode}` when both household-shared progress columns are set. `ContentRow`/
 `ContentCard` render a pencil affordance next to the chip (authenticated users only) that opens
 `ShowProgressModal` to set or clear progress via the `setShowProgress(id, season, episode)` mutation.
-In-progress shows sort to the top of the Shows queue (D-19). Movies are untouched — the editor and
-ordering clause are show-only.
+The editor uses Season/Episode dropdowns of valid numbers (D-20); when TMDB per-season episode counts
+are known (`Show.seasons`, backed by the `season_episode_counts` JSONB column, D-21) the Episode
+picker narrows to the selected season's real episode count. In-progress shows sort to the top of the
+Shows queue (D-19). Movies are untouched — the editor and ordering clause are show-only.
 
 ---
 

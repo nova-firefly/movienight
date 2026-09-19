@@ -21,18 +21,18 @@ export interface ShowProgressModalProps {
   onSave: (id: string, season: number | null, episode: number | null) => Promise<void>;
 }
 
-// Fallback bounds when a show hasn't been TMDB-fetched yet (number_of_seasons /
-// number_of_episodes are null). Generous enough for almost any real show.
+// Fallback bounds when a show hasn't been TMDB-fetched yet (no per-season data
+// and null totals). Generous enough for almost any real show.
 const FALLBACK_SEASON_MAX = 30;
 const FALLBACK_EPISODE_MAX = 60;
 
 const rangeUpTo = (max: number): number[] => Array.from({ length: max }, (_, i) => i + 1);
 
 // Editor for a show's household-shared episode progress (issue #107). Season and
-// episode are dropdowns of valid numbers rather than free text: Season is bounded
-// by the show's number_of_seasons, Episode by its number_of_episodes (series
-// total — the data model has no per-season episode counts, see D-20). Any
-// already-set value is always included so pre-existing progress is never dropped.
+// episode are dropdowns of valid numbers rather than free text. When TMDB
+// per-season episode counts are known (`show.seasons`, D-21) the Episode picker
+// narrows to the selected season's real episode count; otherwise it falls back
+// to the series episode total. Any already-set value is always kept in range.
 const ShowProgressModal: React.FC<ShowProgressModalProps> = ({ show, onClose, onSave }) => {
   const [season, setSeason] = useState<number | null>(null);
   const [episode, setEpisode] = useState<number | null>(null);
@@ -44,21 +44,50 @@ const ShowProgressModal: React.FC<ShowProgressModalProps> = ({ show, onClose, on
     setEpisode(show?.next_episode ?? null);
   }, [show]);
 
-  const seasonMax = Math.max(
-    show?.number_of_seasons || FALLBACK_SEASON_MAX,
-    show?.next_season ?? 0,
+  // season number → episode count, from TMDB when available.
+  const seasonCounts = useMemo(
+    () => new Map((show?.seasons ?? []).map((s) => [s.season, s.episodeCount])),
+    [show],
   );
-  const episodeMax = Math.max(
-    show?.number_of_episodes || FALLBACK_EPISODE_MAX,
-    show?.next_episode ?? 0,
-  );
-  const seasonOptions = useMemo(() => rangeUpTo(seasonMax), [seasonMax]);
-  const episodeOptions = useMemo(() => rangeUpTo(episodeMax), [episodeMax]);
+
+  const episodeMaxFor = (s: number | null): number => {
+    const perSeason = s != null ? seasonCounts.get(s) : undefined;
+    return perSeason ?? show?.number_of_episodes ?? FALLBACK_EPISODE_MAX;
+  };
+
+  const seasonOptions = useMemo(() => {
+    // Prefer the concrete season list from TMDB; otherwise 1..number_of_seasons.
+    const base =
+      seasonCounts.size > 0
+        ? Array.from(seasonCounts.keys())
+        : rangeUpTo(show?.number_of_seasons || FALLBACK_SEASON_MAX);
+    // Keep an already-set season selectable even if it's outside the known set.
+    if (show?.next_season != null && !base.includes(show.next_season)) base.push(show.next_season);
+    return base.sort((a, b) => a - b);
+  }, [seasonCounts, show]);
+
+  const episodeOptions = useMemo(() => {
+    let max = episodeMaxFor(season);
+    // Keep an already-set episode selectable even if it exceeds the season max.
+    if (season != null && season === show?.next_season && show?.next_episode != null) {
+      max = Math.max(max, show.next_episode);
+    }
+    return rangeUpTo(max);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season, seasonCounts, show]);
 
   if (!show) return null;
 
   const valid = season != null && episode != null;
   const hasExisting = show.next_season != null && show.next_episode != null;
+
+  const handleSeasonChange = (next: number | null) => {
+    setSeason(next);
+    // Clamp/clear an episode that no longer fits the newly-selected season.
+    if (episode != null && next != null && episode > episodeMaxFor(next)) {
+      setEpisode(null);
+    }
+  };
 
   const runSave = async (nextSeason: number | null, nextEpisode: number | null) => {
     setSaving(true);
@@ -93,7 +122,7 @@ const ShowProgressModal: React.FC<ShowProgressModalProps> = ({ show, onClose, on
               <Select
                 value={season}
                 placeholder="—"
-                onChange={(_, v) => setSeason(v as number | null)}
+                onChange={(_, v) => handleSeasonChange(v as number | null)}
                 slotProps={{ listbox: { sx: { maxHeight: 260, overflow: 'auto' } } }}
               >
                 {seasonOptions.map((n) => (
