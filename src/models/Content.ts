@@ -45,8 +45,12 @@ export type Show = {
   number_of_seasons?: number | null;
   number_of_episodes?: number | null;
   status?: string | null;
-  // Reserved for the episode-progress feature (not yet populated by the API).
-  // e.g. "S2 · E4"; when present, the row shows an EpisodeProgressChip.
+  // Household-shared manual episode progress (issue #107). `next_season`/
+  // `next_episode` are the raw values (used to prefill the progress editor);
+  // `episode_progress` is the derived "S2 · E4" chip label, null unless both
+  // raw values are set.
+  next_season?: number | null;
+  next_episode?: number | null;
   episode_progress?: string | null;
   myTags?: ShowUserTag[];
   userTags?: ShowUserTag[];

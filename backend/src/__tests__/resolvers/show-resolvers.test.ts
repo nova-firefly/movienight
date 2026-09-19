@@ -22,6 +22,7 @@ const {
   setShowInterest,
   setShowTag,
   removeShowTag,
+  setShowProgress,
   backfillShowTmdbData,
 } = resolvers.Mutation as any;
 const {
@@ -36,7 +37,8 @@ const {
   passedShowIds,
   watchedShows,
 } = resolvers.Query as any;
-const { requester, created_by, networks, myTags, userTags } = resolvers.Show as any;
+const { requester, created_by, networks, myTags, userTags, episode_progress } =
+  resolvers.Show as any;
 
 beforeEach(() => {
   mockQuery.mockReset();
@@ -45,21 +47,26 @@ beforeEach(() => {
 // ── Query.shows ────────────────────────────────────────────────────────────
 
 describe('Query.shows', () => {
-  it('authenticated orders by personal Elo', async () => {
+  it('authenticated orders in-progress first, then by personal Elo', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, title: 'Severance' }] });
     const result = await shows(null, {}, authContext());
     expect(result).toHaveLength(1);
     const sql = mockQuery.mock.calls[0][0] as string;
     expect(sql).toContain('FROM shows');
     expect(sql).toContain('user_show_elo');
+    // In-progress shows (next_season set) sort above ranked ones (D-19).
+    expect(sql).toContain('ORDER BY (s.next_season IS NOT NULL) DESC');
+    expect(sql).toContain('use.elo_rating DESC NULLS LAST');
+    expect(sql).toContain('s.next_season, s.next_episode');
     expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [1]);
   });
 
-  it('anonymous orders by global elo_rank', async () => {
+  it('anonymous orders in-progress first, then by global elo_rank', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     await shows(null, {}, anonContext());
     const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).toContain('ORDER BY s.elo_rank DESC NULLS LAST');
+    expect(sql).toContain('ORDER BY (s.next_season IS NOT NULL) DESC');
+    expect(sql).toContain('s.elo_rank DESC NULLS LAST');
     expect(sql).not.toContain('user_show_elo');
   });
 });
@@ -646,6 +653,95 @@ describe('Mutation.removeShowTag', () => {
   });
 });
 
+// ── Mutation.setShowProgress ─────────────────────────────────────────────────
+
+describe('Mutation.setShowProgress', () => {
+  it('owner sets season + episode and stamps progress_updated_at', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'Severance', requested_by: 1 }] }) // SELECT
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, requested_by: 1, next_season: 2, next_episode: 4 }],
+      }) // UPDATE
+      .mockResolvedValueOnce({ rows: [{ username: 'a', display_name: 'A' }] }) // user lookup
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    const result = await setShowProgress(
+      null,
+      { id: '1', season: 2, episode: 4 },
+      authContext({ userId: 1 }),
+    );
+    expect(result.next_season).toBe(2);
+    expect(result.next_episode).toBe(4);
+    const updateSql = mockQuery.mock.calls[1][0] as string;
+    expect(updateSql).toContain('UPDATE shows');
+    expect(mockQuery.mock.calls[1][1]).toEqual(['1', 2, 4]);
+  });
+
+  it('clears progress when season and episode are omitted', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'Severance', requested_by: 1 }] }) // SELECT
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, requested_by: 1, next_season: null, next_episode: null }],
+      }) // UPDATE
+      .mockResolvedValueOnce({ rows: [{ username: 'a', display_name: 'A' }] }) // user lookup
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    const result = await setShowProgress(null, { id: '1' }, authContext({ userId: 1 }));
+    expect(result.next_season).toBeNull();
+    expect(mockQuery.mock.calls[1][1]).toEqual(['1', null, null]);
+  });
+
+  it('accepted connection of the owner can set progress (shared/household)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'S', requested_by: 99 }] }) // SELECT
+      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // connection lookup → exists
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, requested_by: 99, next_season: 1, next_episode: 1 }],
+      }) // UPDATE
+      .mockResolvedValueOnce({ rows: [{ username: 'x', display_name: null }] }) // user lookup
+      .mockResolvedValueOnce({ rows: [] }); // logAudit
+    const result = await setShowProgress(
+      null,
+      { id: '1', season: 1, episode: 1 },
+      authContext({ userId: 2 }),
+    );
+    expect(result.next_season).toBe(1);
+  });
+
+  it('throws BAD_USER_INPUT for a partial pair (season without episode)', async () => {
+    await expect(
+      setShowProgress(null, { id: '1', season: 2 }, authContext({ userId: 1 })),
+    ).rejects.toThrow('Provide both season and episode');
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('throws BAD_USER_INPUT for a non-positive season', async () => {
+    await expect(
+      setShowProgress(null, { id: '1', season: 0, episode: 1 }, authContext({ userId: 1 })),
+    ).rejects.toThrow('Season must be a positive integer');
+  });
+
+  it('non-owner without connection throws FORBIDDEN', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, title: 'S', requested_by: 99 }] }) // SELECT
+      .mockResolvedValueOnce({ rows: [] }); // connection lookup → none
+    await expect(
+      setShowProgress(null, { id: '1', season: 2, episode: 4 }, authContext({ userId: 2 })),
+    ).rejects.toThrow('Not authorized');
+  });
+
+  it('nonexistent show throws NOT_FOUND', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    await expect(
+      setShowProgress(null, { id: '999', season: 1, episode: 1 }, authContext({ userId: 1 })),
+    ).rejects.toThrow('Show not found');
+  });
+
+  it('unauthenticated throws UNAUTHENTICATED', async () => {
+    await expect(
+      setShowProgress(null, { id: '1', season: 1, episode: 1 }, anonContext()),
+    ).rejects.toThrow('Not authenticated');
+  });
+});
+
 // ── Mutation.backfillShowTmdbData ────────────────────────────────────────────
 
 describe('Mutation.backfillShowTmdbData', () => {
@@ -681,6 +777,13 @@ describe('Show field resolvers', () => {
     expect(created_by({ created_by: ['Dan Erickson'] })).toEqual(['Dan Erickson']);
     expect(networks({ networks: null })).toEqual([]);
     expect(networks({ networks: ['Apple TV+'] })).toEqual(['Apple TV+']);
+  });
+
+  it('episode_progress derives "S · E" only when both columns are set', () => {
+    expect(episode_progress({ next_season: 2, next_episode: 4 })).toBe('S2 · E4');
+    expect(episode_progress({ next_season: null, next_episode: null })).toBeNull();
+    expect(episode_progress({ next_season: 2, next_episode: null })).toBeNull();
+    expect(episode_progress({ next_season: null, next_episode: 4 })).toBeNull();
   });
 
   it('myTags returns [] for an anonymous caller without querying', async () => {
