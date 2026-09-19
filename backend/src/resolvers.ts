@@ -714,13 +714,15 @@ export const resolvers = {
           `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                   s.poster_path, s.first_air_year, s.created_by, s.networks,
                   s.number_of_seasons, s.number_of_episodes, s.status,
+                  s.next_season, s.next_episode,
                   COALESCE(use.elo_rating, s.elo_rank) AS elo_rank,
                   u.username AS user_username, u.display_name AS user_display_name
            FROM shows s
            LEFT JOIN users u ON s.requested_by = u.id
            LEFT JOIN user_show_elo use ON use.show_id = s.id AND use.user_id = $1
            WHERE s.watched_at IS NULL
-           ORDER BY use.elo_rating DESC NULLS LAST, s.date_submitted ASC`,
+           ORDER BY (s.next_season IS NOT NULL) DESC,
+                    use.elo_rating DESC NULLS LAST, s.date_submitted ASC`,
           [context.user.userId],
         );
         return result.rows;
@@ -730,11 +732,13 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status, s.elo_rank,
+                s.next_season, s.next_episode,
                 u.username AS user_username, u.display_name AS user_display_name
          FROM shows s
          LEFT JOIN users u ON s.requested_by = u.id
          WHERE s.watched_at IS NULL
-         ORDER BY s.elo_rank DESC NULLS LAST, s.date_submitted ASC`,
+         ORDER BY (s.next_season IS NOT NULL) DESC,
+                  s.elo_rank DESC NULLS LAST, s.date_submitted ASC`,
       );
       return result.rows;
     },
@@ -743,6 +747,7 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status, s.elo_rank,
+                s.next_season, s.next_episode,
                 u.username AS user_username, u.display_name AS user_display_name
          FROM shows s
          LEFT JOIN users u ON s.requested_by = u.id
@@ -866,6 +871,7 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.elo_rank, s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status,
+                s.next_season, s.next_episode,
                 u.username AS user_username, u.display_name AS user_display_name,
                 use.elo_rating, use.comparison_count
          FROM user_show_elo use
@@ -910,6 +916,7 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.elo_rank, s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status,
+                s.next_season, s.next_episode,
                 u.username AS user_username, u.display_name AS user_display_name,
                 use_a.elo_rating AS user_a_elo,
                 use_b.elo_rating AS user_b_elo,
@@ -960,6 +967,7 @@ export const resolvers = {
         `SELECT DISTINCT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id,
                 s.watched_at, s.elo_rank, s.poster_path, s.first_air_year, s.created_by,
                 s.networks, s.number_of_seasons, s.number_of_episodes, s.status,
+                s.next_season, s.next_episode,
                 u.id AS adder_id, u.username AS adder_username, u.display_name AS adder_display_name
          FROM shows s
          JOIN users u ON s.requested_by = u.id
@@ -3049,6 +3057,83 @@ export const resolvers = {
 
       return rows.length > 0;
     },
+    // Set or clear a show's household-shared episode progress (D-16). Progress
+    // is one value per show, not per-user, so the gate mirrors markShowWatched:
+    // owner, admin, or an accepted connection of the owner may update where
+    // "we" are (D-18). Pass both season and episode to set; omit both (or pass
+    // null) to clear. A partial pair is rejected.
+    setShowProgress: async (
+      _: any,
+      { id, season, episode }: { id: string; season?: number | null; episode?: number | null },
+      context: any,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+
+      const hasSeason = season != null;
+      const hasEpisode = episode != null;
+      if (hasSeason !== hasEpisode) {
+        throw new GraphQLError('Provide both season and episode, or neither to clear', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      if (hasSeason && (!Number.isInteger(season) || (season as number) < 1)) {
+        throw new GraphQLError('Season must be a positive integer', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+      if (hasEpisode && (!Number.isInteger(episode) || (episode as number) < 1)) {
+        throw new GraphQLError('Episode must be a positive integer', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
+      const showResult = await pool.query(
+        'SELECT id, title, requested_by FROM shows WHERE id = $1',
+        [id],
+      );
+      if (showResult.rows.length === 0) {
+        throw new GraphQLError('Show not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      await assertOwnerAdminOrConnection(context, showResult.rows[0].requested_by);
+
+      const nextSeason = hasSeason ? season : null;
+      const nextEpisode = hasEpisode ? episode : null;
+      const updated = await pool.query(
+        `UPDATE shows
+            SET next_season = $2,
+                next_episode = $3,
+                progress_updated_at = CASE WHEN $2::int IS NULL THEN NULL ELSE NOW() END
+          WHERE id = $1
+          RETURNING *`,
+        [id, nextSeason, nextEpisode],
+      );
+
+      const userRow = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
+        updated.rows[0].requested_by,
+      ]);
+
+      await logAudit(
+        context.user.userId,
+        'SHOW_PROGRESS_SET',
+        'show',
+        String(id),
+        {
+          title: showResult.rows[0].title,
+          season: nextSeason,
+          episode: nextEpisode,
+          cleared: nextSeason == null,
+        },
+        context.ipAddress ?? 'unknown',
+      );
+
+      return {
+        ...updated.rows[0],
+        user_username: userRow.rows[0]?.username,
+        user_display_name: userRow.rows[0]?.display_name,
+      };
+    },
     backfillShowTmdbData: async (_: any, __: any, context: any) => {
       if (!context.user?.isAdmin) {
         throw new GraphQLError('Not authorized', {
@@ -3194,6 +3279,13 @@ export const resolvers = {
     // nullable text[] columns to [] so an unfetched show doesn't error.
     created_by: (parent: any) => parent.created_by ?? [],
     networks: (parent: any) => parent.networks ?? [],
+    // Derived "S{n} · E{m}" chip label. Null unless both progress columns are
+    // set — a show is "in progress" only when a next-up episode is recorded
+    // (D-17). Drives the frontend EpisodeProgressChip.
+    episode_progress: (parent: any) => {
+      if (parent.next_season == null || parent.next_episode == null) return null;
+      return `S${parent.next_season} · E${parent.next_episode}`;
+    },
   },
   User: {
     created_at: (parent: any) => {

@@ -726,6 +726,9 @@ export const GET_SHOWS = gql`
       number_of_seasons
       number_of_episodes
       status
+      next_season
+      next_episode
+      episode_progress
       ${SHOW_TAG_FIELDS}
     }
   }
@@ -867,6 +870,17 @@ export const SET_SHOW_INTEREST = gql`
   }
 `;
 
+export const SET_SHOW_PROGRESS = gql`
+  mutation SetShowProgress($id: ID!, $season: Int, $episode: Int) {
+    setShowProgress(id: $id, season: $season, episode: $episode) {
+      id
+      next_season
+      next_episode
+      episode_progress
+    }
+  }
+`;
+
 export const SOLO_SHOWS = gql`
   query SoloShows {
     soloShows {
@@ -881,6 +895,9 @@ export const SOLO_SHOWS = gql`
       number_of_seasons
       number_of_episodes
       status
+      next_season
+      next_episode
+      episode_progress
     }
   }
 `;
@@ -930,6 +947,9 @@ export const WATCHED_SHOWS = gql`
       number_of_seasons
       number_of_episodes
       status
+      next_season
+      next_episode
+      episode_progress
     }
   }
 `;
@@ -955,6 +975,9 @@ export const COMBINED_SHOW_LIST = gql`
           number_of_seasons
           number_of_episodes
           status
+          next_season
+          next_episode
+          episode_progress
           userTags {
             tag {
               slug
@@ -986,6 +1009,9 @@ export const NEW_SHOWS_FROM_CONNECTIONS = gql`
         number_of_seasons
         number_of_episodes
         status
+        next_season
+        next_episode
+        episode_progress
         userTags {
           tag {
             slug

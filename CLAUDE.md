@@ -128,6 +128,7 @@ resetShowComparisons(showId: ID!): Boolean!
 setShowInterest(showId: ID!, interested: Boolean!): SetShowInterestResult!
 setShowTag(showId: ID!, tagSlug: String!, value: String): ShowUserTag!
 removeShowTag(showId: ID!, tagSlug: String!): Boolean!
+setShowProgress(id: ID!, season: Int, episode: Int): Show!  # owner/admin/connection; both args set, or omit both to clear
 backfillShowTmdbData: Int!                             # admin
 ```
 
@@ -245,28 +246,28 @@ Danger and warning confirmations render a leading icon for severity reinforcemen
 
 ## Database schema (current — 20 tables)
 
-| Table                           | Notable columns                                                                                                                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `movies`                        | id, title, requester (legacy, nullable), requested_by→users, date_submitted, rank (**dead**), elo_rank, tmdb_id, watched_at, poster_path, release_year, director, cast_list[], genre_tags[], tmdb_fetched_at |
-| `users`                         | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                                                                                 |
-| `audit_logs`                    | id, actor_id→users, action, target_type, target_id, metadata (jsonb), ip_address, created_at                                                                                                                 |
-| `login_history`                 | id, user_id→users, ip_address, user_agent, succeeded, created_at                                                                                                                                             |
-| `movie_comparisons`             | id, user_id, winner_id→movies, loser_id→movies, created_at — append-only pick log                                                                                                                            |
-| `user_movie_elo`                | PK (user_id, movie_id), elo_rating numeric(10,4) default 1000, comparison_count, updated_at                                                                                                                  |
-| `movie_interest`                | PK (user_id, movie_id), interested bool — the "pass/skip" flag                                                                                                                                               |
-| `user_connections`              | id, requester_id, addressee_id, status (pending\|accepted\|rejected), CHECK no-self, UNIQUE pair                                                                                                             |
-| `tags`                          | id, slug (unique), label, value_type (boolean\|number\|text) — **shared across kinds**; seeds `seen`                                                                                                         |
-| `movie_user_tags`               | id, movie_id, user_id, tag_id, value, UNIQUE (movie_id, user_id, tag_id)                                                                                                                                     |
-| `password_reset_tokens`         | id, user_id, token_hash (unique), expires_at, used_at                                                                                                                                                        |
-| `push_subscriptions`            | id, user_id, endpoint (unique), p256dh, auth, user_agent, failure_count, last_used_at — **p256dh/auth are secrets, never log**                                                                               |
-| `user_notification_preferences` | id, user_id, event_type, enabled, UNIQUE (user_id, event_type) — absent row means enabled                                                                                                                    |
-| `kometa_schedule`               | **singleton, always `WHERE id = 1`**: enabled, frequency, daily_time, last_run_at, mdblist_api_key (+ 3 dead columns)                                                                                        |
-| `kometa_mdblist_lists`          | list_type (combined\|solo), ref_id (polymorphic, no FK), list_name, mdblist_list_id/url, environment, kind — UNIQUE (list_type, ref_id, environment, kind)                                                   |
-| `shows`                         | Mirrors movies minus rank/requester; adds first_air_year, created_by[], networks[], number_of_seasons, number_of_episodes, status                                                                            |
-| `show_comparisons`              | Mirrors movie_comparisons against `shows`                                                                                                                                                                    |
-| `user_show_elo`                 | PK (user_id, show_id)                                                                                                                                                                                        |
-| `show_interest`                 | PK (user_id, show_id)                                                                                                                                                                                        |
-| `show_user_tags`                | UNIQUE (show_id, user_id, tag_id), FK to shared `tags`                                                                                                                                                       |
+| Table                           | Notable columns                                                                                                                                                                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `movies`                        | id, title, requester (legacy, nullable), requested_by→users, date_submitted, rank (**dead**), elo_rank, tmdb_id, watched_at, poster_path, release_year, director, cast_list[], genre_tags[], tmdb_fetched_at                                        |
+| `users`                         | id, username, password_hash, email, display_name, is_admin, is_active, last_login_at, created_at, updated_at                                                                                                                                        |
+| `audit_logs`                    | id, actor_id→users, action, target_type, target_id, metadata (jsonb), ip_address, created_at                                                                                                                                                        |
+| `login_history`                 | id, user_id→users, ip_address, user_agent, succeeded, created_at                                                                                                                                                                                    |
+| `movie_comparisons`             | id, user_id, winner_id→movies, loser_id→movies, created_at — append-only pick log                                                                                                                                                                   |
+| `user_movie_elo`                | PK (user_id, movie_id), elo_rating numeric(10,4) default 1000, comparison_count, updated_at                                                                                                                                                         |
+| `movie_interest`                | PK (user_id, movie_id), interested bool — the "pass/skip" flag                                                                                                                                                                                      |
+| `user_connections`              | id, requester_id, addressee_id, status (pending\|accepted\|rejected), CHECK no-self, UNIQUE pair                                                                                                                                                    |
+| `tags`                          | id, slug (unique), label, value_type (boolean\|number\|text) — **shared across kinds**; seeds `seen`                                                                                                                                                |
+| `movie_user_tags`               | id, movie_id, user_id, tag_id, value, UNIQUE (movie_id, user_id, tag_id)                                                                                                                                                                            |
+| `password_reset_tokens`         | id, user_id, token_hash (unique), expires_at, used_at                                                                                                                                                                                               |
+| `push_subscriptions`            | id, user_id, endpoint (unique), p256dh, auth, user_agent, failure_count, last_used_at — **p256dh/auth are secrets, never log**                                                                                                                      |
+| `user_notification_preferences` | id, user_id, event_type, enabled, UNIQUE (user_id, event_type) — absent row means enabled                                                                                                                                                           |
+| `kometa_schedule`               | **singleton, always `WHERE id = 1`**: enabled, frequency, daily_time, last_run_at, mdblist_api_key (+ 3 dead columns)                                                                                                                               |
+| `kometa_mdblist_lists`          | list_type (combined\|solo), ref_id (polymorphic, no FK), list_name, mdblist_list_id/url, environment, kind — UNIQUE (list_type, ref_id, environment, kind)                                                                                          |
+| `shows`                         | Mirrors movies minus rank/requester; adds first_air_year, created_by[], networks[], number_of_seasons, number_of_episodes, status; **next_season, next_episode, progress_updated_at** (manual household-shared episode progress, issue #107 / D-16) |
+| `show_comparisons`              | Mirrors movie_comparisons against `shows`                                                                                                                                                                                                           |
+| `user_show_elo`                 | PK (user_id, show_id)                                                                                                                                                                                                                               |
+| `show_interest`                 | PK (user_id, show_id)                                                                                                                                                                                                                               |
+| `show_user_tags`                | UNIQUE (show_id, user_id, tag_id), FK to shared `tags`                                                                                                                                                                                              |
 
 The five `show*` tables now have a full GraphQL surface (Phase 2): the `show*` queries and mutations
 above mirror their movie twins against these tables, with a strictly separate Elo pool. Frontend
@@ -286,7 +287,7 @@ Dropped along the way (do not resurrect): `movie_votes`, `user_movie_rankings`.
 `MDBLIST_AUTO_SYNC`, `LETTERBOXD_IMPORT`, `PUSH_SUBSCRIBE`, `PUSH_UNSUBSCRIBE`,
 `NOTIFICATION_PREFS_UPDATE`, `SHOW_ADD`, `SHOW_WATCHED`, `SHOW_UNWATCH`, `SHOW_DELETE`,
 `SHOW_TMDB_MATCH`, `SHOW_INTEREST_SET`, `SHOW_TAG_SET`, `SHOW_TAG_REMOVE`, `SHOW_COMPARISON`,
-`SHOW_COMPARISON_RESET`.
+`SHOW_COMPARISON_RESET`, `SHOW_PROGRESS_SET`.
 
 Failed logins are recorded in `login_history` (`succeeded = false`), **not** as an audit action.
 
