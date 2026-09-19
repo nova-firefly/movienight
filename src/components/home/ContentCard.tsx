@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
-import { Check, Eye, EyeOff, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Pencil, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
 import { KindChip, showMetaLine, kindAccent, EpisodeProgressChip } from './kindAffordance';
@@ -17,6 +17,8 @@ export interface ContentCardProps {
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
   onToggleSeen: (id: string, currentlySeen: boolean) => void;
+  // Shows only: open the episode-progress editor. Omitted for movies.
+  onEditProgress?: (show: Show) => void;
   isAuthenticated: boolean;
   isRecentlyAdded?: boolean;
 }
@@ -30,12 +32,14 @@ const ContentCard: React.FC<ContentCardProps> = ({
   onMarkWatched,
   onDelete,
   onToggleSeen,
+  onEditProgress,
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
   const show = kind === 'show' ? (item as Show) : null;
   const meta = show ? showMetaLine(show) : '';
   const progress = show?.episode_progress ?? null;
+  const canEditProgress = !!show && isAuthenticated && !!onEditProgress;
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -113,7 +117,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
               })}
             </Typography>
           </Box>
-          {show && (meta || progress) && (
+          {show && (meta || progress || canEditProgress) && (
             <Box
               sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
             >
@@ -123,6 +127,30 @@ const ContentCard: React.FC<ContentCardProps> = ({
                 </Typography>
               )}
               <EpisodeProgressChip value={progress} />
+              {canEditProgress && (
+                <Tooltip title={progress ? 'Edit progress' : 'Set progress'} arrow>
+                  <IconButton
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    onClick={() => onEditProgress!(show)}
+                    aria-label={
+                      progress
+                        ? `Edit progress for ${item.title}`
+                        : `Set progress for ${item.title}`
+                    }
+                    sx={{
+                      '--IconButton-size': '22px',
+                      minHeight: 22,
+                      minWidth: 22,
+                      opacity: 0.6,
+                      '&:hover': { opacity: 1 },
+                    }}
+                  >
+                    <Pencil size={12} strokeWidth={2.25} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           )}
         </Box>

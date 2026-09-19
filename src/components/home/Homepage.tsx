@@ -41,6 +41,7 @@ import {
   PASSED_SHOW_IDS,
   SET_SHOW_TAG,
   REMOVE_SHOW_TAG,
+  SET_SHOW_PROGRESS,
 } from '../../graphql/queries';
 import TmdbMatchFlow from './TmdbMatchFlow';
 import ContentRow from './ContentRow';
@@ -50,10 +51,11 @@ import ViewSelector from './ViewSelector';
 import ConnectionBanners from './ConnectionBanners';
 import ConnectionInboxModal from './ConnectionInboxModal';
 import ThisOrThatBanner from './ThisOrThatBanner';
+import ShowProgressModal from './ShowProgressModal';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Poster from '../common/Poster';
 import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
-import { ContentItem } from '../../models/Content';
+import { ContentItem, Show } from '../../models/Content';
 import { useAuth } from '../../contexts/AuthContext';
 import { useKind } from '../../contexts/KindContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -94,6 +96,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const [matchFlowOpen, setMatchFlowOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [progressTarget, setProgressTarget] = useState<Show | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<string[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
@@ -197,6 +200,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   });
   const [deleteMovie] = useMutation(DELETE_OP, {
     refetchQueries: [{ query: GET_LIST }],
+  });
+  // Shows only — episode progress is a show-only feature (D-16). Refetches the
+  // queue so the in-progress-first ordering and chip update immediately.
+  const [setShowProgress] = useMutation(SET_SHOW_PROGRESS, {
+    refetchQueries: [
+      { query: GET_LIST },
+      { query: SOLO_OP },
+      ...(selectedConnectionId && selectedConnectionId !== 'solo'
+        ? [{ query: COMBINED_OP, variables: { connectionId: selectedConnectionId } }]
+        : []),
+    ],
   });
   const [seedMovies, { loading: seeding }] = useMutation(SEED_MOVIES, {
     refetchQueries: [{ query: GET_LIST }],
@@ -314,6 +328,17 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const handleSetSeenTag = async (movieId: string) => {
     await setMovieTag({ variables: { [idVar]: movieId, tagSlug: 'seen' } });
+  };
+
+  const handleEditProgress = (show: Show) => setProgressTarget(show);
+
+  const handleSaveProgress = async (id: string, season: number | null, episode: number | null) => {
+    try {
+      await setShowProgress({ variables: { id, season, episode } });
+    } catch (err: any) {
+      showError(`Couldn't update progress: ${err.message}`);
+      throw err;
+    }
   };
 
   // Column count for colSpan calculations
@@ -938,6 +963,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                           onMarkWatched={handleMarkWatched}
                           onDelete={handleDelete}
                           onToggleSeen={handleToggleSeen}
+                          onEditProgress={isShow ? handleEditProgress : undefined}
                           isAuthenticated={isAuthenticated}
                         />
                       ))}
@@ -960,6 +986,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   onMarkWatched={handleMarkWatched}
                   onDelete={handleDelete}
                   onToggleSeen={handleToggleSeen}
+                  onEditProgress={isShow ? handleEditProgress : undefined}
                   isAuthenticated={isAuthenticated}
                 />
               ))}
@@ -1090,6 +1117,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                               onMarkWatched={handleMarkWatched}
                               onDelete={handleDelete}
                               onToggleSeen={handleToggleSeen}
+                              onEditProgress={isShow ? handleEditProgress : undefined}
                               isAuthenticated={isAuthenticated}
                               isRecentlyAdded={recentlyAddedSet.has(String(movie.id))}
                             />
@@ -1129,6 +1157,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       onMarkWatched={handleMarkWatched}
                       onDelete={handleDelete}
                       onToggleSeen={handleToggleSeen}
+                      onEditProgress={isShow ? handleEditProgress : undefined}
                       isAuthenticated={isAuthenticated}
                       isRecentlyAdded={recentlyAddedSet.has(String(movie.id))}
                     />
@@ -1161,6 +1190,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         pendingMovies={pendingMovies}
         onSetInterest={handleSetInterest}
         onSetSeenTag={handleSetSeenTag}
+      />
+
+      <ShowProgressModal
+        show={progressTarget}
+        onClose={() => setProgressTarget(null)}
+        onSave={handleSaveProgress}
       />
 
       <ConfirmDialog {...dialogProps} />

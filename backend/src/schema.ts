@@ -201,8 +201,22 @@ export const typeDefs = `#graphql
     number_of_seasons: Int
     number_of_episodes: Int
     status: String
+    """Manually-tracked next-up season (household-shared). Null when no progress is set."""
+    next_season: Int
+    """Manually-tracked next-up episode (household-shared). Null when no progress is set."""
+    next_episode: Int
+    """Derived "S{next_season} · E{next_episode}" chip label; null unless both are set."""
+    episode_progress: String
+    """Per-season episode counts from TMDB (specials excluded), ascending by season. Empty until fetched."""
+    seasons: [ShowSeason!]!
     myTags: [ShowUserTag!]!
     userTags: [ShowUserTag!]!
+  }
+
+  """One season's episode count, used to bound the manual progress editor's episode picker."""
+  type ShowSeason {
+    season: Int!
+    episodeCount: Int!
   }
 
   """A per-user tag on a show. Boolean tags have null value; number/text tags carry a value."""
@@ -370,6 +384,8 @@ export const typeDefs = `#graphql
     setShowInterest(showId: ID!, interested: Boolean!): SetShowInterestResult!
     setShowTag(showId: ID!, tagSlug: String!, value: String): ShowUserTag!
     removeShowTag(showId: ID!, tagSlug: String!): Boolean!
+    """Set or clear a show's household-shared episode progress. Pass both season and episode to set; omit both (or pass null) to clear."""
+    setShowProgress(id: ID!, season: Int, episode: Int): Show!
     backfillShowTmdbData: Int!
   }
 `;
