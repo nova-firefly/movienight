@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import pool from './db';
-import { createList, syncList } from './mdblist';
+import { createList, syncList, MdbListNotFoundError } from './mdblist';
 import {
   fetchPlexCollectionsByLabel,
   deletePlexCollection,
@@ -185,6 +185,17 @@ async function getOrCreateMdbList(
     };
   }
 
+  return createAndStoreMdbList(apiKey, listType, refId, name, environment);
+}
+
+/** Create a fresh MDBList list and upsert its id/url into kometa_mdblist_lists. */
+async function createAndStoreMdbList(
+  apiKey: string,
+  listType: string,
+  refId: number,
+  name: string,
+  environment: string,
+): Promise<{ listId: number; listUrl: string }> {
   const listInfo = await createList(apiKey, name);
 
   await pool.query(
@@ -219,6 +230,41 @@ async function findExistingMdbList(
     };
   }
   return null;
+}
+
+/**
+ * Sync TMDB IDs into a persisted list. If MDBList no longer has it (deleted on
+ * the website), recreate it and store the new id — or, with nothing to sync,
+ * forget the stale row. Returns the list actually synced, or null if skipped.
+ */
+async function syncOrRecreateMdbList(
+  apiKey: string,
+  listType: string,
+  refId: number,
+  name: string,
+  environment: string,
+  list: { listId: number; listUrl: string },
+  tmdbIds: number[],
+): Promise<{ listId: number; listUrl: string } | null> {
+  try {
+    await syncList(apiKey, list.listId, tmdbIds);
+    return list;
+  } catch (err) {
+    if (!(err instanceof MdbListNotFoundError)) throw err;
+  }
+
+  console.warn(`MDBList list ${list.listId} ("${name}") not found; recreating`);
+  if (tmdbIds.length === 0) {
+    await pool.query(
+      'DELETE FROM kometa_mdblist_lists WHERE list_type = $1 AND ref_id = $2 AND environment = $3 AND kind = $4',
+      [listType, refId, environment, LIST_KIND],
+    );
+    return null;
+  }
+
+  const created = await createAndStoreMdbList(apiKey, listType, refId, name, environment);
+  await syncList(apiKey, created.listId, tmdbIds);
+  return created;
 }
 
 /** Generate Kometa YAML with multiple collections. */
@@ -275,8 +321,22 @@ export async function runKometaExport(options: ExportOptions): Promise<ExportRes
       listId = created.listId;
       listUrl = created.listUrl;
     }
-    await syncList(mdblistApiKey, listId, tmdbIds);
-    lists.push({ name, type: 'combined', movieCount: tmdbIds.length, mdblistUrl: listUrl });
+    const synced = await syncOrRecreateMdbList(
+      mdblistApiKey,
+      'combined',
+      conn.connectionId,
+      name,
+      environment,
+      { listId, listUrl },
+      tmdbIds,
+    );
+    if (!synced) continue;
+    lists.push({
+      name,
+      type: 'combined',
+      movieCount: tmdbIds.length,
+      mdblistUrl: synced.listUrl,
+    });
   }
 
   // 2. Solo lists — one per user who has connections
@@ -296,8 +356,17 @@ export async function runKometaExport(options: ExportOptions): Promise<ExportRes
       listId = created.listId;
       listUrl = created.listUrl;
     }
-    await syncList(mdblistApiKey, listId, tmdbIds);
-    lists.push({ name, type: 'solo', movieCount: tmdbIds.length, mdblistUrl: listUrl });
+    const synced = await syncOrRecreateMdbList(
+      mdblistApiKey,
+      'solo',
+      user.id,
+      name,
+      environment,
+      { listId, listUrl },
+      tmdbIds,
+    );
+    if (!synced) continue;
+    lists.push({ name, type: 'solo', movieCount: tmdbIds.length, mdblistUrl: synced.listUrl });
   }
 
   // 3. Write YAML (skipped when collectionsPath is null, e.g. dev mode)
