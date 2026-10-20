@@ -1,7 +1,7 @@
 const mockFetch = jest.fn();
 (global as any).fetch = mockFetch;
 
-import { createList, syncList } from '../mdblist';
+import { createList, syncList, MdbListNotFoundError } from '../mdblist';
 
 describe('mdblist', () => {
   beforeEach(() => {
@@ -145,6 +145,40 @@ describe('mdblist', () => {
       await expect(syncList('key', 42, [100])).rejects.toThrow(
         'MDBList get items failed (500): Server Error',
       );
+    });
+
+    it('throws MdbListNotFoundError on 404', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => '{"error":"List not found"}',
+      });
+
+      const err = await syncList('key', 42, [100]).catch((e) => e);
+      expect(err).toBeInstanceOf(MdbListNotFoundError);
+      expect(err.listId).toBe(42);
+      expect(err.message).toBe('MDBList get items failed (404): {"error":"List not found"}');
+    });
+
+    it('throws MdbListNotFoundError when the body says the list is not found', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ movies: [], shows: [] }) });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'List not found',
+      });
+
+      await expect(syncList('key', 42, [100])).rejects.toBeInstanceOf(MdbListNotFoundError);
+    });
+
+    it('does not treat other errors as not found', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: async () => 'Server Error',
+      });
+
+      await expect(syncList('key', 42, [100])).rejects.not.toBeInstanceOf(MdbListNotFoundError);
     });
   });
 });
