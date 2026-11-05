@@ -34,19 +34,29 @@ export const Footer: React.FC = () => {
         mt: 'auto',
         py: 2.5,
         px: { xs: 2, sm: 3 },
-        textAlign: 'center',
         borderTop: '1px solid',
         borderColor: 'divider',
-        bgcolor: 'background.surface',
+        display: 'flex',
+        flexWrap: 'wrap',
+        columnGap: 3,
+        rowGap: 0.5,
+        justifyContent: 'space-between',
       }}
     >
       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
         &copy; {year} MovieNight
       </Typography>
       {parts.length > 0 && (
-        <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25, opacity: 0.5 }}>
-          {parts.join(' · ')}
-        </Typography>
+        <Box
+          component="ul"
+          sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, m: 0, p: 0, listStyle: 'none' }}
+        >
+          {parts.map((part) => (
+            <Typography key={part} component="li" level="body-xs" sx={{ color: 'text.tertiary' }}>
+              {part}
+            </Typography>
+          ))}
+        </Box>
       )}
     </Box>
   );

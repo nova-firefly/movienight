@@ -24,17 +24,17 @@ const ICONS: Record<ConfirmColor, LucideIcon> = {
 };
 
 const ICON_BG: Record<ConfirmColor, string> = {
-  danger: 'rgba(224, 64, 64, 0.15)',
-  warning: 'rgba(245, 166, 35, 0.15)',
-  success: 'rgba(76, 175, 130, 0.15)',
-  primary: 'rgba(245, 197, 24, 0.15)',
+  danger: 'var(--joy-palette-danger-softBg)',
+  warning: 'var(--joy-palette-warning-softBg)',
+  success: 'var(--joy-palette-success-softBg)',
+  primary: 'var(--joy-palette-primary-softBg)',
 };
 
 const ICON_COLOR: Record<ConfirmColor, string> = {
-  danger: '#ef9a9a',
-  warning: '#fbc45a',
-  success: '#80cfa9',
-  primary: '#ffd133',
+  danger: 'var(--joy-palette-danger-softColor)',
+  warning: 'var(--joy-palette-warning-softColor)',
+  success: 'var(--joy-palette-success-softColor)',
+  primary: 'var(--joy-palette-primary-softColor)',
 };
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -110,7 +110,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             loading={loading}
             sx={{
               fontWeight: 700,
-              ...(confirmColor === 'primary' ? { color: '#0d0f1a' } : {}),
             }}
           >
             {confirmText}

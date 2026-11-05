@@ -50,6 +50,7 @@ import ViewSelector from './ViewSelector';
 import ConnectionBanners from './ConnectionBanners';
 import ConnectionInboxModal from './ConnectionInboxModal';
 import ThisOrThatBanner from './ThisOrThatBanner';
+import { RankNumeral } from './kindAffordance';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Poster from '../common/Poster';
 import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
@@ -318,6 +319,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   // Column count for colSpan calculations
   const colCount =
+    1 + // rank
     1 + // title
     1 + // suggested by
     1 + // added
@@ -331,32 +333,31 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
       sx={{
         flex: 1,
         bgcolor: 'background.body',
-        px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 3, sm: 5 },
+        px: { xs: 2, sm: 3, md: 5 },
+        py: { xs: 3, sm: 6 },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ maxWidth: 'var(--container)', mx: 'auto' }}>
         {/* Page header */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
-          <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
+        <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+          <Typography level="h1" sx={{ fontSize: { xs: '2.5rem', sm: '3.5rem' }, mb: 1 }}>
             {isShow ? 'TV Shows' : 'Movie List'}
           </Typography>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
+              gap: 1.5,
               flexWrap: 'wrap',
             }}
           >
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               {isMySuggestionsView
                 ? myMovies.length === 0
-                  ? `No ${nounPlural} yet — suggest one!`
+                  ? `No ${nounPlural} yet. Suggest one.`
                   : `${myMovies.length} ${noun}${myMovies.length !== 1 ? 's' : ''} you've suggested`
                 : movies.length === 0
-                  ? `No ${nounPlural} yet — suggest one!`
+                  ? `No ${nounPlural} yet. Suggest one.`
                   : `${movies.length} ${noun}${movies.length !== 1 ? 's' : ''} in the queue`}
             </Typography>
             {movies.length >= 2 && (
@@ -391,7 +392,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                 your connections
               </Typography>
               <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                Tell them if you're in for the watch.
+                Tell them if you’re in for the watch.
               </Typography>
             </Box>
             <Button
@@ -399,7 +400,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
               color="primary"
               size="sm"
               onClick={() => setInboxOpen(true)}
-              sx={{ fontWeight: 700, color: '#0d0f1a', flexShrink: 0 }}
+              sx={{ flexShrink: 0 }}
             >
               Review now
             </Button>
@@ -418,8 +419,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* My Suggestions subtitle */}
         {isAuthenticated && isMySuggestionsView && (
-          <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 2 }}>
-            {isShow ? 'Shows' : 'Movies'} you've suggested for the group
+          <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 2 }}>
+            {isShow ? 'Shows' : 'Movies'} you’ve suggested for the group
           </Typography>
         )}
 
@@ -446,7 +447,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* Recently added — highlighted cards */}
         {recentlyAddedMovies.length > 0 && (
           <Box sx={{ mb: 3 }}>
-            <Typography level="title-sm" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography level="title-sm" sx={{ mb: 1 }}>
               Just added
             </Typography>
             {recentlyAddedMovies.map((movie) => {
@@ -527,7 +528,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     </Tooltip>
 
                     {/* Undo */}
-                    <Tooltip title="Undo — remove from list" arrow>
+                    <Tooltip title="Undo: remove from list" arrow>
                       <Button
                         size="sm"
                         variant="plain"
@@ -568,7 +569,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* TMDB match flow */}
         {isAuthenticated && unmatchedMovies.length > 0 && !isCombinedView && !isSoloView && (
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Box sx={{ mb: 3 }}>
             <Button
               variant="outlined"
               color="neutral"
@@ -590,7 +591,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* Unauthenticated prompt */}
         {!isAuthenticated && movies.length === 0 && (
-          <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.tertiary', mb: 4 }}>
+          <Typography level="body-sm" sx={{ color: 'text.tertiary', mb: 4 }}>
             Sign in to suggest {nounPlural}.
           </Typography>
         )}
@@ -598,7 +599,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* Combined view */}
         {isCombinedView && (
           <>
-            <Typography level="body-sm" sx={{ textAlign: 'center', color: 'neutral.400', mb: 2 }}>
+            <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
               {isShow ? 'Shows' : 'Movies'} ranked by combining both your This or That picks. The
               more you each compare, the better the ranking.
             </Typography>
@@ -640,7 +641,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     return (
                       <Box sx={{ textAlign: 'center', py: 6 }}>
                         <Typography level="body-md" sx={{ color: 'text.secondary', mb: 2 }}>
-                          No rankings to combine yet. Both users need to do some "This or That"
+                          No rankings to combine yet. Both users need to do some “This or That”
                           comparisons first!
                         </Typography>
                         {onShowThisOrThat && (
@@ -658,17 +659,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   }
                   return (
                     <>
-                      <Sheet
-                        variant="outlined"
-                        sx={{
-                          borderRadius: 'md',
-                          overflow: 'clip',
-                          borderColor: 'var(--mn-border-vis)',
-                        }}
-                      >
+                      <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                         <Box sx={{ overflowX: 'auto' }}>
                           <table
-                            aria-label={`Combined  rankings`}
+                            aria-label={`Combined ${noun} rankings`}
                             style={{
                               width: '100%',
                               minWidth: 360,
@@ -677,12 +671,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                             }}
                           >
                             <thead>
-                              <tr
-                                style={{
-                                  background: 'var(--mn-bg-elevated)',
-                                  borderBottom: '1px solid var(--mn-border-vis)',
-                                }}
-                              >
+                              <tr style={{ borderBottom: '1px solid var(--color-rule-strong)' }}>
                                 <th style={combinedThStyle} scope="col">
                                   #
                                 </th>
@@ -703,10 +692,8 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       sx={{
                                         minHeight: 24,
                                         py: 0,
-                                        fontSize: '0.7rem',
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 600,
-                                        textTransform: 'none',
-                                        letterSpacing: 'normal',
                                       }}
                                     >
                                       {filterChips.map((f) => (
@@ -739,7 +726,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       padding: '32px 16px',
                                     }}
                                   >
-                                    No match this filter.
+                                    No {nounPlural} match this filter.
                                   </td>
                                 </tr>
                               ) : (
@@ -749,18 +736,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       style={{
                                         ...combinedTdStyle,
                                         textAlign: 'center',
-                                        width: 48,
+                                        width: 56,
                                       }}
                                     >
-                                      <Typography
-                                        level="body-xs"
-                                        sx={{
-                                          fontWeight: 700,
-                                          color: idx < 3 ? 'primary.400' : 'text.tertiary',
-                                        }}
-                                      >
-                                        {idx + 1}
-                                      </Typography>
+                                      <RankNumeral rank={idx + 1} kind={kind} size="md" />
                                     </td>
                                     <td style={combinedTdStyle}>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -769,7 +748,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                         </Typography>
                                         {!r.bothRated && (
                                           <Tooltip
-                                            title={`Only one of you has ranked this  in This or That`}
+                                            title={`Only one of you has ranked this ${noun} in This or That`}
                                             arrow
                                           >
                                             <Chip size="sm" variant="soft" color="neutral">
@@ -840,9 +819,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                             }
                                             aria-label={`Mark "${(r.movie ?? r.show).title}" as watched together`}
                                             sx={{
-                                              opacity: 0.5,
-                                              transition: 'opacity 0.15s',
-                                              '&:hover': { opacity: 1 },
+                                              opacity: 0.55,
+                                              transitionProperty: 'opacity',
+                                              transitionDuration: 'var(--dur-micro)',
+                                              'tr:hover &, &:hover, &:focus-visible': {
+                                                opacity: 1,
+                                              },
                                             }}
                                           >
                                             <Check size={16} strokeWidth={2.5} />
@@ -870,11 +852,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                               mt: 2,
                               p: 2,
                               borderRadius: 'md',
-                              textAlign: 'center',
                             }}
                           >
                             <Typography level="body-sm" sx={{ fontWeight: 600, mb: 1 }}>
-                              Rankings work best when you've both compared more {nounPlural}
+                              Rankings work best when you’ve both compared more {nounPlural}
                             </Typography>
                             {onShowThisOrThat && (
                               <Button
@@ -900,26 +881,19 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* Watch Alone view */}
         {isSoloView && (
           <>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Box sx={{ mb: 3 }}>
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-                {isShow ? 'Shows' : 'Movies'} your connections passed on — these are all yours to
+                {isShow ? 'Shows' : 'Movies'} your connections passed on: these are all yours to
                 watch solo!
               </Typography>
             </Box>
 
             {/* Table — hidden on mobile */}
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              <Sheet
-                variant="outlined"
-                sx={{
-                  borderRadius: 'md',
-                  overflow: 'clip',
-                  borderColor: 'var(--mn-border-vis)',
-                }}
-              >
+              <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                 <Box sx={{ overflowX: 'auto' }}>
                   <table
-                    aria-label={`Solo `}
+                    aria-label={`Solo ${nounPlural}`}
                     style={{
                       width: '100%',
                       minWidth: 540,
@@ -928,11 +902,12 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                     }}
                   >
                     <tbody>
-                      {soloMovies.map((movie) => (
+                      {soloMovies.map((movie, idx) => (
                         <ContentRow
                           key={movie.id}
                           item={movie}
                           kind={kind}
+                          rank={idx + 1}
                           isAdmin={isAdmin}
                           canMarkWatched={true}
                           onMarkWatched={handleMarkWatched}
@@ -972,14 +947,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
           <>
             {/* Loading skeleton */}
             {moviesLoading && !data && (
-              <Sheet
-                variant="outlined"
-                sx={{
-                  borderRadius: 'md',
-                  overflow: 'clip',
-                  borderColor: 'var(--mn-border-vis)',
-                }}
-              >
+              <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                 <Box sx={{ p: 0 }}>
                   {[0, 1, 2, 3, 4].map((i) => (
                     <Box
@@ -987,14 +955,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1,
-                        p: '8px 16px',
-                        borderBottom: '1px solid var(--mn-border)',
+                        gap: 2,
+                        py: 1.5,
+                        borderBottom: '1px solid var(--color-rule)',
                       }}
                     >
                       <Skeleton
                         variant="rectangular"
-                        sx={{ width: 28, height: 42, borderRadius: '3px', flexShrink: 0 }}
+                        sx={{ width: 40, height: 60, borderRadius: '4px', flexShrink: 0 }}
                       />
                       <Skeleton variant="text" sx={{ width: `${60 + (i % 3) * 15}%` }} />
                     </Box>
@@ -1006,17 +974,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {/* Table — hidden on mobile */}
             {data && (
               <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                <Sheet
-                  variant="outlined"
-                  sx={{
-                    borderRadius: 'md',
-                    overflow: 'clip',
-                    borderColor: 'var(--mn-border-vis)',
-                  }}
-                >
+                <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                   <Box sx={{ overflowX: 'auto' }}>
                     <table
-                      aria-label={isMySuggestionsView ? `My suggested ` : ` queue`}
+                      aria-label={
+                        isMySuggestionsView
+                          ? `My suggested ${nounPlural}`
+                          : `${isShow ? 'Show' : 'Movie'} queue`
+                      }
                       style={{
                         width: '100%',
                         minWidth: 540,
@@ -1025,12 +990,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                       }}
                     >
                       <thead>
-                        <tr
-                          style={{
-                            background: 'var(--mn-bg-elevated)',
-                            borderBottom: '1px solid var(--mn-border-vis)',
-                          }}
-                        >
+                        <tr style={{ borderBottom: '1px solid var(--color-rule-strong)' }}>
+                          <th scope="col" style={{ ...thStyle, padding: '10px 8px 10px 0' }}>
+                            Rank
+                          </th>
                           {['Title', 'Suggested by', 'Added'].map((label) => (
                             <th key={label} scope="col" style={thStyle}>
                               {label}
@@ -1065,23 +1028,23 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                             <td
                               colSpan={colCount}
                               style={{
-                                padding: '48px 16px',
-                                textAlign: 'center',
-                                color: 'var(--mn-text-muted)',
-                                fontSize: '0.875rem',
+                                padding: '48px 0',
+                                color: 'var(--color-muted)',
+                                fontSize: 'var(--text-sm)',
                               }}
                             >
                               {isAuthenticated
-                                ? `You haven't suggested any  yet. Use the search bar above to add one!`
-                                : `No  yet. Be the first to suggest one!`}
+                                ? `You haven’t suggested any ${nounPlural} yet. Use the search bar above to add one!`
+                                : `No ${nounPlural} yet. Be the first to suggest one!`}
                             </td>
                           </tr>
                         ) : (
-                          myMovies.map((movie) => (
+                          myMovies.map((movie, idx) => (
                             <ContentRow
                               key={movie.id}
                               item={movie}
                               kind={kind}
+                              rank={idx + 1}
                               isAdmin={isAdmin}
                               canMarkWatched={
                                 isAdmin ||
@@ -1106,13 +1069,10 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             {data && (
               <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
                 {myMovies.length === 0 ? (
-                  <Typography
-                    level="body-sm"
-                    sx={{ textAlign: 'center', color: 'text.tertiary', py: 6 }}
-                  >
+                  <Typography level="body-sm" sx={{ color: 'text.tertiary', py: 6 }}>
                     {isAuthenticated
-                      ? `You haven't suggested any  yet. Use the search bar above to add one!`
-                      : `No  yet. Be the first to suggest one!`}
+                      ? `You haven’t suggested any ${nounPlural} yet. Use the search bar above to add one!`
+                      : `No ${nounPlural} yet. Be the first to suggest one!`}
                   </Typography>
                 ) : (
                   myMovies.map((movie, idx) => (
@@ -1141,7 +1101,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
         {/* Seed button — admin only, test env only, movies only (no seedShows) */}
         {isAdmin && !isProd && !isShow && (
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
+          <Box sx={{ mt: 4 }}>
             <Button
               variant="outlined"
               color="warning"
@@ -1168,29 +1128,26 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
   );
 };
 
+// Table heads: body face a step down, sentence case, untracked.
 const thStyle: React.CSSProperties = {
   padding: '10px 16px',
   textAlign: 'left',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--mn-text-muted)',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  color: 'var(--color-muted)',
 };
 
 const combinedThStyle: React.CSSProperties = {
+  ...thStyle,
   padding: '10px 12px',
   textAlign: 'center',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--mn-text-muted)',
 };
 
 const combinedTdStyle: React.CSSProperties = {
   padding: '12px',
   verticalAlign: 'middle',
+  borderBottom: '1px solid var(--color-rule)',
 };
 
 export default HomePage;

@@ -6,3 +6,4 @@ package-lock.json
 backend/package-lock.json
 backend/dist/
 backend/coverage/
+.hallmark/

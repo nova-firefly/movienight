@@ -1,15 +1,13 @@
 import React from 'react';
-import { Box, Typography, Chip, IconButton, Tooltip, Sheet } from '@mui/joy';
-import { Check, Eye, EyeOff, X } from 'lucide-react';
+import { Box, Typography, IconButton, Tooltip } from '@mui/joy';
+import { Check, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, kindAccent, EpisodeProgressChip } from './kindAffordance';
+import { KindChip, showMetaLine, EpisodeProgressChip, RankNumeral } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentCardProps {
   item: ContentItem;
-  // Threaded now so Phase 4 (kind-aware TMDB links, kind chip) is a small diff.
-  // Every callsite passes "movie" in this phase; behaviour is unchanged.
   kind: ContentKind;
   rank?: number;
   isAdmin: boolean;
@@ -21,6 +19,9 @@ export interface ContentCardProps {
   isRecentlyAdded?: boolean;
 }
 
+// Phone layout of a queue entry: the same ledger as ContentRow, restacked.
+// Rank, poster and title on one line; meta, then the actions at a 44px hit
+// target, under the title.
 const ContentCard: React.FC<ContentCardProps> = ({
   item,
   kind,
@@ -41,114 +42,89 @@ const ContentCard: React.FC<ContentCardProps> = ({
   const seenCount = seenByUsers.length;
   const seenNames = seenByUsers.map((t) => t.user.display_name || t.user.username);
 
+  const hit = { minWidth: 44, minHeight: 44 };
+
   return (
-    <Sheet
-      variant="outlined"
+    <Box
       sx={{
-        borderRadius: 'md',
-        mb: 1,
-        p: 1.5,
-        borderColor: isRecentlyAdded ? 'primary.400' : 'var(--mn-border-vis)',
-        borderWidth: isRecentlyAdded ? 1.5 : 1,
-        borderLeft: `3px solid ${kindAccent(kind)}`,
+        display: 'flex',
+        gap: 1.5,
+        py: 1.5,
+        px: isRecentlyAdded ? 1 : 0,
+        borderBottom: '1px solid var(--color-rule)',
         bgcolor: isRecentlyAdded
-          ? 'rgba(var(--joy-palette-primary-mainChannel) / 0.06)'
+          ? 'rgba(var(--joy-palette-primary-mainChannel) / 0.07)'
           : undefined,
       }}
     >
-      <Box sx={{ display: 'flex', gap: 1.5 }}>
-        {/* Rank */}
-        {rank != null && (
-          <Typography
-            level="body-xs"
-            sx={{
-              fontWeight: 700,
-              color: rank <= 3 ? 'primary.400' : 'text.tertiary',
-              minWidth: 20,
-              textAlign: 'right',
-              pt: 0.5,
-              flexShrink: 0,
-            }}
-          >
-            {rank}
-          </Typography>
-        )}
-        {/* Poster */}
-        <Poster url={item.poster_url} size="sm" />
-
-        {/* Details */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography level="body-sm" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {item.title}
-            {item.tmdb_id && (
-              <a
-                href={tmdbUrl(kind, item.tmdb_id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`View ${item.title} on TMDB (opens in new tab)`}
-                style={{
-                  color: 'var(--joy-palette-primary-500)',
-                  fontSize: '0.7rem',
-                  marginLeft: 4,
-                }}
-              >
-                ↗
-              </a>
-            )}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
-            <KindChip kind={kind} />
-            <Chip
-              size="sm"
-              variant="soft"
-              color="neutral"
-              sx={{ fontWeight: 500, fontSize: '0.65rem' }}
-            >
-              {item.requester}
-            </Chip>
-            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-              {new Date(item.date_submitted).toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-              })}
-            </Typography>
-          </Box>
-          {show && (meta || progress) && (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
-            >
-              {meta && (
-                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                  {meta}
-                </Typography>
-              )}
-              <EpisodeProgressChip value={progress} />
-            </Box>
-          )}
+      {rank != null && (
+        <Box sx={{ pt: 0.25, flexShrink: 0 }}>
+          <RankNumeral rank={rank} kind={kind} size="md" />
         </Box>
-      </Box>
+      )}
+      <Poster url={item.poster_url} size="sm" />
 
-      {/* Actions */}
-      {(isAuthenticated || canMarkWatched || isAdmin) && (
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography level="title-md" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+          {item.title}
+        </Typography>
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 0.5,
-            mt: 1,
-            pt: 0.5,
-            borderTop: '1px solid',
-            borderColor: 'var(--mn-border)',
+            alignItems: 'center',
+            columnGap: 1.25,
+            rowGap: 0.25,
+            mt: 0.5,
+            flexWrap: 'wrap',
           }}
         >
+          <KindChip kind={kind} />
+          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+            {item.requester}
+          </Typography>
+          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+            {new Date(item.date_submitted).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </Typography>
+        </Box>
+        {show && (meta || progress) && (
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
+          >
+            {meta && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                {meta}
+              </Typography>
+            )}
+            <EpisodeProgressChip value={progress} />
+          </Box>
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, ml: -1.25 }}>
+          {item.tmdb_id && (
+            <IconButton
+              component="a"
+              href={tmdbUrl(kind, item.tmdb_id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="sm"
+              variant="plain"
+              color="neutral"
+              aria-label={`View ${item.title} on TMDB (opens in new tab)`}
+              sx={hit}
+            >
+              <ExternalLink size={16} strokeWidth={2} />
+            </IconButton>
+          )}
           {isAuthenticated && (
             <Tooltip
               title={
                 seenCount > 0
                   ? `Seen by: ${seenNames.join(', ')}`
                   : isSeen
-                    ? 'Remove "Seen it"'
-                    : "I've seen this"
+                    ? 'Remove “Seen it”'
+                    : 'I’ve seen this'
               }
               arrow
             >
@@ -161,12 +137,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
                   isSeen ? `Remove "Seen it" from ${item.title}` : `Mark ${item.title} as seen`
                 }
                 aria-pressed={isSeen}
-                sx={{
-                  opacity: isSeen ? 0.95 : 0.5,
-                  '&:hover': { opacity: 1 },
-                  minWidth: 36,
-                  minHeight: 36,
-                }}
+                sx={hit}
               >
                 {isSeen ? (
                   <Eye size={16} strokeWidth={2.25} />
@@ -174,11 +145,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
                   <EyeOff size={16} strokeWidth={2.25} />
                 )}
                 {seenCount > 0 && (
-                  <Typography
-                    component="span"
-                    level="body-xs"
-                    sx={{ ml: 0.25, fontWeight: 700, fontSize: '0.6rem' }}
-                  >
+                  <Typography component="span" level="body-xs" sx={{ ml: 0.25, fontWeight: 600 }}>
                     {seenCount}
                   </Typography>
                 )}
@@ -189,29 +156,29 @@ const ContentCard: React.FC<ContentCardProps> = ({
             <IconButton
               size="sm"
               color="success"
-              variant="soft"
+              variant="plain"
               onClick={() => onMarkWatched(item.id, item.title)}
               aria-label={`Mark "${item.title}" as done`}
-              sx={{ minWidth: 36, minHeight: 36 }}
+              sx={hit}
             >
-              <Check size={16} strokeWidth={2.5} />
+              <Check size={18} strokeWidth={2.5} />
             </IconButton>
           )}
           {isAdmin && (
             <IconButton
               size="sm"
               color="danger"
-              variant="soft"
+              variant="plain"
               onClick={() => onDelete(item.id, item.title)}
               aria-label={`Remove "${item.title}"`}
-              sx={{ minWidth: 36, minHeight: 36 }}
+              sx={hit}
             >
-              <X size={16} strokeWidth={2.5} />
+              <X size={18} strokeWidth={2.5} />
             </IconButton>
           )}
         </Box>
-      )}
-    </Sheet>
+      </Box>
+    </Box>
   );
 };
 

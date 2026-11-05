@@ -1,10 +1,34 @@
 import { extendTheme } from '@mui/joy/styles';
 
-// Cinema-inspired dark theme
-// Primary accent: warm gold (#f5c518) — classic movie gold
-// Background: deep navy-black (#0d0f1a)
-// Surfaces: layered dark blues (#141624, #1c1f30, #242840)
+// MovieNight theme: projection-booth black with the brand gold as the one
+// signal. Surfaces, text and rules read the Hallmark tokens in `tokens.css`
+// (`--color-*`), so the CSS and Joy share one source. The primary and neutral
+// ramps stay literal because Joy derives channel values from them.
 const theme = extendTheme({
+  fontFamily: {
+    display: 'var(--font-display)',
+    body: 'var(--font-body)',
+    code: 'var(--font-mono)',
+  },
+  fontWeight: {
+    sm: 400,
+    md: 400,
+    lg: 600,
+    xl: 800,
+  },
+  radius: {
+    xs: '3px',
+    sm: '4px',
+    md: '6px',
+    lg: '8px',
+    xl: '12px',
+  },
+  typography: {
+    h1: { fontWeight: 800, letterSpacing: 0, lineHeight: 1 },
+    h2: { fontWeight: 800, letterSpacing: 0, lineHeight: 1 },
+    h3: { fontWeight: 800, letterSpacing: 0, lineHeight: 1.05 },
+    h4: { fontWeight: 800, letterSpacing: 0, lineHeight: 1.1 },
+  },
   colorSchemes: {
     dark: {
       palette: {
@@ -19,89 +43,83 @@ const theme = extendTheme({
           700: '#9d7d00',
           800: '#715a00',
           900: '#453700',
-          solidBg: '#f5c518',
-          solidColor: '#0d0f1a',
+          solidBg: 'var(--color-accent)',
+          solidColor: 'var(--color-accent-ink)',
           solidHoverBg: '#ffd133',
           solidActiveBg: '#c9a000',
-          outlinedBorder: '#f5c518',
-          outlinedColor: '#f5c518',
+          outlinedBorder: 'rgba(245, 197, 24, 0.55)',
+          outlinedColor: '#ffd133',
           outlinedHoverBg: 'rgba(245, 197, 24, 0.10)',
-          softBg: 'rgba(245, 197, 24, 0.15)',
+          softBg: 'rgba(245, 197, 24, 0.14)',
           softColor: '#ffd133',
           softHoverBg: 'rgba(245, 197, 24, 0.22)',
-          plainColor: '#f5c518',
+          plainColor: '#ffd133',
           plainHoverBg: 'rgba(245, 197, 24, 0.10)',
         },
         danger: {
-          500: '#e04040',
-          solidBg: '#c62828',
-          solidHoverBg: '#e53935',
-          outlinedBorder: '#e04040',
-          outlinedColor: '#e04040',
-          softBg: 'rgba(224, 64, 64, 0.15)',
-          softColor: '#ef9a9a',
+          500: '#e5534b',
+          solidBg: '#c4382f',
+          solidHoverBg: '#d9443a',
+          outlinedBorder: 'rgba(229, 83, 75, 0.6)',
+          outlinedColor: '#f08a83',
+          plainColor: '#f08a83',
+          softBg: 'rgba(229, 83, 75, 0.14)',
+          softColor: '#f4a29c',
         },
         success: {
-          500: '#4caf82',
-          solidBg: '#2e7d58',
-          softBg: 'rgba(76, 175, 130, 0.15)',
-          softColor: '#80cfa9',
+          500: '#4fb985',
+          solidBg: '#2f7d57',
+          plainColor: '#7fd1a8',
+          softBg: 'rgba(79, 185, 133, 0.14)',
+          softColor: '#8fd8b3',
         },
         warning: {
           500: '#f5a623',
-          softBg: 'rgba(245, 166, 35, 0.15)',
+          softBg: 'rgba(245, 166, 35, 0.14)',
           softColor: '#fbc45a',
         },
+        // Warm greys to match the paper (hue ~70), replacing the old navy ramp.
         neutral: {
-          50: '#f0f2f8',
-          100: '#d4d8ec',
-          200: '#b0b6d4',
-          300: '#8c93bc',
-          400: '#6870a4',
-          500: '#555d90',
-          600: '#3d4470',
-          700: '#282e50',
-          800: '#1c1f30',
-          900: '#141624',
-          outlinedBorder: '#2a2e4a',
-          outlinedColor: '#9097b8',
-          softBg: 'rgba(255,255,255,0.06)',
-          softColor: '#b0b6d4',
-          plainColor: '#9097b8',
-          plainHoverBg: 'rgba(255,255,255,0.06)',
+          50: '#f3f0ea',
+          100: '#e3ded5',
+          200: '#c9c3b8',
+          300: '#aaa398',
+          400: '#8a8378',
+          500: '#6d675d',
+          600: '#524d45',
+          700: '#3a3631',
+          800: '#2a2724',
+          900: '#1d1b19',
+          outlinedBorder: 'var(--color-rule-strong)',
+          outlinedColor: 'var(--color-ink-2)',
+          outlinedHoverBg: 'var(--color-hover)',
+          softBg: 'var(--color-hover)',
+          softColor: 'var(--color-ink-2)',
+          softHoverBg: 'rgba(243, 240, 234, 0.08)',
+          plainColor: 'var(--color-ink-2)',
+          plainHoverBg: 'var(--color-hover)',
         },
         background: {
-          body: '#0d0f1a',
-          surface: '#141624',
-          popup: '#1c1f30',
-          level1: '#1c1f30',
-          level2: '#242840',
-          level3: '#2c3050',
+          body: 'var(--color-paper)',
+          surface: 'var(--color-paper-2)',
+          popup: 'var(--color-paper-3)',
+          level1: 'var(--color-paper-2)',
+          level2: 'var(--color-paper-3)',
+          level3: 'var(--color-rule-strong)',
+          backdrop: 'var(--color-scrim)',
         },
         text: {
-          primary: '#f0f2f8',
-          secondary: '#9097b8',
-          tertiary: '#565a7a',
-          icon: '#9097b8',
+          primary: 'var(--color-ink)',
+          secondary: 'var(--color-ink-2)',
+          tertiary: 'var(--color-muted)',
+          icon: 'var(--color-ink-2)',
         },
-        divider: 'rgba(255, 255, 255, 0.08)',
-        focusVisible: 'rgba(245, 197, 24, 0.5)',
+        divider: 'var(--color-rule)',
+        focusVisible: 'var(--color-focus)',
       },
     },
   },
   components: {
-    JoyTable: {
-      styleOverrides: {
-        root: {
-          '--TableCell-headBackground': '#1c1f30',
-          '--TableCell-selectedBackground': 'rgba(245, 197, 24, 0.08)',
-          '--Table-headerUnderlineThickness': '1px',
-          '--TableRow-hoverBackground': 'rgba(255, 255, 255, 0.04)',
-          '--TableCell-paddingX': '16px',
-          '--TableCell-paddingY': '12px',
-        },
-      },
-    },
     JoySheet: {
       styleOverrides: {
         root: {
@@ -112,18 +130,22 @@ const theme = extendTheme({
     JoyInput: {
       styleOverrides: {
         root: {
-          '--Input-focusedHighlight': '#f5c518',
-          backgroundColor: '#1c1f30',
-          borderColor: '#2a2e4a',
-          '&:hover': { borderColor: '#363a5a' },
+          '--Input-focusedHighlight': 'var(--color-focus)',
+          backgroundColor: 'var(--color-paper-2)',
+          borderColor: 'var(--color-rule-strong)',
+          '&:hover': { borderColor: 'var(--color-muted)' },
         },
       },
     },
     JoyButton: {
       styleOverrides: {
         root: {
-          borderRadius: '6px',
+          borderRadius: '4px',
           fontWeight: 600,
+          transitionProperty: 'background-color, color, border-color',
+          transitionDuration: 'var(--dur-micro)',
+          '&:active': { transform: 'translateY(1px)' },
+          '&:disabled, &[aria-disabled="true"]': { opacity: 0.55, cursor: 'not-allowed' },
           '&:focus-visible': {
             outline: '2px solid var(--joy-palette-focusVisible)',
             outlineOffset: '2px',
@@ -134,6 +156,8 @@ const theme = extendTheme({
     JoyIconButton: {
       styleOverrides: {
         root: {
+          '&:active': { transform: 'translateY(1px)' },
+          '&:disabled': { opacity: 0.55, cursor: 'not-allowed' },
           '&:focus-visible': {
             outline: '2px solid var(--joy-palette-focusVisible)',
             outlineOffset: '2px',
@@ -146,7 +170,17 @@ const theme = extendTheme({
       styleOverrides: {
         root: {
           fontWeight: 600,
-          fontSize: '0.7rem',
+          fontSize: '0.75rem',
+          borderRadius: '4px',
+        },
+      },
+    },
+    JoyModalDialog: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          boxShadow: 'none',
+          border: '1px solid var(--color-rule-strong)',
         },
       },
     },
@@ -159,8 +193,8 @@ export default theme;
 // the Joy-generated `--joy-palette-primary-*` custom properties on :root while the
 // Shows kind is active (see KindPalette), so every `primary.*` reference and the
 // mainChannel-based rgba() composites switch together. Mirrors the gold scale's
-// structure so solid/outlined/soft/plain variants all track. `--mn-gold` (raw
-// HTML focus outlines / selection) is repainted too for consistency.
+// structure so solid/outlined/soft/plain variants all track. The Hallmark
+// `--color-accent` / `--color-focus` tokens are repainted too, so raw CSS follows.
 export const SHOW_PALETTE_VARS: Record<string, string> = {
   '--joy-palette-primary-50': '#f0f9ff',
   '--joy-palette-primary-100': '#e0f2fe',
@@ -174,18 +208,17 @@ export const SHOW_PALETTE_VARS: Record<string, string> = {
   '--joy-palette-primary-900': '#0c4a6e',
   '--joy-palette-primary-mainChannel': '14 165 233',
   '--joy-palette-primary-solidBg': '#0ea5e9',
-  '--joy-palette-primary-solidColor': '#0d0f1a',
+  '--joy-palette-primary-solidColor': 'var(--color-accent-ink)',
   '--joy-palette-primary-solidHoverBg': '#38bdf8',
   '--joy-palette-primary-solidActiveBg': '#0284c7',
-  '--joy-palette-primary-outlinedBorder': '#0ea5e9',
-  '--joy-palette-primary-outlinedColor': '#0ea5e9',
+  '--joy-palette-primary-outlinedBorder': 'rgba(14, 165, 233, 0.55)',
+  '--joy-palette-primary-outlinedColor': '#38bdf8',
   '--joy-palette-primary-outlinedHoverBg': 'rgba(14, 165, 233, 0.10)',
-  '--joy-palette-primary-softBg': 'rgba(14, 165, 233, 0.15)',
+  '--joy-palette-primary-softBg': 'rgba(14, 165, 233, 0.14)',
   '--joy-palette-primary-softColor': '#7dd3fc',
   '--joy-palette-primary-softHoverBg': 'rgba(14, 165, 233, 0.22)',
-  '--joy-palette-primary-plainColor': '#0ea5e9',
+  '--joy-palette-primary-plainColor': '#38bdf8',
   '--joy-palette-primary-plainHoverBg': 'rgba(14, 165, 233, 0.10)',
-  '--joy-palette-focusVisible': 'rgba(14, 165, 233, 0.5)',
-  '--mn-gold': '#0ea5e9',
-  '--mn-selection': 'rgba(14, 165, 233, 0.25)',
+  '--color-accent': '#0ea5e9',
+  '--color-focus': '#0ea5e9',
 };
