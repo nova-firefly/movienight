@@ -73,10 +73,14 @@
     "serialize-javascript": "^7.0.5",
     "underscore": "^1.13.8",
     "uuid": "^14.0.0",
-    "@tootallnate/once": "^3.0.1"
+    "@tootallnate/once": "^3.0.1",
+    "qs": "^6.17.1",
+    "@svgr/plugin-svgo": {
+      "svgo": "^2.8.4"
+    }
   },
   "devDependencies": {
-    "@babel/core": "7.22.5",
+    "@babel/core": "^7.29.13",
     "@babel/eslint-parser": "7.22.5",
     "@babel/plugin-proposal-private-property-in-object": "7.21.11",
     "@babel/preset-env": "7.22.5",
