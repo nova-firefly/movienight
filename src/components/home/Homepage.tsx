@@ -10,8 +10,6 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
-  Select,
-  Option,
 } from '@mui/joy';
 import { Check, X } from 'lucide-react';
 import {
@@ -615,26 +613,30 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   const allRankings = combined.rankings;
                   const myId = String(user?.id ?? '');
                   const otherId = String(combined.connection.user.id);
+                  const otherName =
+                    combined.connection.user.display_name || combined.connection.user.username;
+                  // Which "Seen it" bucket a ranking falls in, from both users' seen tags.
+                  const seenBucket = (r: any): 'new' | 'one' | 'rewatch' => {
+                    const seenTags = ((r.movie ?? r.show).userTags ?? []).filter(
+                      (t: any) => t.tag.slug === 'seen',
+                    );
+                    const meSeen = seenTags.some((t: any) => String(t.user.id) === myId);
+                    const otherSeen = seenTags.some((t: any) => String(t.user.id) === otherId);
+                    if (meSeen && otherSeen) return 'rewatch';
+                    return meSeen || otherSeen ? 'one' : 'new';
+                  };
                   const filteredRankings =
                     combinedSeenFilter === 'all'
                       ? allRankings
-                      : allRankings.filter((r: any) => {
-                          const seenTags = ((r.movie ?? r.show).userTags ?? []).filter(
-                            (t: any) => t.tag.slug === 'seen',
-                          );
-                          const meSeen = seenTags.some((t: any) => String(t.user.id) === myId);
-                          const otherSeen = seenTags.some(
-                            (t: any) => String(t.user.id) === otherId,
-                          );
-                          if (combinedSeenFilter === 'new') return !meSeen && !otherSeen;
-                          if (combinedSeenFilter === 'one') return meSeen !== otherSeen;
-                          if (combinedSeenFilter === 'rewatch') return meSeen && otherSeen;
-                          return true;
-                        });
+                      : allRankings.filter((r: any) => seenBucket(r) === combinedSeenFilter);
+                  const filterCounts = { all: allRankings.length, new: 0, one: 0, rewatch: 0 };
+                  allRankings.forEach((r: any) => {
+                    filterCounts[seenBucket(r)] += 1;
+                  });
                   const filterChips: { key: typeof combinedSeenFilter; label: string }[] = [
                     { key: 'all', label: 'All' },
                     { key: 'new', label: 'New to both' },
-                    { key: 'one', label: 'One has seen' },
+                    { key: 'one', label: 'One of you has seen' },
                     { key: 'rewatch', label: 'Both have seen' },
                   ];
                   if (allRankings.length === 0) {
@@ -659,6 +661,63 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   }
                   return (
                     <>
+                      {/* Seen-it filter: narrows the shared ranking by who has already
+                          watched each title (from the per-user "Seen it" tag). */}
+                      <Box
+                        role="group"
+                        aria-label="Filter by who has seen it"
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 1.5,
+                          overflowX: 'auto',
+                        }}
+                      >
+                        <Typography
+                          level="body-sm"
+                          sx={{ color: 'text.tertiary', flexShrink: 0, mr: 0.5 }}
+                        >
+                          Seen it
+                        </Typography>
+                        {filterChips.map((f) => {
+                          const active = combinedSeenFilter === f.key;
+                          return (
+                            <Button
+                              key={f.key}
+                              size="sm"
+                              variant={active ? 'soft' : 'outlined'}
+                              color={active ? 'primary' : 'neutral'}
+                              aria-pressed={active}
+                              onClick={() => setCombinedSeenFilter(f.key)}
+                              sx={{ flexShrink: 0, minHeight: 36, gap: 0.75 }}
+                            >
+                              {f.label}
+                              <Typography
+                                component="span"
+                                level="body-xs"
+                                sx={{
+                                  color: 'inherit',
+                                  opacity: 0.7,
+                                  fontVariantNumeric: 'tabular-nums',
+                                }}
+                              >
+                                {filterCounts[f.key]}
+                              </Typography>
+                            </Button>
+                          );
+                        })}
+                      </Box>
+                      {combinedSeenFilter !== 'all' && (
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 1 }}>
+                          {combinedSeenFilter === 'new' &&
+                            `Neither you nor ${otherName} has marked these “Seen it”.`}
+                          {combinedSeenFilter === 'one' &&
+                            `Only one of you has marked these “Seen it”.`}
+                          {combinedSeenFilter === 'rewatch' &&
+                            `You and ${otherName} have both marked these “Seen it”.`}
+                        </Typography>
+                      )}
                       <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                         <Box sx={{ overflowX: 'auto' }}>
                           <table
@@ -675,40 +734,11 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                 <th style={combinedThStyle} scope="col">
                                   #
                                 </th>
-                                <th style={{ ...combinedThStyle, textAlign: 'left' }}>
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 1,
-                                      flexWrap: 'wrap',
-                                    }}
-                                  >
-                                    <span>Title</span>
-                                    <Select
-                                      size="sm"
-                                      value={combinedSeenFilter}
-                                      onChange={(_, val) => val && setCombinedSeenFilter(val)}
-                                      sx={{
-                                        minHeight: 24,
-                                        py: 0,
-                                        fontSize: 'var(--text-xs)',
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {filterChips.map((f) => (
-                                        <Option key={f.key} value={f.key}>
-                                          {f.label}
-                                        </Option>
-                                      ))}
-                                    </Select>
-                                  </Box>
+                                <th scope="col" style={{ ...combinedThStyle, textAlign: 'left' }}>
+                                  Title
                                 </th>
                                 <th style={combinedThStyle}>You</th>
-                                <th style={combinedThStyle}>
-                                  {combined.connection.user.display_name ||
-                                    combined.connection.user.username}
-                                </th>
+                                <th style={combinedThStyle}>{otherName}</th>
                                 <th style={combinedThStyle}>Combined</th>
                                 <th style={combinedThStyle} aria-label="Actions"></th>
                               </tr>
