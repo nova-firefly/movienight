@@ -48,7 +48,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
   ) => {
     const message = interested
       ? `Added to your queue with ${addedByName}!`
-      : `You passed on this one — ${addedByName} can still watch it solo.`;
+      : `You passed on this one. ${addedByName} can still watch it solo.`;
 
     setResponded((prev) => ({ ...prev, [movieId]: message }));
     showSuccess(message);
@@ -86,7 +86,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
           </Box>
           <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
             {remaining > 0
-              ? `Tap one button per ${noun} — say if you want to watch it together or pass.`
+              ? `Tap one button per ${noun}: say if you want to watch it together or pass.`
               : 'All caught up!'}
           </Typography>
         </Box>
@@ -235,7 +235,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                                 mt: 0.25,
                               }}
                             >
-                              I haven't seen it
+                              I haven’t seen it
                             </Typography>
                           </Button>
                           <Button
@@ -261,7 +261,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                                 mt: 0.25,
                               }}
                             >
-                              I've seen it before
+                              I’ve seen it before
                             </Typography>
                           </Button>
                         </Box>
@@ -272,7 +272,7 @@ const ConnectionInboxModal: React.FC<ConnectionInboxModalProps> = ({
                           onClick={() => handleResponse(movieId, false, false, addedByName)}
                           sx={{ fontWeight: 500 }}
                         >
-                          Pass — I don't want to watch
+                          Pass, I don’t want to watch
                         </Button>
                       </Box>
                     </Box>

@@ -100,7 +100,7 @@ const AddMovieForm: React.FC<AddMovieFormProps> = ({ kind, onMovieAdded }) => {
   return (
     <Box sx={{ mb: 4 }}>
       <form onSubmit={handleSubmit}>
-        <Box sx={{ display: 'flex', gap: 1, maxWidth: 520, mx: 'auto' }}>
+        <Box sx={{ display: 'flex', gap: 1, maxWidth: 520 }}>
           <Autocomplete
             freeSolo
             loading={isSearching}
@@ -131,11 +131,13 @@ const AddMovieForm: React.FC<AddMovieFormProps> = ({ kind, onMovieAdded }) => {
                 </ListItemContent>
               </AutocompleteOption>
             )}
-            placeholder={`Suggest a ${noun} title...`}
+            placeholder={`Suggest a ${noun} title…`}
+            slotProps={{ input: { 'aria-label': `Suggest a ${noun} title` } }}
             sx={{
               flex: 1,
+              minHeight: 40,
               bgcolor: 'background.surface',
-              '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
+              '--Input-focusedHighlight': 'var(--color-focus)',
             }}
           />
           <Button
@@ -143,7 +145,7 @@ const AddMovieForm: React.FC<AddMovieFormProps> = ({ kind, onMovieAdded }) => {
             color="primary"
             variant="solid"
             loading={adding}
-            sx={{ fontWeight: 700, color: '#0d0f1a', px: 3 }}
+            sx={{ px: 3, minHeight: 40 }}
           >
             Add
           </Button>

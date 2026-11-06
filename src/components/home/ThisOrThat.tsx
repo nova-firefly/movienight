@@ -199,49 +199,71 @@ const ThisOrThat: React.FC = () => {
       sx={{
         flex: 1,
         bgcolor: 'background.body',
-        px: { xs: 1.5, sm: 3, md: 4 },
-        py: { xs: 1.5, sm: 3 },
+        px: { xs: 2, sm: 3, md: 5 },
+        py: { xs: 2, sm: 4 },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ maxWidth: 'var(--container)', mx: 'auto' }}>
         {/* Header + Tabs */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 1.5, sm: 2.5 } }}>
-          <Typography
-            level="h3"
-            sx={{
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              fontSize: { xs: '1.1rem', sm: '1.5rem' },
-            }}
-          >
+        <Box sx={{ mb: { xs: 1.5, sm: 2.5 } }}>
+          <Typography level="h1" sx={{ fontSize: { xs: '2rem', sm: '3rem' }, mb: 1 }}>
             This or That
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mb: { xs: 1, sm: 1.5 } }}>
-            Pick which {noun} you'd rather watch. Your choices build a personal ranking that
-            combines with your connections' picks.
+          <Typography level="body-sm" sx={{ color: 'text.secondary', maxWidth: '65ch' }}>
+            Pick which {noun} you’d rather watch. Your choices build a personal ranking that
+            combines with your connections’ picks.
           </Typography>
         </Box>
 
         {/* Tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: { xs: 1.5, sm: 2.5 } }}>
+        <Box
+          role="tablist"
+          aria-label="This or That view"
+          sx={{
+            display: 'flex',
+            gap: 0.5,
+            mb: { xs: 2, sm: 3 },
+            borderBottom: '1px solid var(--color-rule)',
+          }}
+        >
           <Button
-            variant={tab === 'compare' ? 'soft' : 'plain'}
+            variant="plain"
+            role="tab"
+            aria-selected={tab === 'compare'}
             color="neutral"
             size="sm"
             onClick={() => setTab('compare')}
-            sx={{ fontWeight: 600, color: tab === 'compare' ? 'primary.400' : 'text.secondary' }}
+            sx={{
+              fontWeight: 600,
+              borderRadius: 0,
+              minHeight: 44,
+              color: tab === 'compare' ? 'text.primary' : 'text.secondary',
+              boxShadow: tab === 'compare' ? 'inset 0 -2px 0 var(--color-accent)' : 'none',
+              '&:hover': { color: 'text.primary', bgcolor: 'transparent' },
+              '&:focus-visible': { outlineOffset: '-2px' },
+            }}
           >
             Compare
           </Button>
           <Button
-            variant={tab === 'rankings' ? 'soft' : 'plain'}
+            variant="plain"
+            role="tab"
+            aria-selected={tab === 'rankings'}
             color="neutral"
             size="sm"
             onClick={() => {
               setTab('rankings');
               refetchRankings();
             }}
-            sx={{ fontWeight: 600, color: tab === 'rankings' ? 'primary.400' : 'text.secondary' }}
+            sx={{
+              fontWeight: 600,
+              borderRadius: 0,
+              minHeight: 44,
+              color: tab === 'rankings' ? 'text.primary' : 'text.secondary',
+              boxShadow: tab === 'rankings' ? 'inset 0 -2px 0 var(--color-accent)' : 'none',
+              '&:hover': { color: 'text.primary', bgcolor: 'transparent' },
+              '&:focus-visible': { outlineOffset: '-2px' },
+            }}
           >
             My Rankings
           </Button>
@@ -377,7 +399,7 @@ const ThisOrThat: React.FC = () => {
             {rankingsLoading && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                  Loading rankings...
+                  Loading rankings…
                 </Typography>
               </Box>
             )}
@@ -477,10 +499,9 @@ const ThisOrThat: React.FC = () => {
 const thStyle: React.CSSProperties = {
   padding: '10px 12px',
   textAlign: 'center',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
   color: 'var(--mn-text-muted)',
 };
 

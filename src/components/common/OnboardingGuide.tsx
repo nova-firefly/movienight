@@ -1,4 +1,5 @@
 import React from 'react';
+import { Film, Popcorn, Scale, Users, type LucideIcon } from 'lucide-react';
 import {
   Box,
   Button,
@@ -22,7 +23,7 @@ interface StepActions {
 }
 
 interface Step {
-  emoji: string;
+  icon: LucideIcon;
   title: string;
   description: string;
   actionLabel?: string;
@@ -31,26 +32,26 @@ interface Step {
 
 const getSteps = (nounPlural: string, PageLabel: string): Step[] => [
   {
-    emoji: '🎬',
+    icon: Film,
     title: 'Suggest',
     description: `Use the search bar on the home page to add ${nounPlural} you want to watch.`,
   },
   {
-    emoji: '🤝',
+    icon: Users,
     title: 'Connect',
-    description: "Link up with friends. They'll see your picks and you'll see theirs.",
+    description: 'Link up with friends. They’ll see your picks and you’ll see theirs.',
     actionLabel: 'Manage connections',
     actionKey: 'connect',
   },
   {
-    emoji: '⚖️',
+    icon: Scale,
     title: 'Rank',
     description: `Compare ${nounPlural} in This or That to build your preference list.`,
     actionLabel: 'Open This or That',
     actionKey: 'rank',
   },
   {
-    emoji: '🍿',
+    icon: Popcorn,
     title: 'Watch',
     description: `Pick a connection on the ${PageLabel} page to see your combined rankings.`,
     actionLabel: 'See combined rankings',
@@ -102,7 +103,7 @@ const StepList: React.FC<StepActions> = ({ onShowConnections, onShowThisOrThat, 
               }}
               aria-hidden
             >
-              {s.emoji}
+              <s.icon size={20} strokeWidth={2} aria-hidden />
             </Box>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography level="title-sm" sx={{ fontWeight: 700 }}>
@@ -143,13 +144,13 @@ const ExtraTips: React.FC = () => {
           <Typography component="span" sx={{ fontWeight: 700 }}>
             Watch Alone
           </Typography>{' '}
-          — {nounPlural} your connections passed on, all yours to enjoy solo.
+          : {nounPlural} your connections passed on, all yours to enjoy solo.
         </Typography>
         <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
           <Typography component="span" sx={{ fontWeight: 700 }}>
             History
           </Typography>{' '}
-          — everything you've already watched.
+          : everything you’ve already watched.
         </Typography>
         <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
           Tap the{' '}
@@ -207,7 +208,7 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
       Welcome to MovieNight
     </Typography>
     <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
-      Here's how it works:
+      Here’s how it works:
     </Typography>
     <StepList
       onShowConnections={onShowConnections}
@@ -220,7 +221,7 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
         color="primary"
         size="sm"
         onClick={onDismiss}
-        sx={{ fontWeight: 700, color: '#0d0f1a' }}
+        sx={{ fontWeight: 700 }}
       >
         Got it
       </Button>

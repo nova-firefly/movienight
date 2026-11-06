@@ -82,12 +82,12 @@ const App = () => {
           component="main"
           sx={{
             flex: 1,
-            px: { xs: 2, sm: 3, md: 4 },
-            py: { xs: 3, sm: 4 },
+            px: { xs: 2, sm: 3, md: 5 },
+            py: { xs: 3, sm: 6 },
             bgcolor: 'background.body',
           }}
         >
-          <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+          <Box sx={{ maxWidth: 'var(--container)', mx: 'auto' }}>
             <AdminPanel />
           </Box>
         </Box>
@@ -140,7 +140,7 @@ const App = () => {
           }}
         >
           <Typography level="body-xs" fontWeight="bold">
-            TEST ENVIRONMENT — branch: {GIT_BRANCH}
+            Test environment, branch {GIT_BRANCH}
           </Typography>
         </Box>
       )}

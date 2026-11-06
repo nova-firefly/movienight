@@ -1,5 +1,6 @@
 import React from 'react';
 import { Chip } from '@mui/joy';
+import { Scale } from 'lucide-react';
 import { useKind } from '../../contexts/KindContext';
 
 interface ThisOrThatBannerProps {
@@ -20,18 +21,12 @@ const ThisOrThatBanner: React.FC<ThisOrThatBannerProps> = ({
     <Chip
       variant="soft"
       color="primary"
-      size="sm"
+      size="md"
       onClick={onShowThisOrThat}
-      sx={{
-        cursor: 'pointer',
-        fontWeight: 600,
-        fontSize: '0.7rem',
-        opacity: 0.75,
-        transition: 'opacity 0.15s',
-        '&:hover': { opacity: 1 },
-      }}
+      startDecorator={<Scale size={14} strokeWidth={2.25} aria-hidden />}
+      sx={{ cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' }}
     >
-      {hasEloData ? '▸ Keep ranking' : `▸ Rank ${kind === 'show' ? 'shows' : 'movies'}`}
+      {hasEloData ? 'Keep ranking' : `Rank ${kind === 'show' ? 'shows' : 'movies'}`}
     </Chip>
   );
 };

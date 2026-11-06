@@ -1,0 +1,26 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "brand",
+  "axes": "dark/display-condensed/warm",
+  "nav": "kept top bar, marquee wordmark, underline tabs",
+  "footer": "one rule, copyright left, build meta right",
+  "imagery": "product posters",
+  "photos": [],
+  "signature": "queue as a ranked ledger with marquee rank numerals",
+  "sections": [
+   "queue",
+   "this-or-that",
+   "combined",
+   "history",
+   "admin",
+   "auth"
+  ],
+  "waived": [],
+  "prompt": "MovieNight: a shared movie and TV queue ranked by pairwise picks",
+  "date": "2026-11-05"
+ }
+]

@@ -6,107 +6,53 @@ import { LoginHistory } from './LoginHistory';
 import { KometaExport } from './KometaExport';
 import { LetterboxdImport } from './LetterboxdImport';
 
+// Underlined tabs, matching the queue's view tabs: one weight, the current tab
+// in ink over an accent rule.
+const tabSx = {
+  fontWeight: 600,
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
+  minHeight: 44,
+  bgcolor: 'transparent',
+  color: 'text.secondary',
+  '&:hover': { color: 'text.primary', bgcolor: 'transparent' },
+  '&[aria-selected="true"]': { color: 'text.primary', bgcolor: 'transparent' },
+} as const;
+
 export const AdminPanel: React.FC = () => {
   return (
     <Box>
-      <Typography level="h3" sx={{ fontWeight: 800, mb: 3, letterSpacing: '-0.02em' }}>
+      <Typography level="h1" sx={{ fontSize: { xs: '2.5rem', sm: '3.5rem' }, mb: 3 }}>
         Admin
       </Typography>
       <Tabs defaultValue="users" sx={{ bgcolor: 'transparent' }}>
         <TabList
           sx={{
-            bgcolor: 'background.surface',
-            borderRadius: 'sm',
-            border: '1px solid',
-            borderColor: 'var(--mn-border-vis)',
-            p: 0.5,
+            bgcolor: 'transparent',
             gap: 0.5,
             mb: 3,
-            '--Tab-indicatorThickness': '0px',
+            '--Tab-indicatorThickness': '2px',
+            '--Tab-indicatorColor': 'var(--color-accent)',
+            '--ListDivider-gap': '0px',
             overflowX: 'auto',
             flexWrap: 'nowrap',
             '&::-webkit-scrollbar': { display: 'none' },
             scrollbarWidth: 'none',
           }}
         >
-          <Tab
-            value="users"
-            sx={{
-              borderRadius: 'xs',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              '&[aria-selected="true"]': {
-                bgcolor: 'background.level2',
-                color: 'primary.400',
-              },
-            }}
-          >
+          <Tab value="users" sx={tabSx}>
             Users
           </Tab>
-          <Tab
-            value="audit"
-            sx={{
-              borderRadius: 'xs',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              '&[aria-selected="true"]': {
-                bgcolor: 'background.level2',
-                color: 'primary.400',
-              },
-            }}
-          >
+          <Tab value="audit" sx={tabSx}>
             Audit Log
           </Tab>
-          <Tab
-            value="logins"
-            sx={{
-              borderRadius: 'xs',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              '&[aria-selected="true"]': {
-                bgcolor: 'background.level2',
-                color: 'primary.400',
-              },
-            }}
-          >
+          <Tab value="logins" sx={tabSx}>
             Login History
           </Tab>
-          <Tab
-            value="kometa"
-            sx={{
-              borderRadius: 'xs',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              '&[aria-selected="true"]': {
-                bgcolor: 'background.level2',
-                color: 'primary.400',
-              },
-            }}
-          >
+          <Tab value="kometa" sx={tabSx}>
             Kometa Export
           </Tab>
-          <Tab
-            value="import"
-            sx={{
-              borderRadius: 'xs',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              '&[aria-selected="true"]': {
-                bgcolor: 'background.level2',
-                color: 'primary.400',
-              },
-            }}
-          >
+          <Tab value="import" sx={tabSx}>
             Import
           </Tab>
         </TabList>

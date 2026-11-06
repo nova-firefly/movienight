@@ -29,17 +29,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
     setMobileOpen(false);
   };
 
-  const navButton = (view: ViewName, label: string, subtle = false) => (
+  // Tabs: one weight in every state; the current one is ink with a kind-colour
+  // underline, never a fill.
+  const navButton = (view: ViewName, label: string) => (
     <Button
-      variant={currentView === view ? 'soft' : 'plain'}
+      variant="plain"
       color="neutral"
       size="sm"
       onClick={() => go(view)}
+      aria-current={currentView === view ? 'page' : undefined}
       sx={{
         fontWeight: 600,
-        color: currentView === view ? 'primary.400' : subtle ? 'text.tertiary' : 'text.secondary',
-        '&:hover': { color: 'primary.300' },
-        ...(subtle ? { fontSize: '0.8rem' } : {}),
+        borderRadius: 0,
+        px: 1.25,
+        minHeight: 40,
+        justifyContent: { xs: 'flex-start', sm: 'center' },
+        color: currentView === view ? 'text.primary' : 'text.secondary',
+        boxShadow: currentView === view ? `inset 0 -2px 0 ${kindAccentVar(kind)}` : 'none',
+        '&:hover': { color: 'text.primary', bgcolor: 'transparent' },
+        '&:active': { bgcolor: 'var(--color-hover)' },
       }}
     >
       {label}
@@ -51,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
       {navButton('queue', 'Queue')}
       {isAuthenticated && navButton('this-or-that', 'This or That')}
       {isAuthenticated && navButton('combined-list', 'Combined')}
-      {isAuthenticated && navButton('history', 'History', true)}
+      {isAuthenticated && navButton('history', 'History')}
       {isAuthenticated && user?.is_admin && navButton('admin', 'Admin')}
     </>
   );
@@ -91,12 +99,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
               py: 0.5,
               border: 'none',
               cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '0.78rem',
+              minHeight: 32,
+              fontWeight: 600,
+              fontSize: 'var(--text-sm)',
               fontFamily: 'inherit',
               bgcolor: active ? kindTintVar(k) : 'transparent',
-              color: active ? kindAccentVar(k) : 'var(--mn-text-secondary)',
-              transition: 'background-color 0.15s, color 0.15s',
+              color: active ? kindAccentVar(k) : 'var(--color-ink-2)',
+              transitionProperty: 'background-color, color',
+              transitionDuration: 'var(--dur-micro)',
+              '&:hover': { color: active ? kindAccentVar(k) : 'var(--color-ink)' },
+              '&:active': { bgcolor: kindTintVar(k) },
+              '&:focus-visible': { outlineOffset: '-2px' },
             }}
           >
             <Icon size={15} strokeWidth={2.25} aria-hidden />
@@ -115,13 +128,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
           position: 'sticky',
           top: 0,
           zIndex: 1100,
-          bgcolor: 'rgba(13, 15, 26, 0.96)',
+          bgcolor: 'var(--color-scrim)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '2px solid',
-          borderColor: kindAccentVar(kind),
+          borderBottom: '1px solid var(--color-rule)',
           px: { xs: 2, sm: 3 },
-          py: 1.25,
+          minHeight: 64,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -129,24 +141,47 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
         }}
       >
         {/* Logo + desktop nav */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography
-            level="title-lg"
-            sx={{
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              color: 'primary.400',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, alignSelf: 'stretch' }}>
+          <Box
+            component="button"
+            type="button"
+            aria-label="MovieNight home"
             onClick={() => go('queue')}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              p: 0,
+              border: 'none',
+              bgcolor: 'transparent',
+              cursor: 'pointer',
+              color: 'text.primary',
+              fontFamily: 'display',
+              fontWeight: 800,
+              fontSize: { xs: '1.5rem', sm: '1.75rem' },
+              lineHeight: 1,
+              textTransform: 'uppercase',
+              '&:hover': { color: 'primary.400' },
+            }}
           >
+            <img src="/favicon.svg" alt="" width={26} height={26} />
             MovieNight
-          </Typography>
+          </Box>
           {/* Kind toggle — desktop */}
           <Box sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>{kindToggle}</Box>
           {/* Desktop nav links */}
-          <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>{navItems}</Box>
+          <Box
+            component="nav"
+            aria-label="Main"
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              gap: 0.5,
+              alignSelf: 'stretch',
+              alignItems: 'stretch',
+            }}
+          >
+            {navItems}
+          </Box>
         </Box>
 
         {/* Right side */}
@@ -169,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                       width: 30,
                       height: 30,
                       borderRadius: '50%',
-                      border: '2px solid rgba(245, 197, 24, 0.3)',
+                      border: '1px solid var(--color-rule-strong)',
                     }}
                   />
                 )}
@@ -193,8 +228,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                 aria-label="How MovieNight works"
                 onClick={() => setHelpOpen(true)}
                 sx={{
+                  display: { xs: 'none', sm: 'inline-flex' },
                   color: 'text.secondary',
-                  '&:hover': { color: 'primary.300' },
+                  '&:hover': { color: 'text.primary' },
                 }}
               >
                 <HelpCircle size={18} strokeWidth={2.25} />
@@ -206,8 +242,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                 aria-label="Notification settings"
                 onClick={() => setNotificationsOpen(true)}
                 sx={{
+                  display: { xs: 'none', sm: 'inline-flex' },
                   color: 'text.secondary',
-                  '&:hover': { color: 'primary.300' },
+                  '&:hover': { color: 'text.primary' },
                 }}
               >
                 <Bell size={18} strokeWidth={2.25} />
@@ -217,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                 color="neutral"
                 size="sm"
                 onClick={logout}
-                sx={{ fontWeight: 600, borderColor: 'var(--mn-border-vis)' }}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
               >
                 Logout
               </Button>
@@ -231,7 +268,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                 onShowLogin();
                 setMobileOpen(false);
               }}
-              sx={{ fontWeight: 700, color: '#0d0f1a' }}
             >
               Sign In
             </Button>
@@ -244,7 +280,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
             size="sm"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMobileOpen((o) => !o)}
-            sx={{ display: { xs: 'flex', sm: 'none' } }}
+            sx={{ display: { xs: 'flex', md: 'none' }, minWidth: 44, minHeight: 44 }}
           >
             {mobileOpen ? (
               <X size={20} strokeWidth={2.25} />
@@ -281,7 +317,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
       {mobileOpen && (
         <Box
           sx={{
-            display: { xs: 'flex', sm: 'none' },
+            display: { xs: 'flex', md: 'none' },
             flexDirection: 'column',
             gap: 1,
             bgcolor: 'background.surface',
@@ -305,7 +341,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                       width: 32,
                       height: 32,
                       borderRadius: '50%',
-                      border: '2px solid rgba(245, 197, 24, 0.3)',
+                      border: '1px solid var(--color-rule-strong)',
                     }}
                   />
                 )}
@@ -317,6 +353,40 @@ export const Navbar: React.FC<NavbarProps> = ({ onShowLogin }) => {
                     {user?.display_name || user?.username}
                   </Typography>
                 </Box>
+              </Box>
+              <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 0.5 }}>
+                <Button
+                  variant="plain"
+                  color="neutral"
+                  startDecorator={<HelpCircle size={18} strokeWidth={2.25} />}
+                  onClick={() => {
+                    setHelpOpen(true);
+                    setMobileOpen(false);
+                  }}
+                  sx={{ justifyContent: 'flex-start', minHeight: 44 }}
+                >
+                  How MovieNight works
+                </Button>
+                <Button
+                  variant="plain"
+                  color="neutral"
+                  startDecorator={<Bell size={18} strokeWidth={2.25} />}
+                  onClick={() => {
+                    setNotificationsOpen(true);
+                    setMobileOpen(false);
+                  }}
+                  sx={{ justifyContent: 'flex-start', minHeight: 44 }}
+                >
+                  Notification settings
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="neutral"
+                  onClick={logout}
+                  sx={{ alignSelf: 'flex-start', minHeight: 44 }}
+                >
+                  Logout
+                </Button>
               </Box>
             </>
           )}

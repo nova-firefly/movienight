@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Chip } from '@mui/joy';
+import { Box, Chip, Typography } from '@mui/joy';
 import { Film, Tv } from 'lucide-react';
 import { ContentKind, Show } from '../../models/Content';
 
@@ -12,31 +12,57 @@ export const kindAccent = (kind: ContentKind) =>
 export const kindTint = (kind: ContentKind) =>
   kind === 'show' ? 'var(--mn-kind-show-tint)' : 'var(--mn-kind-movie-tint)';
 
-// Kind chip: icon + text, so kind is never conveyed by colour alone (WCAG 1.4.1).
+// Kind label: icon + text, so kind is never conveyed by colour alone (WCAG 1.4.1).
+// Set quiet (no fill) because every row carries one; the rank numeral is the loud part.
 export const KindChip: React.FC<{ kind: ContentKind }> = ({ kind }) => {
   const isShow = kind === 'show';
   const Icon = isShow ? Tv : Film;
   return (
-    <Chip
-      size="sm"
-      variant="soft"
-      startDecorator={<Icon size={11} strokeWidth={2.5} aria-hidden />}
+    <Box
+      component="span"
       sx={{
-        '--Chip-minHeight': '18px',
-        '--Chip-gap': '2px',
-        fontSize: '0.6rem',
-        fontWeight: 700,
-        bgcolor: kindTint(kind),
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        fontSize: 'var(--text-xs)',
+        fontWeight: 600,
         color: kindAccent(kind),
         flexShrink: 0,
       }}
     >
+      <Icon size={12} strokeWidth={2.25} aria-hidden />
       {isShow ? 'Show' : 'Movie'}
-    </Chip>
+    </Box>
   );
 };
 
-// "N seasons · N episodes · year" for shows. Empty string when nothing is known.
+// The queue's signature: the rank set in the marquee face. The top three take
+// the kind colour; the rest sit back in muted ink.
+export const RankNumeral: React.FC<{ rank: number; kind: ContentKind; size?: 'md' | 'lg' }> = ({
+  rank,
+  kind,
+  size = 'lg',
+}) => (
+  <Typography
+    component="span"
+    aria-label={`Rank ${rank}`}
+    sx={{
+      fontFamily: 'display',
+      fontWeight: 800,
+      fontSize: size === 'lg' ? '2.25rem' : '1.75rem',
+      lineHeight: 1,
+      fontVariantNumeric: 'tabular-nums',
+      color: rank <= 3 ? kindAccent(kind) : 'text.tertiary',
+      display: 'inline-block',
+      minWidth: size === 'lg' ? '2.5ch' : '2ch',
+      textAlign: 'right',
+    }}
+  >
+    {rank}
+  </Typography>
+);
+
+// "N seasons, N episodes, year" for shows. Empty string when nothing is known.
 export function showMetaLine(show: Show): string {
   const parts = [
     show.number_of_seasons != null
@@ -47,10 +73,10 @@ export function showMetaLine(show: Show): string {
       : null,
     show.first_air_year || null,
   ].filter(Boolean);
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
-// Episode-progress chip (e.g. "S2 · E4"). Renders nothing until a value exists,
+// Episode-progress chip (e.g. "S2 E4"). Renders nothing until a value exists,
 // so it stays invisible until the episode-progress feature (issue: TV Shows —
 // episode progress) populates `Show.episode_progress`. The layout row that hosts
 // it collapses when empty, so there is no placeholder clutter (D-12 intent —

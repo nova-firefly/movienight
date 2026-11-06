@@ -73,7 +73,7 @@ const WatchHistoryCard: React.FC<WatchHistoryCardProps> = ({
       {/* Requeue action */}
       {canUnwatch && (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Tooltip title="Watch again — put back in queue" arrow>
+          <Tooltip title="Watch again: put back in queue" arrow>
             <IconButton
               size="sm"
               color="primary"

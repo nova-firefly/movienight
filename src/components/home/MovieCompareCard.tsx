@@ -80,7 +80,7 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ kind, movie, onPick
           : {
               borderColor: 'primary.400',
               transform: 'translateY(-2px)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              boxShadow: '0 8px 24px var(--color-scrim)',
             },
         display: 'flex',
         flexDirection: 'column',
@@ -204,7 +204,6 @@ const MovieCompareCard: React.FC<MovieCompareCardProps> = ({ kind, movie, onPick
             }}
             sx={{
               fontWeight: 700,
-              color: '#0d0f1a',
               fontSize: { xs: '0.75rem', sm: '0.875rem' },
               '&:focus, &:focus-visible, &.Mui-focusVisible': {
                 outline: 'none',
