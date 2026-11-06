@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -157,8 +157,20 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
 
   const connections = connectionsData?.myConnections || [];
 
-  // Default view is "My Suggestions" (selectedConnectionId === null).
-  // Users can switch to a connection's combined view via the ViewSelector tabs.
+  // Default view is the first connection's combined list once connections load;
+  // with no connections it stays "My Suggestions" (selectedConnectionId === null).
+  // An explicit tab pick wins for the rest of the visit.
+  const viewChosenRef = useRef(false);
+  const selectView = useCallback((id: string | null) => {
+    viewChosenRef.current = true;
+    setSelectedConnectionId(id);
+  }, []);
+  const firstConnectionId = connections.length > 0 ? String(connections[0].id) : null;
+  useEffect(() => {
+    if (!viewChosenRef.current && selectedConnectionId === null && firstConnectionId) {
+      setSelectedConnectionId(firstConnectionId);
+    }
+  }, [firstConnectionId, selectedConnectionId]);
 
   const incomingPending =
     pendingData?.pendingConnectionRequests?.filter((r: any) => r.direction === 'received') || [];
@@ -411,7 +423,7 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
             connections={connections}
             soloMovieCount={soloMovies.length}
             selectedConnectionId={selectedConnectionId}
-            onSelect={setSelectedConnectionId}
+            onSelect={selectView}
           />
         )}
 
