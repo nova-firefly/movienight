@@ -10,8 +10,10 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
+  Select,
+  Option,
 } from '@mui/joy';
-import { Check, X } from 'lucide-react';
+import { Check, Eye, X } from 'lucide-react';
 import {
   GET_MOVIES,
   DELETE_MOVIE,
@@ -609,11 +611,6 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
         {/* Combined view */}
         {isCombinedView && (
           <>
-            <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
-              {isShow ? 'Shows' : 'Movies'} ranked by combining both your This or That picks. The
-              more you each compare, the better the ranking.
-            </Typography>
-
             {combinedLoading && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <CircularProgress size="sm" />
@@ -645,12 +642,27 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   allRankings.forEach((r: any) => {
                     filterCounts[seenBucket(r)] += 1;
                   });
-                  const filterChips: { key: typeof combinedSeenFilter; label: string }[] = [
-                    { key: 'all', label: 'All' },
-                    { key: 'new', label: 'New to both' },
-                    { key: 'one', label: 'One of you has seen' },
-                    { key: 'rewatch', label: 'Both have seen' },
+                  const filterOptions: {
+                    key: typeof combinedSeenFilter;
+                    label: string;
+                    hint: string;
+                  }[] = [
+                    { key: 'all', label: 'All', hint: 'Everything you both have ranked' },
+                    {
+                      key: 'new',
+                      label: 'New to both',
+                      hint: `Neither you nor ${otherName} has seen it`,
+                    },
+                    { key: 'one', label: 'One of you has seen', hint: 'A rewatch for one of you' },
+                    {
+                      key: 'rewatch',
+                      label: 'Both have seen',
+                      hint: `You and ${otherName} have both seen it`,
+                    },
                   ];
+                  const activeFilter =
+                    filterOptions.find((f) => f.key === combinedSeenFilter) ?? filterOptions[0];
+                  const filterActive = combinedSeenFilter !== 'all';
                   if (allRankings.length === 0) {
                     return (
                       <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -673,63 +685,70 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                   }
                   return (
                     <>
-                      {/* Seen-it filter: narrows the shared ranking by who has already
-                          watched each title (from the per-user "Seen it" tag). */}
+                      {/* Toolbar: what the ranking is, and the optional Seen-it filter
+                          (from the per-user "Seen it" tag) as one compact select. */}
                       <Box
-                        role="group"
-                        aria-label="Filter by who has seen it"
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 1,
-                          mb: 1.5,
-                          overflowX: 'auto',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          columnGap: 3,
+                          rowGap: 1,
+                          mb: 2,
                         }}
                       >
                         <Typography
                           level="body-sm"
-                          sx={{ color: 'text.tertiary', flexShrink: 0, mr: 0.5 }}
+                          sx={{ color: 'text.secondary', flex: '1 1 32ch', maxWidth: '65ch' }}
                         >
-                          Seen it
+                          {isShow ? 'Shows' : 'Movies'} ranked by combining both your This or That
+                          picks. The more you each compare, the better the ranking.
                         </Typography>
-                        {filterChips.map((f) => {
-                          const active = combinedSeenFilter === f.key;
-                          return (
-                            <Button
-                              key={f.key}
-                              size="sm"
-                              variant={active ? 'soft' : 'outlined'}
-                              color={active ? 'primary' : 'neutral'}
-                              aria-pressed={active}
-                              onClick={() => setCombinedSeenFilter(f.key)}
-                              sx={{ flexShrink: 0, minHeight: 36, gap: 0.75 }}
-                            >
-                              {f.label}
-                              <Typography
+                        <Select
+                          size="sm"
+                          value={combinedSeenFilter}
+                          onChange={(_, val) => val && setCombinedSeenFilter(val)}
+                          variant={filterActive ? 'soft' : 'outlined'}
+                          color={filterActive ? 'primary' : 'neutral'}
+                          startDecorator={<Eye size={14} strokeWidth={2.25} aria-hidden />}
+                          renderValue={() => (
+                            <Box component="span" sx={{ whiteSpace: 'nowrap' }}>
+                              Seen it: {activeFilter.label}
+                              <Box
                                 component="span"
-                                level="body-xs"
-                                sx={{
-                                  color: 'inherit',
-                                  opacity: 0.7,
-                                  fontVariantNumeric: 'tabular-nums',
-                                }}
+                                sx={{ ml: 0.75, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}
+                              >
+                                {filterCounts[activeFilter.key]}
+                              </Box>
+                            </Box>
+                          )}
+                          slotProps={{
+                            button: { 'aria-label': 'Filter by who has seen it' },
+                            listbox: { placement: 'bottom-end', sx: { minWidth: 260 } },
+                          }}
+                          sx={{ flexShrink: 0, minHeight: 36, fontWeight: 600 }}
+                        >
+                          {filterOptions.map((f) => (
+                            <Option key={f.key} value={f.key} label={f.label}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                                  {f.label}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                  {f.hint}
+                                </Typography>
+                              </Box>
+                              <Typography
+                                level="body-sm"
+                                sx={{ color: 'text.tertiary', fontVariantNumeric: 'tabular-nums' }}
                               >
                                 {filterCounts[f.key]}
                               </Typography>
-                            </Button>
-                          );
-                        })}
+                            </Option>
+                          ))}
+                        </Select>
                       </Box>
-                      {combinedSeenFilter !== 'all' && (
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 1 }}>
-                          {combinedSeenFilter === 'new' &&
-                            `Neither you nor ${otherName} has marked these “Seen it”.`}
-                          {combinedSeenFilter === 'one' &&
-                            `Only one of you has marked these “Seen it”.`}
-                          {combinedSeenFilter === 'rewatch' &&
-                            `You and ${otherName} have both marked these “Seen it”.`}
-                        </Typography>
-                      )}
                       <Sheet variant="plain" sx={{ bgcolor: 'transparent' }}>
                         <Box sx={{ overflowX: 'auto' }}>
                           <table
