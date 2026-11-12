@@ -779,8 +779,8 @@ describe('Show field resolvers', () => {
     expect(networks({ networks: ['Apple TV+'] })).toEqual(['Apple TV+']);
   });
 
-  it('episode_progress derives "S · E" only when both columns are set', () => {
-    expect(episode_progress({ next_season: 2, next_episode: 4 })).toBe('S2 · E4');
+  it('episode_progress derives "S E" only when both columns are set', () => {
+    expect(episode_progress({ next_season: 2, next_episode: 4 })).toBe('S2 E4');
     expect(episode_progress({ next_season: null, next_episode: null })).toBeNull();
     expect(episode_progress({ next_season: 2, next_episode: null })).toBeNull();
     expect(episode_progress({ next_season: null, next_episode: 4 })).toBeNull();

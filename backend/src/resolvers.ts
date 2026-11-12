@@ -3281,12 +3281,12 @@ export const resolvers = {
     // nullable text[] columns to [] so an unfetched show doesn't error.
     created_by: (parent: any) => parent.created_by ?? [],
     networks: (parent: any) => parent.networks ?? [],
-    // Derived "S{n} · E{m}" chip label. Null unless both progress columns are
+    // Derived "S{n} E{m}" chip label. Null unless both progress columns are
     // set — a show is "in progress" only when a next-up episode is recorded
     // (D-17). Drives the frontend EpisodeProgressChip.
     episode_progress: (parent: any) => {
       if (parent.next_season == null || parent.next_episode == null) return null;
-      return `S${parent.next_season} · E${parent.next_episode}`;
+      return `S${parent.next_season} E${parent.next_episode}`;
     },
     // Per-season episode counts (D-21). `season_episode_counts` is a JSONB map
     // { "<season>": <count> }; expose it as a season-ascending list. Empty when

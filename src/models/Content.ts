@@ -47,7 +47,7 @@ export type Show = {
   status?: string | null;
   // Household-shared manual episode progress (issue #107). `next_season`/
   // `next_episode` are the raw values (used to prefill the progress editor);
-  // `episode_progress` is the derived "S2 · E4" chip label, null unless both
+  // `episode_progress` is the derived "S2 E4" chip label, null unless both
   // raw values are set.
   next_season?: number | null;
   next_episode?: number | null;

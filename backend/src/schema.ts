@@ -205,7 +205,7 @@ export const typeDefs = `#graphql
     next_season: Int
     """Manually-tracked next-up episode (household-shared). Null when no progress is set."""
     next_episode: Int
-    """Derived "S{next_season} · E{next_episode}" chip label; null unless both are set."""
+    """Derived "S{next_season} E{next_episode}" chip label; null unless both are set."""
     episode_progress: String
     """Per-season episode counts from TMDB (specials excluded), ascending by season. Empty until fetched."""
     seasons: [ShowSeason!]!

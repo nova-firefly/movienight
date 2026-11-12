@@ -493,7 +493,7 @@ was dropped as clutter, per product decision — the reserve-the-concept intent 
 visible empty box.)
 
 **Landed (issue #107, D-16–D-21).** `Show.episode_progress` is now populated: it derives to
-`S{next_season} · E{next_episode}` when both household-shared progress columns are set. `ContentRow`/
+`S{next_season} E{next_episode}` when both household-shared progress columns are set. `ContentRow`/
 `ContentCard` render a pencil affordance next to the chip (authenticated users only) that opens
 `ShowProgressModal` to set or clear progress via the `setShowProgress(id, season, episode)` mutation.
 The editor uses Season/Episode dropdowns of valid numbers (D-20); when TMDB per-season episode counts

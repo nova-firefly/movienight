@@ -101,9 +101,9 @@ const ShowProgressModal: React.FC<ShowProgressModalProps> = ({ show, onClose, on
 
   return (
     <Modal open={!!show} onClose={saving ? undefined : onClose}>
-      <ModalDialog sx={{ maxWidth: 360, width: '100%' }}>
+      <ModalDialog aria-labelledby="show-progress-title" sx={{ maxWidth: 360, width: '100%' }}>
         <ModalClose disabled={saving} />
-        <Typography level="title-lg" sx={{ fontWeight: 700 }}>
+        <Typography id="show-progress-title" level="title-md" sx={{ fontWeight: 700 }}>
           Episode progress
         </Typography>
         <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 1 }}>
@@ -152,7 +152,7 @@ const ShowProgressModal: React.FC<ShowProgressModalProps> = ({ show, onClose, on
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mt: 2.5 }}>
             <Button
               variant="plain"
-              color="danger"
+              color="neutral"
               disabled={saving || !hasExisting}
               onClick={() => runSave(null, null)}
             >
