@@ -29,14 +29,11 @@ import ConfirmDialog from '../common/ConfirmDialog';
 const thStyle: React.CSSProperties = {
   padding: '10px 16px',
   textAlign: 'left',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--mn-text-muted)',
-  background: 'var(--mn-bg-elevated)',
-  borderBottom: '1px solid var(--mn-border-vis)',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 600,
   whiteSpace: 'nowrap',
+  color: 'var(--mn-text-muted)',
+  borderBottom: '1px solid var(--mn-border-vis)',
 };
 
 export const UserManagement: React.FC = () => {
@@ -176,7 +173,7 @@ export const UserManagement: React.FC = () => {
           variant="solid"
           size="sm"
           onClick={() => handleOpen()}
-          sx={{ fontWeight: 700, color: '#0d0f1a' }}
+          sx={{ fontWeight: 700 }}
         >
           + Add User
         </Button>
@@ -240,8 +237,9 @@ export const UserManagement: React.FC = () => {
                           width: 28,
                           height: 28,
                           borderRadius: '50%',
+                          maxWidth: 'none',
                           display: 'block',
-                          border: '2px solid rgba(245,197,24,0.2)',
+                          border: '1px solid var(--color-rule-strong)',
                         }}
                       />
                     </td>
@@ -255,7 +253,7 @@ export const UserManagement: React.FC = () => {
                         <Typography level="body-sm">{user.display_name}</Typography>
                       ) : (
                         <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                          —
+                          none
                         </Typography>
                       )}
                     </td>
@@ -334,8 +332,9 @@ export const UserManagement: React.FC = () => {
                   width: 32,
                   height: 32,
                   borderRadius: '50%',
+                  maxWidth: 'none',
                   flexShrink: 0,
-                  border: '2px solid rgba(245,197,24,0.2)',
+                  border: '1px solid var(--color-rule-strong)',
                 }}
               />
               <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -496,7 +495,7 @@ export const UserManagement: React.FC = () => {
                 type="submit"
                 loading={creating || updating}
                 color="primary"
-                sx={{ fontWeight: 700, color: '#0d0f1a' }}
+                sx={{ fontWeight: 700 }}
               >
                 {editingUser ? 'Update' : 'Create'}
               </Button>

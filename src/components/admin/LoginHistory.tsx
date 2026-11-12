@@ -16,14 +16,11 @@ interface LoginHistoryEntry {
 const thStyle: React.CSSProperties = {
   padding: '10px 16px',
   textAlign: 'left',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--mn-text-muted)',
-  background: 'var(--mn-bg-elevated)',
-  borderBottom: '1px solid var(--mn-border-vis)',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 600,
   whiteSpace: 'nowrap',
+  color: 'var(--mn-text-muted)',
+  borderBottom: '1px solid var(--mn-border-vis)',
 };
 
 export const LoginHistory: React.FC = () => {

@@ -37,7 +37,7 @@ cd backend && npm run migrate:create <name>
 
 - **Frontend**: React 18 + TypeScript, Apollo Client 3, MUI Joy (dark mode only), Emotion,
   `lucide-react` icons, `md5` for gravatar. CRA (`react-scripts`).
-- **Backend**: Node 18/20, Apollo Server 4 + Express, `pg` (no ORM), bcrypt + JWT, `web-push`,
+- **Backend**: Node 22, Apollo Server 5 + Express (`@as-integrations/express4`), `pg` (no ORM), bcrypt + JWT, `web-push`,
   `nodemailer`.
 - **Database**: PostgreSQL 15.
 - **Auth**: JWT (7-day expiry) in localStorage, sent as `Authorization: Bearer <token>`. Context is
@@ -400,7 +400,7 @@ to merge.
 ## Testing
 
 ```bash
-cd backend && npm test                    # 361 tests, 21 suites
+cd backend && npm test                    # 441 tests, 22 suites
 cd backend && npm test -- --coverage
 npm test -- --watchAll=false              # frontend
 ```

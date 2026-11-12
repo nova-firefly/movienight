@@ -14,6 +14,27 @@ interface MdbListItem {
   ids?: { tmdb?: number; imdb?: string };
 }
 
+/** Thrown when MDBList no longer has the list (e.g. it was deleted on the website). */
+export class MdbListNotFoundError extends Error {
+  constructor(
+    public readonly listId: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'MdbListNotFoundError';
+  }
+}
+
+/** Throw for a failed list request, distinguishing a missing list from other errors. */
+async function throwListError(res: Response, listId: number, action: string): Promise<never> {
+  const text = await res.text().catch(() => '');
+  const message = `MDBList ${action} failed (${res.status}): ${text}`;
+  if (res.status === 404 || /list not found/i.test(text)) {
+    throw new MdbListNotFoundError(listId, message);
+  }
+  throw new Error(message);
+}
+
 interface MdbListItemsResponse {
   movies: MdbListItem[];
   shows: MdbListItem[];
@@ -44,10 +65,7 @@ async function getListItems(apiKey: string, listId: number): Promise<number[]> {
     { signal: AbortSignal.timeout(15000) },
   );
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`MDBList get items failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) await throwListError(res, listId, 'get items');
 
   const data = (await res.json()) as MdbListItemsResponse;
   return (data.movies || [])
@@ -69,10 +87,7 @@ async function removeItems(apiKey: string, listId: number, tmdbIds: number[]): P
     },
   );
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`MDBList remove items failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) await throwListError(res, listId, 'remove items');
 }
 
 /** Add items to a list by TMDB IDs (order is preserved). */
@@ -89,10 +104,7 @@ async function addItems(apiKey: string, listId: number, tmdbIds: number[]): Prom
     },
   );
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`MDBList add items failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) await throwListError(res, listId, 'add items');
 }
 
 /**

@@ -78,14 +78,14 @@ const CombinedList: React.FC = () => {
       sx={{
         flex: 1,
         bgcolor: 'background.body',
-        px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 3, sm: 5 },
+        px: { xs: 2, sm: 3, md: 5 },
+        py: { xs: 3, sm: 6 },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ maxWidth: 'var(--container)', mx: 'auto' }}>
         {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
-          <Typography level="h2" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
+        <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+          <Typography level="h1" sx={{ fontSize: { xs: '2.5rem', sm: '3.5rem' }, mb: 1 }}>
             Connections
           </Typography>
           <Typography level="body-sm" sx={{ color: 'text.secondary' }}>

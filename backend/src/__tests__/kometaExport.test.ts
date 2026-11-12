@@ -9,6 +9,7 @@ const mockSyncList = jest.fn();
 jest.mock('../mdblist', () => ({
   createList: (...args: any[]) => mockCreateList(...args),
   syncList: (...args: any[]) => mockSyncList(...args),
+  MdbListNotFoundError: jest.requireActual('../mdblist').MdbListNotFoundError,
 }));
 
 const mockWriteFile = jest.fn();
@@ -31,6 +32,7 @@ import {
   ExportListResult,
   ExportOptions,
 } from '../kometaExport';
+import { MdbListNotFoundError } from '../mdblist';
 
 const defaultOptions: ExportOptions = {
   collectionsPath: '/tmp/kometa',
@@ -278,6 +280,110 @@ describe('runKometaExport', () => {
     expect(result.lists[0]).toEqual(
       expect.objectContaining({ name: 'Alice & Bob', type: 'combined', movieCount: 0 }),
     );
+  });
+
+  it('recreates the list when MDBList reports the stored list as not found', async () => {
+    // getAcceptedConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    // getCombinedTmdbIds
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    // getOrCreateMdbList: SELECT existing — stale id
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/u/old' }],
+    });
+    // syncList on stale list — not found
+    mockSyncList.mockRejectedValueOnce(
+      new MdbListNotFoundError(42, 'MDBList get items failed (404): List not found'),
+    );
+    // createList
+    mockCreateList.mockResolvedValueOnce({
+      id: 77,
+      slug: 'alice-bob',
+      url: 'https://mdblist.com/lists/u/new',
+    });
+    // upsert new id
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // syncList on new list
+    mockSyncList.mockResolvedValueOnce(undefined);
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await runKometaExport(defaultOptions);
+
+    expect(mockCreateList).toHaveBeenCalledWith('test-key', 'Alice & Bob');
+    expect(mockSyncList).toHaveBeenLastCalledWith('test-key', 77, [100]);
+    expect(mockQuery.mock.calls[3][0]).toContain('INSERT INTO kometa_mdblist_lists');
+    expect(mockQuery.mock.calls[3][1]).toEqual([
+      'combined',
+      10,
+      'Alice & Bob',
+      77,
+      'https://mdblist.com/lists/u/new',
+      'production',
+      'movie',
+    ]);
+    expect(result.lists[0].mdblistUrl).toBe('https://mdblist.com/lists/u/new');
+  });
+
+  it('forgets a missing list instead of recreating it when there is nothing to sync', async () => {
+    // getAcceptedConnections — none
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // getUsersWithConnections
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 1, display_name: 'Alice', username: 'alice' }],
+    });
+    // getSoloTmdbIds — empty
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // findExistingMdbList — stale row
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/u/old' }],
+    });
+    mockSyncList.mockRejectedValueOnce(new MdbListNotFoundError(42, 'List not found'));
+    // DELETE stale row
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await runKometaExport(defaultOptions);
+
+    expect(mockCreateList).not.toHaveBeenCalled();
+    expect(mockQuery.mock.calls[4][0]).toContain('DELETE FROM kometa_mdblist_lists');
+    expect(mockQuery.mock.calls[4][1]).toEqual(['solo', 1, 'production', 'movie']);
+    expect(result.lists).toHaveLength(0);
+  });
+
+  it('propagates non-not-found MDBList errors without recreating', async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          connection_id: 10,
+          u1_id: 1,
+          u1_display: 'Alice',
+          u1_username: 'alice',
+          u2_id: 2,
+          u2_display: 'Bob',
+          u2_username: 'bob',
+        },
+      ],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [{ tmdb_id: 100 }] });
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ mdblist_list_id: 42, mdblist_list_url: 'https://mdblist.com/lists/u/old' }],
+    });
+    mockSyncList.mockRejectedValueOnce(new Error('MDBList get items failed (500): boom'));
+
+    await expect(runKometaExport(defaultOptions)).rejects.toThrow('boom');
+    expect(mockCreateList).not.toHaveBeenCalled();
   });
 
   it('sorts pair names alphabetically for consistent naming', async () => {

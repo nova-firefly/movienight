@@ -105,19 +105,20 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
             width: 300,
             height: 300,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245,197,24,0.08) 0%, transparent 70%)',
+            background:
+              'radial-gradient(circle, color-mix(in oklab, var(--color-accent) 8%, transparent) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
-        <Typography sx={{ fontSize: '5rem', lineHeight: 1 }}>🎬</Typography>
+        <img src="/favicon.svg" alt="" width={88} height={88} />
         <Typography
           level="h1"
-          sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'primary.400' }}
+          sx={{ fontSize: '4rem', textTransform: 'uppercase', color: 'text.primary' }}
         >
           MovieNight
         </Typography>
         <Typography level="body-lg" sx={{ color: 'text.secondary', maxWidth: 280 }}>
-          Keep track of what to watch next — together.
+          Keep track of what to watch next, together.
         </Typography>
       </Box>
 
@@ -135,7 +136,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
       >
         {/* Mobile logo */}
         <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 4, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: '3rem', lineHeight: 1 }}>🎬</Typography>
+          <img src="/favicon.svg" alt="" width={56} height={56} />
           <Typography level="h3" sx={{ fontWeight: 800, color: 'primary.400', mt: 1 }}>
             MovieNight
           </Typography>
@@ -211,7 +212,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
               loading={loading}
               color="primary"
               variant="solid"
-              sx={{ fontWeight: 700, color: '#0d0f1a', py: 1.25 }}
+              sx={{ fontWeight: 700, py: 1.25 }}
             >
               Sign In
             </Button>
@@ -223,7 +224,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
                 level="body-xs"
                 sx={{ textAlign: 'center', color: 'text.tertiary', mb: 1.5 }}
               >
-                Quick login — test environment
+                Quick login (test environment)
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {quickLoginUsers.map((u) => (
