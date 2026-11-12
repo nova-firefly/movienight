@@ -986,6 +986,10 @@ export const COMBINED_SHOW_LIST = gql`
           next_season
           next_episode
           episode_progress
+          seasons {
+            season
+            episodeCount
+          }
           userTags {
             tag {
               slug

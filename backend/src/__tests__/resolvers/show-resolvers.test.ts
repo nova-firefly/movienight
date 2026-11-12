@@ -210,6 +210,31 @@ describe('Query.combinedShowList', () => {
     expect(result.rankings[0].bothRated).toBe(true);
   });
 
+  it('selects progress and per-season counts so the combined view can edit progress', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 3, requester_id: 1, addressee_id: 2, status: 'accepted', other_user_id: 2 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 1,
+            title: 'A',
+            next_season: 2,
+            next_episode: 4,
+            season_episode_counts: { '1': 8, '2': 10 },
+            combined_elo: '1000',
+            both_rated: true,
+          },
+        ],
+      });
+    const result = await combinedShowList(null, { connectionId: '3' }, authContext({ userId: 1 }));
+    const sql = mockQuery.mock.calls[1][0] as string;
+    expect(sql).toContain('s.next_season, s.next_episode, s.season_episode_counts');
+    expect(result.rankings[0].show.next_season).toBe(2);
+    expect(result.rankings[0].show.season_episode_counts).toEqual({ '1': 8, '2': 10 });
+  });
+
   it('throws NOT_FOUND when connection is not accepted', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     await expect(

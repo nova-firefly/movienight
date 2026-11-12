@@ -13,7 +13,7 @@ import {
   Select,
   Option,
 } from '@mui/joy';
-import { Check, Eye, X } from 'lucide-react';
+import { Check, Eye, Pencil, X } from 'lucide-react';
 import {
   GET_MOVIES,
   DELETE_MOVIE,
@@ -52,7 +52,7 @@ import ConnectionBanners from './ConnectionBanners';
 import ConnectionInboxModal from './ConnectionInboxModal';
 import ThisOrThatBanner from './ThisOrThatBanner';
 import ShowProgressModal from './ShowProgressModal';
-import { RankNumeral } from './kindAffordance';
+import { RankNumeral, EpisodeProgressChip } from './kindAffordance';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Poster from '../common/Poster';
 import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../common/OnboardingGuide';
@@ -828,7 +828,14 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                       <RankNumeral rank={idx + 1} kind={kind} size="md" />
                                     </td>
                                     <td style={combinedTdStyle}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 1,
+                                          flexWrap: 'wrap',
+                                        }}
+                                      >
                                         <Typography level="body-sm" sx={{ fontWeight: 600 }}>
                                           {(r.movie ?? r.show).title}
                                         </Typography>
@@ -840,6 +847,44 @@ const HomePage: React.FC<HomePageProps> = ({ onShowThisOrThat, onShowConnections
                                             <Chip size="sm" variant="soft" color="neutral">
                                               Needs ranking
                                             </Chip>
+                                          </Tooltip>
+                                        )}
+                                        {r.show && (
+                                          <EpisodeProgressChip value={r.show.episode_progress} />
+                                        )}
+                                        {r.show && isAuthenticated && (
+                                          <Tooltip
+                                            title={
+                                              r.show.episode_progress
+                                                ? 'Edit progress'
+                                                : 'Set progress'
+                                            }
+                                            arrow
+                                          >
+                                            <IconButton
+                                              size="sm"
+                                              variant="plain"
+                                              color="neutral"
+                                              onClick={() => handleEditProgress(r.show)}
+                                              aria-label={
+                                                r.show.episode_progress
+                                                  ? `Edit progress for ${r.show.title}`
+                                                  : `Set progress for ${r.show.title}`
+                                              }
+                                              sx={{
+                                                '--IconButton-size': '24px',
+                                                minHeight: 24,
+                                                minWidth: 24,
+                                                opacity: 0.55,
+                                                transitionProperty: 'opacity',
+                                                transitionDuration: 'var(--dur-micro)',
+                                                'tr:hover &, &:hover, &:focus-visible': {
+                                                  opacity: 1,
+                                                },
+                                              }}
+                                            >
+                                              <Pencil size={12} strokeWidth={2.25} />
+                                            </IconButton>
                                           </Tooltip>
                                         )}
                                       </Box>

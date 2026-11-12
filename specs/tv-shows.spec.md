@@ -500,6 +500,9 @@ The editor uses Season/Episode dropdowns of valid numbers (D-20); when TMDB per-
 are known (`Show.seasons`, backed by the `season_episode_counts` JSONB column, D-21) the Episode
 picker narrows to the selected season's real episode count. In-progress shows sort to the top of the
 Shows queue (D-19). Movies are untouched — the editor and ordering clause are show-only.
+The combined (per-connection) ranking table shows the same chip and pencil beside each show's title,
+but keeps its combined-Elo order: in-progress shows are not lifted there, since the rank numerals
+are the point of that view.
 
 ---
 

@@ -916,7 +916,7 @@ export const resolvers = {
         `SELECT s.id, s.title, s.requested_by, s.date_submitted, s.tmdb_id, s.watched_at,
                 s.elo_rank, s.poster_path, s.first_air_year, s.created_by, s.networks,
                 s.number_of_seasons, s.number_of_episodes, s.status,
-                s.next_season, s.next_episode,
+                s.next_season, s.next_episode, s.season_episode_counts,
                 u.username AS user_username, u.display_name AS user_display_name,
                 use_a.elo_rating AS user_a_elo,
                 use_b.elo_rating AS user_b_elo,
