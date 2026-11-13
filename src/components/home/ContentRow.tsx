@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/joy';
-import { Check, ExternalLink, Eye, EyeOff, Pencil, X } from 'lucide-react';
+import { Check, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, EpisodeProgressChip, RankNumeral } from './kindAffordance';
+import { KindChip, showMetaLine, EpisodeProgressControl, RankNumeral } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentRowProps {
@@ -127,29 +127,12 @@ const ContentRow: React.FC<ContentRowProps> = ({
                   {meta}
                 </Typography>
               )}
-              <EpisodeProgressChip value={progress} />
-              {canEditProgress && (
-                <Tooltip title={progress ? 'Edit progress' : 'Set progress'} arrow>
-                  <IconButton
-                    size="sm"
-                    variant="plain"
-                    color="neutral"
-                    onClick={() => onEditProgress!(show)}
-                    aria-label={
-                      progress
-                        ? `Edit progress for ${item.title}`
-                        : `Set progress for ${item.title}`
-                    }
-                    sx={{
-                      ...quietAction,
-                      '--IconButton-size': '24px',
-                      minHeight: 24,
-                      minWidth: 24,
-                    }}
-                  >
-                    <Pencil size={12} strokeWidth={2.25} />
-                  </IconButton>
-                </Tooltip>
+              {show && (
+                <EpisodeProgressControl
+                  title={item.title}
+                  value={progress}
+                  onEdit={canEditProgress ? () => onEditProgress!(show) : undefined}
+                />
               )}
             </Box>
           </Box>

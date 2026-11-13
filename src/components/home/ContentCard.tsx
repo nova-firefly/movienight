@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/joy';
-import { Check, ExternalLink, Eye, EyeOff, Pencil, X } from 'lucide-react';
+import { Check, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, EpisodeProgressChip, RankNumeral } from './kindAffordance';
+import { KindChip, showMetaLine, EpisodeProgressControl, RankNumeral } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentCardProps {
@@ -93,7 +93,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
             })}
           </Typography>
         </Box>
-        {show && (meta || progress) && (
+        {show && (meta || progress || canEditProgress) && (
           <Box
             sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
           >
@@ -102,7 +102,12 @@ const ContentCard: React.FC<ContentCardProps> = ({
                 {meta}
               </Typography>
             )}
-            <EpisodeProgressChip value={progress} />
+            <EpisodeProgressControl
+              title={item.title}
+              value={progress}
+              onEdit={canEditProgress ? () => onEditProgress!(show) : undefined}
+              touch
+            />
           </Box>
         )}
         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, ml: -1.25 }}>
@@ -155,20 +160,6 @@ const ContentCard: React.FC<ContentCardProps> = ({
                 )}
               </IconButton>
             </Tooltip>
-          )}
-          {canEditProgress && (
-            <IconButton
-              size="sm"
-              variant="plain"
-              color="neutral"
-              onClick={() => onEditProgress!(show)}
-              aria-label={
-                progress ? `Edit progress for ${item.title}` : `Set progress for ${item.title}`
-              }
-              sx={hit}
-            >
-              <Pencil size={16} strokeWidth={2.25} />
-            </IconButton>
           )}
           {canMarkWatched && (
             <IconButton

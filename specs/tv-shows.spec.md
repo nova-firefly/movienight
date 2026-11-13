@@ -494,13 +494,13 @@ visible empty box.)
 
 **Landed (issue #107, D-16–D-21).** `Show.episode_progress` is now populated: it derives to
 `S{next_season} E{next_episode}` when both household-shared progress columns are set. `ContentRow`/
-`ContentCard` render a pencil affordance next to the chip (authenticated users only) that opens
+`ContentCard` render `EpisodeProgressControl` (authenticated users only): a labelled "Track progress" button until progress is set, then the `S2 E4` value itself as the button. It opens
 `ShowProgressModal` to set or clear progress via the `setShowProgress(id, season, episode)` mutation.
 The editor uses Season/Episode dropdowns of valid numbers (D-20); when TMDB per-season episode counts
 are known (`Show.seasons`, backed by the `season_episode_counts` JSONB column, D-21) the Episode
 picker narrows to the selected season's real episode count. In-progress shows sort to the top of the
 Shows queue (D-19). Movies are untouched — the editor and ordering clause are show-only.
-The combined (per-connection) ranking table shows the same chip and pencil beside each show's title,
+The combined (per-connection) ranking table shows the same control beside each show's title,
 but keeps its combined-Elo order: in-progress shows are not lifted there, since the rank numerals
 are the point of that view.
 
