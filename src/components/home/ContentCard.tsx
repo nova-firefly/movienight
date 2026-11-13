@@ -3,7 +3,7 @@ import { Box, Typography, IconButton, Tooltip } from '@mui/joy';
 import { Check, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, EpisodeProgressChip, RankNumeral } from './kindAffordance';
+import { KindChip, showMetaLine, EpisodeProgressControl, RankNumeral } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentCardProps {
@@ -15,6 +15,8 @@ export interface ContentCardProps {
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
   onToggleSeen: (id: string, currentlySeen: boolean) => void;
+  // Shows only: open the episode-progress editor. Omitted for movies.
+  onEditProgress?: (show: Show) => void;
   isAuthenticated: boolean;
   isRecentlyAdded?: boolean;
 }
@@ -31,12 +33,14 @@ const ContentCard: React.FC<ContentCardProps> = ({
   onMarkWatched,
   onDelete,
   onToggleSeen,
+  onEditProgress,
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
   const show = kind === 'show' ? (item as Show) : null;
   const meta = show ? showMetaLine(show) : '';
   const progress = show?.episode_progress ?? null;
+  const canEditProgress = !!show && isAuthenticated && !!onEditProgress;
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -89,7 +93,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
             })}
           </Typography>
         </Box>
-        {show && (meta || progress) && (
+        {show && (meta || progress || canEditProgress) && (
           <Box
             sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, flexWrap: 'wrap' }}
           >
@@ -98,7 +102,12 @@ const ContentCard: React.FC<ContentCardProps> = ({
                 {meta}
               </Typography>
             )}
-            <EpisodeProgressChip value={progress} />
+            <EpisodeProgressControl
+              title={item.title}
+              value={progress}
+              onEdit={canEditProgress ? () => onEditProgress!(show) : undefined}
+              touch
+            />
           </Box>
         )}
         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, ml: -1.25 }}>

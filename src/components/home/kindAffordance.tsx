@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Chip, Typography } from '@mui/joy';
-import { Film, Tv } from 'lucide-react';
+import { Box, Button, Chip, Tooltip, Typography } from '@mui/joy';
+import { BookmarkPlus, Film, Tv } from 'lucide-react';
 import { ContentKind, Show } from '../../models/Content';
 
 // Kind affordance helpers shared by ContentRow and ContentCard so the two never
@@ -98,5 +98,74 @@ export const EpisodeProgressChip: React.FC<{ value?: string | null }> = ({ value
     >
       {value}
     </Chip>
+  );
+};
+
+// Episode-progress control (issue #107). Replaces a bare pencil, which didn't
+// say what it edited: with no progress yet it reads "Track progress"; once set,
+// the "S2 E4" value is itself the button. Without `onEdit` (signed out) it is
+// the read-only chip. `touch` sizes it to a 44px target for the phone card;
+// otherwise it stays quiet until its row is hovered, like the other row actions.
+export const EpisodeProgressControl: React.FC<{
+  title: string;
+  value?: string | null;
+  onEdit?: () => void;
+  touch?: boolean;
+}> = ({ title, value, onEdit, touch = false }) => {
+  if (!onEdit) return <EpisodeProgressChip value={value} />;
+  const size = touch
+    ? { minHeight: 44, px: 1.25 }
+    : { '--Button-minHeight': '26px', minHeight: 26, px: 1, py: 0 };
+  if (value) {
+    return (
+      <Tooltip title="Update progress" arrow>
+        <Button
+          size="sm"
+          variant="soft"
+          onClick={onEdit}
+          aria-label={`Update progress for ${title}, now ${value}`}
+          sx={{
+            ...size,
+            fontSize: 'var(--joy-fontSize-xs)',
+            fontWeight: 700,
+            bgcolor: 'var(--mn-kind-show-tint)',
+            color: 'var(--mn-kind-show)',
+            flexShrink: 0,
+            '&:hover': {
+              bgcolor: 'color-mix(in oklab, var(--mn-kind-show) 24%, transparent)',
+            },
+          }}
+        >
+          {value}
+        </Button>
+      </Tooltip>
+    );
+  }
+  return (
+    <Button
+      size="sm"
+      variant="plain"
+      color="neutral"
+      startDecorator={<BookmarkPlus size={14} strokeWidth={2.25} />}
+      onClick={onEdit}
+      aria-label={`Track progress for ${title}`}
+      sx={{
+        ...size,
+        fontSize: 'var(--joy-fontSize-xs)',
+        fontWeight: 600,
+        color: 'text.secondary',
+        flexShrink: 0,
+        ...(touch
+          ? {}
+          : {
+              opacity: 0.6,
+              transitionProperty: 'opacity',
+              transitionDuration: 'var(--dur-micro)',
+              'tr:hover &, &:hover, &:focus-visible': { opacity: 1 },
+            }),
+      }}
+    >
+      Track progress
+    </Button>
   );
 };

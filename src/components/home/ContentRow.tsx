@@ -3,7 +3,7 @@ import { Box, Typography, IconButton, Tooltip } from '@mui/joy';
 import { Check, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import { ContentItem, ContentKind, Show } from '../../models/Content';
 import { tmdbUrl } from '../../utils/tmdb';
-import { KindChip, showMetaLine, EpisodeProgressChip, RankNumeral } from './kindAffordance';
+import { KindChip, showMetaLine, EpisodeProgressControl, RankNumeral } from './kindAffordance';
 import Poster from '../common/Poster';
 
 export interface ContentRowProps {
@@ -15,6 +15,8 @@ export interface ContentRowProps {
   onMarkWatched: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
   onToggleSeen: (id: string, currentlySeen: boolean) => void;
+  // Shows only: open the episode-progress editor. Omitted for movies.
+  onEditProgress?: (show: Show) => void;
   isAuthenticated: boolean;
   isRecentlyAdded?: boolean;
 }
@@ -70,12 +72,14 @@ const ContentRow: React.FC<ContentRowProps> = ({
   onMarkWatched,
   onDelete,
   onToggleSeen,
+  onEditProgress,
   isAuthenticated,
   isRecentlyAdded = false,
 }) => {
   const show = kind === 'show' ? (item as Show) : null;
   const meta = show ? showMetaLine(show) : '';
   const progress = show?.episode_progress ?? null;
+  const canEditProgress = !!show && isAuthenticated && !!onEditProgress;
   const isSeen = item.myTags?.some((t) => t.tag.slug === 'seen') ?? false;
   const seenByUsers = (item.userTags ?? []).filter((t) => t.tag.slug === 'seen');
   const seenCount = seenByUsers.length;
@@ -123,7 +127,13 @@ const ContentRow: React.FC<ContentRowProps> = ({
                   {meta}
                 </Typography>
               )}
-              <EpisodeProgressChip value={progress} />
+              {show && (
+                <EpisodeProgressControl
+                  title={item.title}
+                  value={progress}
+                  onEdit={canEditProgress ? () => onEditProgress!(show) : undefined}
+                />
+              )}
             </Box>
           </Box>
         </Box>

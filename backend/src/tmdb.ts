@@ -41,6 +41,9 @@ export interface TmdbShowMetadata extends TmdbSharedMetadata {
   number_of_seasons: number | null;
   number_of_episodes: number | null;
   status: string | null;
+  // Map of season number → episode count (specials/season 0 excluded). Null
+  // when TMDB returns no usable season list. Persisted as JSONB (D-21).
+  season_episode_counts: Record<string, number> | null;
 }
 
 export type TmdbMetadata = TmdbMovieMetadata | TmdbShowMetadata;
@@ -139,6 +142,22 @@ export async function fetchTmdbMetadata(kind: Kind, tmdbId: number): Promise<Tmd
       };
     }
 
+    // Per-season episode counts, keyed by season number. Skip specials
+    // (season_number 0) and any season with no episodes yet (D-21).
+    const seasonCounts: Record<string, number> = {};
+    for (const s of (detail.seasons ?? []) as Array<{
+      season_number?: number;
+      episode_count?: number;
+    }>) {
+      if (
+        typeof s.season_number === 'number' &&
+        s.season_number >= 1 &&
+        (s.episode_count ?? 0) > 0
+      ) {
+        seasonCounts[String(s.season_number)] = s.episode_count as number;
+      }
+    }
+
     return {
       kind: 'show',
       title: detail.name,
@@ -149,6 +168,7 @@ export async function fetchTmdbMetadata(kind: Kind, tmdbId: number): Promise<Tmd
       number_of_seasons: detail.number_of_seasons ?? null,
       number_of_episodes: detail.number_of_episodes ?? null,
       status: detail.status ?? null,
+      season_episode_counts: Object.keys(seasonCounts).length > 0 ? seasonCounts : null,
       cast_list,
       genre_tags,
     };
@@ -191,8 +211,9 @@ export async function fetchAndStoreTmdbData(
         `UPDATE shows
          SET poster_path = $1, first_air_year = $2, created_by = $3, networks = $4,
              cast_list = $5, genre_tags = $6, number_of_seasons = $7,
-             number_of_episodes = $8, status = $9, tmdb_fetched_at = NOW()
-         WHERE id = $10`,
+             number_of_episodes = $8, status = $9, season_episode_counts = $10,
+             tmdb_fetched_at = NOW()
+         WHERE id = $11`,
         [
           metadata.poster_path,
           metadata.first_air_year,
@@ -203,6 +224,7 @@ export async function fetchAndStoreTmdbData(
           metadata.number_of_seasons,
           metadata.number_of_episodes,
           metadata.status,
+          metadata.season_episode_counts,
           contentId,
         ],
       );

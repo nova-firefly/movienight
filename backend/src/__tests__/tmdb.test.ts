@@ -191,6 +191,12 @@ describe('fetchTmdbMetadata (show)', () => {
           number_of_seasons: 2,
           number_of_episodes: 19,
           status: 'Returning Series',
+          seasons: [
+            { season_number: 0, episode_count: 3 }, // specials — excluded
+            { season_number: 1, episode_count: 9 },
+            { season_number: 2, episode_count: 10 },
+            { season_number: 3, episode_count: 0 }, // no episodes yet — excluded
+          ],
         }),
       )
       .mockResolvedValueOnce(jsonResponse({ crew: [], cast: [{ name: 'Adam Scott' }] }))
@@ -208,9 +214,21 @@ describe('fetchTmdbMetadata (show)', () => {
       number_of_seasons: 2,
       number_of_episodes: 19,
       status: 'Returning Series',
+      season_episode_counts: { '1': 9, '2': 10 },
       cast_list: ['Adam Scott'],
       genre_tags: ['Drama', 'Mystery', 'workplace'],
     });
+  });
+
+  it('sets season_episode_counts to null when TMDB returns no usable seasons', async () => {
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ name: 'x', genres: [], seasons: [] }))
+      .mockResolvedValueOnce(jsonResponse({ crew: [], cast: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+
+    const result = await fetchTmdbMetadata('show', 1);
+
+    expect((result as any).season_episode_counts).toBeNull();
   });
 
   it('uses /tv/{id}/... endpoints not /movie/', async () => {
@@ -264,6 +282,10 @@ describe('fetchAndStoreTmdbData', () => {
           number_of_seasons: 4,
           number_of_episodes: 38,
           status: 'Returning Series',
+          seasons: [
+            { season_number: 1, episode_count: 8 },
+            { season_number: 2, episode_count: 10 },
+          ],
         }),
       )
       .mockResolvedValueOnce(jsonResponse({ crew: [], cast: [] }))
@@ -276,6 +298,7 @@ describe('fetchAndStoreTmdbData', () => {
     expect(sql).toContain('UPDATE shows');
     expect(sql).toContain('first_air_year');
     expect(sql).toContain('number_of_seasons');
+    expect(sql).toContain('season_episode_counts');
     expect(params).toEqual([
       '/b.jpg',
       '2022',
@@ -286,6 +309,7 @@ describe('fetchAndStoreTmdbData', () => {
       4,
       38,
       'Returning Series',
+      { '1': 8, '2': 10 },
       12,
     ]);
   });
